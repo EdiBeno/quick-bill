@@ -17,22 +17,20 @@ import babel.dates
 import babel.numbers
 import random
 # -----------------------------------------------------------
-import pandas as pd
-import numpy as np
 import openpyxl
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, jsonify, Response, session, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, Response, flash
 from playwright.sync_api import sync_playwright
 from flask_mail import Mail, Message  
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_session import Session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy import func, Text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as SQLSession
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps 
 from deep_translator import GoogleTranslator
 from concurrent.futures import ThreadPoolExecutor
@@ -42,25 +40,92 @@ from concurrent.futures import ThreadPoolExecutor
 # -----------------------------
 from database import db, PasswordResetToken, Customer, BankAccount, Payment, Invoice, InvoiceItem, Product, User, OwnerUser 
 
-# -----------------------------
-# Init .env + Flask 
-# -----------------------------
-
+# -----------------------------------------------------------
+#  Load Environment & Init Flask
+# -----------------------------------------------------------
 load_dotenv()
-
 app = Flask(__name__, static_folder="static")
 
-# Fetch BASE_URL for security; defaults to "*" for development
+# Detect Render
+is_render = bool(os.environ.get("RENDER"))
+
+# Fetch BASE_URL for HTTPS detection
 base_url = os.environ.get("BASE_URL", "*")
 is_https = base_url.startswith("https")
 
+# -----------------------------------------------------------
+#  Security, Session & Proxy Config
+# -----------------------------------------------------------
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Ensure instance folder exists (important for session files)
+os.makedirs(app.instance_path, exist_ok=True)
+
 app.config.update(
-    SESSION_COOKIE_SECURE=is_https,          
-    SESSION_COOKIE_SAMESITE='None' if is_https else 'Lax', 
+    SECRET_KEY=os.getenv("SECRET_KEY", secrets.token_hex(32)),
+    JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", secrets.token_hex(32)),
+
+    SESSION_TYPE='filesystem',
+    SESSION_FILE_DIR=os.path.join(app.instance_path, 'flask_sessions'),
+    SESSION_PERMANENT=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+
+    SESSION_COOKIE_SECURE=is_render,
+    REMEMBER_COOKIE_SECURE=is_render,
     SESSION_COOKIE_HTTPONLY=True,
-    REMEMBER_COOKIE_SECURE=is_https,
-    REMEMBER_COOKIE_SAMESITE='None' if is_https else 'Lax'
+    REMEMBER_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    REMEMBER_COOKIE_SAMESITE='Lax'
 )
+
+# -----------------------------
+# Database Config (multi-option)
+# -----------------------------
+db_choice = os.getenv("DB_CHOICE", "sqlite").lower()
+
+if db_choice == "postgres":
+    uri = os.getenv("POSTGRES_URI")
+    # תיקון קריטי: Render/Heroku שולחים postgres:// אבל SQLAlchemy 2.0 דורש postgresql://
+    if uri and uri.startswith("postgres://"):
+        uri = uri.replace("postgres://", "postgresql://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = uri
+elif db_choice == "mysql":
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("MYSQL_URI")
+elif db_choice == "mssql":
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("MSSQL_URI")
+else:
+    # Default to SQLite
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLITE_URI", f"sqlite:///{os.path.join(app.instance_path, 'data.db')}")
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# -----------------------------
+# Gmail Mail Configuration
+# -----------------------------
+app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", 587))
+app.config["MAIL_USE_TLS"] = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER")
+
+# -----------------------------
+# Init Extensions
+# -----------------------------
+db.init_app(app)
+migrate = Migrate(app, db)
+mail = Mail(app)
+jwt = JWTManager(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+babel = Babel(app)
+
+# -----------------------------
+# Owner Credentials
+# -----------------------------
+OWNER_USERNAME = os.getenv("OWNER_USERNAME")
+OWNER_PASSWORD = generate_password_hash(os.getenv("OWNER_PASSWORD"))
 
 
 # ----------------------
@@ -333,91 +398,6 @@ def generate_translations(text):
         
     return result
 
-
-# -----------------------------
-# Secret Key
-# -----------------------------
-app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
-
-# -----------------------------
-# App Instance Path & Folders
-# -----------------------------
-if not os.path.exists(app.instance_path):
-    os.makedirs(app.instance_path)
-
-# -----------------------------
-# Database Config (multi-option)
-# -----------------------------
-db_choice = os.getenv("DB_CHOICE", "sqlite").lower()
-
-if db_choice == "postgres":
-    uri = os.getenv("POSTGRES_URI")
-    # תיקון קריטי: Render/Heroku שולחים postgres:// אבל SQLAlchemy 2.0 דורש postgresql://
-    if uri and uri.startswith("postgres://"):
-        uri = uri.replace("postgres://", "postgresql://", 1)
-    app.config["SQLALCHEMY_DATABASE_URI"] = uri
-elif db_choice == "mysql":
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("MYSQL_URI")
-elif db_choice == "mssql":
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("MSSQL_URI")
-else:
-    # Default to SQLite
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLITE_URI", f"sqlite:///{os.path.join(app.instance_path, 'data.db')}")
-
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# -----------------------------
-# Session Config
-# -----------------------------
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_sessions')
-app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=60)
-
-# -----------------------------
-# Gmail Mail Configuration
-# -----------------------------
-app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", 587))
-app.config["MAIL_USE_TLS"] = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
-app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER")
-
-# -----------------------------
-# JWT Config
-# -----------------------------
-app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", secrets.token_hex(32))
-
-# -----------------------------
-# Init Extensions
-# -----------------------------
-db.init_app(app)
-Session(app)
-migrate = Migrate(app, db)
-mail = Mail(app)
-jwt = JWTManager(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
-babel = Babel(app)
-
-
-# -----------------------------
-# Create Tables (Safe context)
-# -----------------------------
-with app.app_context():
-    try:
-        db.create_all()
-        print(f"✅ Database initialized on: {db_choice}")
-    except Exception as e:
-        print(f"❌ Error initializing Database: {e}")
-
-# -----------------------------
-# Owner Credentials
-# -----------------------------
-OWNER_USERNAME = os.getenv("OWNER_USERNAME")
-OWNER_PASSWORD = generate_password_hash(os.getenv("OWNER_PASSWORD"))
 
 # ---------------------------------------------------------
 # Flask-Login: User Loader (CRITICAL FOR SESSIONS)
@@ -2377,6 +2357,16 @@ def clear_search_results_customer():
 def get_days(year, month):
     days_data = get_days_in_month(year, month)
     return jsonify(days_data)
+
+# -----------------------------------------------------------
+#  Create Tables (Safe context)
+# -----------------------------------------------------------
+with app.app_context():
+    try:
+        db.create_all()
+        print("✅ Database tables synced successfully")
+    except Exception as e:
+        print(f"❌ Database startup error: {e}")
 
 # ----------------------
 # Run it
