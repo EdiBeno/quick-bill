@@ -19,7 +19,7 @@ import random
 # -----------------------------------------------------------
 import openpyxl
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, jsonify, Response, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response, flash
 from playwright.sync_api import sync_playwright
 from flask_mail import Mail, Message  
 from flask_sqlalchemy import SQLAlchemy
