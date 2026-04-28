@@ -1,0 +1,98 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="customers.title">רשימת לקוחות</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='employee_data.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <div class="column1"></div>
+
+        <div class="column2">
+
+            <h1 style="text-align: center;" data-i18n="customers.title">
+                רשימת לקוחות
+            </h1>
+
+            <div style="height: 0.1cm;"></div>
+
+            <div style="display: flex; gap: 10px;">
+
+                <!-- Main Page -->
+                <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+                    <button type="button" class="nav-btn"
+                            data-i18n="customers.go_main">
+                        עבור לדף הראשי
+                    </button>
+                </a>
+
+                <!-- Back to Customer -->
+                <a href="{{ url_for('customer') }}" style="text-decoration: none;">
+                    <button type="button" class="nav-btn"
+                            data-i18n="customers.back_to_customer">
+                        חזור ללקוח
+                    </button>
+                </a>
+
+                <!-- Clear Data -->
+                <button type="button" onclick="clearData()" class="nav-btn"
+                        data-i18n="customers.clear_data">
+                    נקה מידע
+                </button>
+            </div>
+
+            <div style="height: 0.1cm;"></div>
+
+            <!-- Table -->
+            <table>
+                <thead>
+                    <tr>
+                        <th data-i18n="customer.date">תאריך</th>
+                        <th data-i18n="customer.name">שם הלקוח</th>
+                        <th data-i18n="customer.id_number">מספר זהות</th>
+                        <th data-i18n="customer.address">כתובת</th>
+                        <th data-i18n="customer.city">עיר</th>
+                        <th data-i18n="customer.postal_code">מיקוד</th>
+                        <th data-i18n="customer.phone">טלפון</th>
+                        <th data-i18n="customer.email">מייל</th>
+                        <th data-i18n="customer.contract_status">סוג חוזה</th>
+                        <th data-i18n="customer.notes">הערות</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for customer in customers %}
+                    <tr>
+                        <td>{{ customer.date|lang_date }}</td>
+                        <td>{{ customer.customer_name }}</td>
+                        <td>{{ customer.id_number }}</td>
+                        <td>{{ customer.address }}</td>
+                        <td>{{ customer.city }}</td>
+                        <td>{{ customer.postal_code }}</td>
+                        <td>{{ customer.phone|phone }}</td>
+                        <td>{{ customer.email }}</td>
+                        <td>{{ customer.contract_status }}</td>
+                        <td>{{ customer.message }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

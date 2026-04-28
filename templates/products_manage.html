@@ -1,0 +1,600 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="products_manage">ניהול מוצרים</title>
+    <style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    line-height: 0.9;
+}
+
+/* ===== Inputs & Buttons ===== */
+input[type="text"],
+input[type="number"],
+button {
+    height: 25px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+button[type="submit"] {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+/* ===== Table ===== */
+table {
+    width: 80%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 4px 5px;
+    text-align: right;
+    vertical-align: middle;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+/* ===== Form Rows ===== */
+.form-row {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 11px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+/* ===== Header Row ===== */
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 30px;
+    align-items: center;
+}
+
+/* ===== ACTION ROW (החשוב ביותר!) ===== */
+.form-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap; /* כדי שלא יישבר במסכים קטנים */
+    margin-bottom: 20px;
+}
+
+.form-actions-row form,
+.form-actions-row input,
+.form-actions-row button {
+    margin: 0;
+}
+
+/* ===== Search Box ===== */
+.search-box {
+    border: 1px solid #ced4da;
+    background-color: white;
+    min-width: 400px;
+    height: 30px;
+}
+
+input[type="text"].search-box {
+    flex-grow: 0.2;
+}
+
+/* ===== Search Button ===== */
+.btn-search {
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    height: 25px;
+    padding: 0 15px;
+}
+
+.btn-search:hover {
+    background: #0056b3;
+}
+
+.btn-clear {
+    background: #6c757d;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    height: 25px;
+    padding: 0 15px;
+    white-space: nowrap;
+}
+
+.btn-clear:hover {
+    background: #5a6268;
+}
+
+/* נטרול כל הכפתורים עד שהתרגום מסיים */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+
+/* ===== Hide Products Results On Mobile ===== */
+.products-mobile-table {
+    display: none;
+}
+
+/* ===== Mobile התאמה למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+
+    /* GENERAL PAGE RESET */
+    body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* HEADER + BUTTONS */
+    .header-row,
+    .header-buttons {
+        width: 100% !important;
+        display: block !important;
+    }
+
+    .header-buttons button {
+        width: 100% !important;
+        height: 40px !important;
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* ADD PRODUCT FORM */
+    .products-action-row,
+    .form-row,
+    .form-field {
+        width: 100% !important;
+        display: block !important;
+        margin-bottom: 12px !important;
+    }
+
+    .form-field label {
+        width: 100% !important;
+        display: block !important;
+        margin-bottom: 5px !important;
+        font-size: 16px !important;
+    }
+
+    .form-field input {
+        width: 100% !important;
+        height: 40px !important;
+        padding: 10px !important;
+        font-size: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* REMOVE FIXED WIDTH/HEIGHT FROM INLINE HTML */
+    *[style*="width"],
+    *[style*="height"] {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* ALL BUTTONS */
+    button[type="submit"],
+    .delete-button,
+    .btn-search,
+    .btn-clear {
+        width: 100% !important;
+        height: 45px !important;
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+        display: block !important;
+        border-radius: 6px !important;
+    }
+
+    /* SEARCH BAR */
+    .search-box {
+        width: 100% !important;
+        height: 45px !important;
+        font-size: 16px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* SEARCH FORM FIX (was flex on desktop) */
+    form[style*="display:flex"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* HIDE DESKTOP TABLE */
+    table {
+        display: none !important;
+    }
+
+    /* MOBILE GRID TABLE */
+    .products-mobile-table {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 8px !important;
+        margin-top: 15px !important;
+    }
+
+    /* EACH ROW */
+    .pm-row {
+        display: contents !important;
+    }
+
+    /* EACH CELL */
+    .pm-row div {
+        padding: 10px !important;
+        border: 1px solid #ccc !important;
+        background: #fafafa !important;
+        font-size: 15px !important;
+        text-align: center !important;
+        word-wrap: break-word !important;
+    }
+
+    /* HEADER CELLS */
+    .pm-header div {
+        background: #e6e6e6 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
+}
+
+    </style>
+</head>
+
+<body>
+
+    <div class="header-row">
+        <h1 data-i18n="products_manage">ניהול מוצרים</h1>
+
+        <div class="header-buttons">
+
+            <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+                <button type="button" data-i18n="go_main"
+                    style="font-weight: bold; width: 4.2cm; height: 0.5cm; font-size: 17px; background-color: #007bff; color: white;">
+                    עבור לדף הראשי
+                </button>
+            </a>
+
+            <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+                <button type="button" data-i18n="go_invoice"
+                    style="font-weight: bold; width: 4cm; height: 0.5cm; font-size: 17px; background-color: #fff8b3; color: black;">
+                    עבור לחשבונית
+                </button>
+            </a>
+
+        </div>
+    </div>
+
+    <h2 class="add-product-title" data-i18n="add_new_product">הוסף מוצר חדש</h2>
+
+
+<!-- טופס הוספת מוצר -->
+<form id="add-product-form" method="POST" action="{{ url_for('manage_products') }}">
+    <div class="form-row">
+
+        <!-- ID נסתר -->
+        <input type="hidden" id="id" name="id" value="{{ item_i18n.id if item_i18n else '' }}">
+
+        <div class="form-field">
+            <label for="product.id" data-i18n="product_id">מק"ט:</label>
+            <input type="text" id="product.id" name="product.id"
+                   value="{{ item_i18n.id if item_i18n else '' }}" required>
+        </div>
+
+        <div class="form-field">
+            <label for="name" data-i18n="product_name">שם המוצר:</label>
+            <input type="text" id="name" name="name"
+                   value="{{ item_i18n.name if item_i18n else '' }}" required>
+        </div>
+
+        <div class="form-field">
+            <label for="price" data-i18n="product_price">מחיר:</label>
+            <input type="number" id="price" name="price"
+                   value="{{ item_i18n.price if item_i18n else '' }}"
+                   step="0.01" required style="width: 100px;">
+        </div>
+
+        <div class="form-field">
+            <label for="description" data-i18n="product_desc">תיאור:</label>
+            <input type="text" id="description" name="description"
+                   value="{{ item_i18n.description if item_i18n else '' }}">
+        </div>
+
+        <button type="submit" data-i18n="save_product"
+                style="font-weight: bold; width: 4.9cm; height: 0.65cm; font-size: 17px; background-color: #007bff; color: white;">
+            שמור מוצר
+        </button>
+
+</form>
+
+    <!-- LOADING OVERLAY (פופאפ הודעה מבצע תרגום עד שמסיים) -->
+      <div id="loadingOverlay" data-i18n="loading.translation">⏳ מבצע תרגום... אנא המתן...</div>
+
+        <!-- חיפוש -->
+        <form method="GET" action="{{ url_for('manage_products') }}" style="display:flex; gap:10px;">
+            <input type="text" name="q" id="searchInput" class="search-box"
+                   data-i18n-placeholder="products.search_placeholder"
+                   value="{{ search }}">
+            <button type="submit" class="btn-search" data-i18n="products.search">חפש</button>
+
+            <!-- כפתור ניקוי -->
+            <button type="button" class="btn-clear" data-i18n="products.clear"
+                    onclick="window.location='{{ url_for('manage_products') }}'">
+                נקה
+            </button>
+        </form>
+
+    </div>
+
+    <!-- הודעת אישור מחיקה מתורגמת -->
+    <span id="delete-confirm-msg" data-i18n="products.delete_confirm" style="display:none;"></span>
+
+    <h2 data-i18n="existing_products">רשימת מוצרים קיימים</h2>
+
+    <!-- טופס מחיקת מוצרים – עוטף את הכפתור + הטבלה + גריד מובייל -->
+<form id="delete-form"
+      method="POST"
+      action="{{ url_for('delete_selected_products') }}"
+      onsubmit="return confirm(document.getElementById('delete-confirm-msg').innerText || 'למחוק מוצרים נבחרים?');">
+
+    <button type="submit" class="delete-button" data-i18n="delete_selected"
+        style="font-weight: bold; width: 6cm; height: 0.65cm; font-size: 17px; background-color: #f44336; color: white;">
+        🗑️ מחק נבחרים
+    </button>
+
+    <table>
+        <thead>
+            <tr>
+                <th data-i18n="choose">בחר</th>
+                <th data-i18n="product_id">מק"ט</th>
+                <th data-i18n="product_name">שם המוצר</th>
+                <th data-i18n="product_price">מחיר</th>
+                <th data-i18n="product_desc">תיאור</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for product in products %}
+                <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" name="delete_products" value="{{ product.id }}">
+                    </td>
+                    <td>{{ product.id }}</td>
+                    <td>{{ item_i18n_list[product.id].name }}</td>
+                    <td>{{ product.price }}</td>
+                    <td>{{ item_i18n_list[product.id].description }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- ===== MOBILE TABLE-LIKE GRID ===== -->
+    <div class="products-mobile-table">
+
+        <div class="pm-row pm-header">
+            <div></div>
+            <div data-i18n="product_id">מק"ט</div>
+            <div data-i18n="product_name">שם המוצר</div>
+            <div data-i18n="product_price">מחיר</div>
+            <div data-i18n="product_desc">תיאור</div>
+        </div>
+
+        {% for product in products %}
+        <div class="pm-row">
+            <div>
+                <input type="checkbox" name="delete_products" value="{{ product.id }}">
+            </div>
+            <div>{{ product.id }}</div>
+            <div>{{ item_i18n_list[product.id].name }}</div>
+            <div>{{ product.price }}</div>
+            <div>{{ item_i18n_list[product.id].description }}</div>
+        </div>
+        {% endfor %}
+
+    </div>
+
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formBody = document.getElementById('add-product-form');
+    if (formBody) {
+        const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
+
+        formBody.addEventListener('keydown', function (event) {
+            const key = event.key;
+            const current = event.target;
+            const index = allFields.indexOf(current);
+
+            if (index === -1) return;
+
+            // אם השדה הוא select ונלחץ חץ למטה — נפתח את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowDown') {
+                current.size = current.options.length; // פותח את כל האפשרויות
+                event.preventDefault();
+                return;
+            }
+
+            // אם השדה הוא select ונלחץ חץ למעלה — סוגר את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowUp') {
+                current.size = 1;
+                event.preventDefault();
+                return;
+            }
+
+            // ניווט רגיל בין שדות
+            if (key === 'ArrowDown' && index < allFields.length - 1) {
+                allFields[index + 1].focus();
+                event.preventDefault();
+            }
+            if (key === 'ArrowUp' && index > 0) {
+                allFields[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+
+        // הדגשה כששדה נבחר
+        allFields.forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.backgroundColor = '#e6f7ff';
+                field.style.outline = '1px solid #007bff';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כברירת מחדל
+                }
+            });
+            field.addEventListener('blur', () => {
+                field.style.backgroundColor = '';
+                field.style.outline = '';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כשמאבדים פוקוס
+                }
+            });
+        });
+    }
+});
+</script>
+
+    <!-- Products Search Then Do Update -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const products = {{ products_json|tojson }};
+    const search = "{{ search }}";
+
+    const idEl   = document.getElementById("id");
+    const pidEl  = document.getElementById("product.id");
+    const nameEl = document.getElementById("name");
+    const priceEl = document.getElementById("price");
+    const descEl  = document.getElementById("description");
+
+    // השפה שהמשתמש בחר ב‑LOGIN
+    const userLang = localStorage.getItem("lang") || "he";
+
+    function fillForm(p) {
+        idEl.value = p.id;
+        pidEl.value = p.id;
+
+        //  בוחר את השפה שהמשתמש בחר
+        nameEl.value = p.name[userLang] || p.name["he"];
+        descEl.value = p.description[userLang] || p.description["he"];
+
+        priceEl.value = p.price;
+    }
+
+    // אם אין חיפוש → נקה טופס
+    if (!search) {
+        idEl.value = "";
+        pidEl.value = "";
+        nameEl.value = "";
+        priceEl.value = "";
+        descEl.value = "";
+        return;
+    }
+
+    // אם יש תוצאה אחת → מלא טופס
+    if (products.length === 1) {
+        fillForm(products[0]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+});
+</script>
+
+  <!-- פופאפ הודעה מבצע תרגום עד שמסיים -->
+<script>
+function lockUI() {
+    const lang = localStorage.getItem("lang") || "he";
+
+    const messages = {
+        "he": "⏳ מבצע תרגום... אנא המתן...",
+        "en": "⏳ Translating... Please wait...",
+        "fr": "⏳ Traduction en cours... Veuillez patienter...",
+        "es": "⏳ Traduciendo... Por favor espera...",
+        "de": "⏳ Übersetzung läuft... Bitte warten...",
+        "ru": "⏳ Выполняется перевод... Пожалуйста, подождите...",
+        "ar": "⏳ جارٍ الترجمة... يرجى الانتظار...",
+        "zh": "⏳ 正在翻译... 请稍候...",
+        "ja": "⏳ 翻訳中... お待ちください...",
+        "hi": "⏳ अनुवाद हो रहा है... कृपया प्रतीक्षा करें...",
+        "pt": "⏳ Traduzindo... Por favor, aguarde...",
+        "it": "⏳ Traduzione in corso... Attendere prego...",
+        "nl": "⏳ Vertalen... Even geduld aub...",
+        "sv": "⏳ Översätter... Vänta...",
+        "tr": "⏳ Çeviri yapılıyor... Lütfen bekleyin...",
+        "ko": "⏳ 번역 중... 잠시만 기다려주세요...",
+        "pl": "⏳ Tłumaczenie... Proszę czekać...",
+        "uk": "⏳ Виконується переклад... Зачекайте...",
+        "fa": "⏳ در حال ترجمه... لطفاً صبر کنید...",
+        "ro": "⏳ Se traduce... Vă rugăm așteptați...",
+        "cs": "⏳ Probíhá překlad... Počkejte prosím...",
+        "el": "⏳ Μετάφραση σε εξέλιξη... Παρακαλώ περιμένετε...",
+        "th": "⏳ กำลังแปล... กรุณารอสักครู่...",
+        "vi": "⏳ Đang dịch... Vui lòng chờ...",
+        "bn": "⏳ অনুবাদ হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন...",
+        "id": "⏳ Menerjemahkan... Harap tunggu...",
+        "ms": "⏳ Menterjemah... Sila tunggu...",
+        "tl": "⏳ Isinasalin... Mangyaring maghintay...",
+        "hu": "⏳ Fordítás folyamatban... Kérjük, várjon...",
+        "bg": "⏳ Превежда се... Моля, изчакайте..."
+    };
+
+    document.getElementById("loadingOverlay").innerText =
+        messages[lang] || messages["en"];
+
+    document.getElementById("loadingOverlay").style.display = "flex";
+}
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

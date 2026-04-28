@@ -1,0 +1,232 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <title>ניהול משתמשים</title>
+    <style>
+        body { font-family: Arial, sans-serif; direction: rtl; background: #111; color: #eee; }
+        h2 { text-align: center; margin-top: 20px; }
+        table { width: 95%; margin: 20px auto; border-collapse: collapse; background: #1e1e1e; }
+        th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+        th { background: #333; }
+        .controls-row {
+            width: 95%;
+            margin: 10px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .back-button, .delete-button, .print-button, .renew-button, .reset-link-button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-button { background: #555; color: #fff; }
+        .delete-button { background: #b00020; color: #fff; }
+        .print-button { background: #1976d2; color: #fff; }
+        .renew-button { background: #388e3c; color: #fff; }
+        .reset-link-button { background: #7b1fa2; color: #fff; margin-top: 4px; }
+        .active { color: #4caf50; font-weight: bold; }
+        .expired { color: #f44336; font-weight: bold; }
+        .select-box { transform: scale(1.2); }
+    </style>
+</head>
+<body>
+
+<h2 data-i18n="users.title">משתמשים שנרשמו</h2>
+
+<div class="controls-row">
+
+    <!-- חזרה לדף הבית -->
+    <a href="{{ url_for('invoice') }}" class="back-button" data-i18n="users.back_home">
+        ⬅️ חזרה לדף הבית
+    </a>
+
+    <!-- מחיקת משתמשים נבחרים -->
+    <form id="delete-form" method="POST" action="{{ url_for('delete_selected_users') }}"
+          onsubmit="return confirm(i18n('users.confirm.delete'));">
+        <button type="submit" class="delete-button" data-i18n="users.delete_selected">
+            🗑️ מחק נבחרים
+        </button>
+    </form>
+
+    <!-- הדפסה -->
+    <button type="button" onclick="window.print()" class="print-button" data-i18n="users.print_list">
+        🖨️ הדפס רשימה
+    </button>
+
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th><input type="checkbox" id="select-all"></th>
+            <th data-i18n="users.table.username">שם משתמש</th>
+            <th data-i18n="users.table.email">אימייל</th>
+            <th data-i18n="users.table.role">תפקיד</th>
+            <th data-i18n="users.table.created_at">נרשם בתאריך</th>
+            <th data-i18n="users.table.last_login">כניסה אחרונה</th>
+            <th data-i18n="users.table.status">סטטוס גישה</th>
+            <th data-i18n="users.table.seconds_left">זמן נותר (שניות)</th>
+            <th data-i18n="users.table.manage_access">ניהול גישה</th>
+            <th data-i18n="users.table.manage_role">ניהול תפקיד</th>
+            <th data-i18n="users.table.reset_link">קישור קביעת סיסמה</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for user in users %}
+        <tr>
+
+            <!-- בחירה למחיקה -->
+            <td>
+                <input type="checkbox" name="delete_ids" value="{{ user.id }}"
+                       class="select-box" form="delete-form">
+            </td>
+
+            <!-- שם -->
+            <td>{{ user.username or user.email }}</td>
+
+            <!-- אימייל -->
+            <td>{{ user.email }}</td>
+
+            <!-- תפקיד -->
+            <td data-i18n="users.role.{{ user.role }}">{{ user.role }}</td>
+
+            <!-- נרשם -->
+            <td>
+                {% if user.created_at %}
+                    {{ user.created_at.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    <span data-i18n="users.status.not_available">לא זמין</span>
+                {% endif %}
+            </td>
+
+            <!-- כניסה אחרונה -->
+            <td>
+                {% if user.last_login %}
+                    {{ user.last_login.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    <span data-i18n="users.status.not_logged_in">לא נכנס עדיין</span>
+                {% endif %}
+            </td>
+
+            <!-- סטטוס גישה -->
+            <td class="{% if '⛔' in user.status_label %}expired{% else %}active{% endif %}">
+                {{ user.status_label }}
+            </td>
+
+            <!-- זמן נותר -->
+            <td>
+                {% if user.seconds_left is not none and user.seconds_left > 0 %}
+                    {{ user.seconds_left }}
+                {% elif user.seconds_left == 0 %}
+                    <span data-i18n="users.status.expired">פג תוקף</span>
+                {% else %}
+                    <span data-i18n="users.status.unlimited">ללא הגבלה</span>
+                {% endif %}
+            </td>
+
+            <!-- ניהול גישה -->
+            <td>
+                {% if is_owner %}
+                <form method="POST" action="{{ url_for('update_access') }}">
+                    <input type="hidden" name="email" value="{{ user.email }}">
+
+                    <!-- סטטוס -->
+                    <select name="status">
+                        <option value="active" data-i18n="users.status.active"
+                            {% if '✅' in user.status_label %}selected{% endif %}>פעיל</option>
+
+                        <option value="blocked" data-i18n="users.status.blocked"
+                            {% if 'חסום' in user.status_label %}selected{% endif %}>חסום</option>
+                    </select>
+
+                    <!-- זמן גישה -->
+                    <select name="duration">
+                        <option value="" data-i18n="users.duration.unlimited">ללא הגבלה</option>
+                        <option value="900" data-i18n="users.duration.15m">15 דקות</option>
+                        <option value="1800" data-i18n="users.duration.30m">30 דקות</option>
+                        <option value="3600" data-i18n="users.duration.1h">1 שעה</option>
+                        <option value="43200" data-i18n="users.duration.12h">12 שעות</option>
+                        <option value="86400" data-i18n="users.duration.1d">1 יום</option>
+                        <option value="604800" data-i18n="users.duration.1w">1 שבוע</option>
+                        <option value="2592000" data-i18n="users.duration.1m">1 חודש</option>
+                        <option value="31536000" data-i18n="users.duration.1y">1 שנה</option>
+                    </select>
+
+                    <button type="submit" class="renew-button" data-i18n="users.button.update">
+                        עדכן
+                    </button>
+                </form>
+                {% else %}
+                    <span data-i18n="users.no_permission">אין הרשאה</span>
+                {% endif %}
+            </td>
+
+            <!-- ניהול תפקיד -->
+            <td>
+                {% if is_owner %}
+                <form method="POST" action="{{ url_for('update_role') }}">
+                    <input type="hidden" name="email" value="{{ user.email }}">
+                    <select name="role" onchange="this.form.submit()">
+                        <option value="customer" data-i18n="users.role.customer"
+                            {% if user.role == 'customer' %}selected{% endif %}>לקוח</option>
+
+                        <option value="employee" data-i18n="users.role.employee"
+                            {% if user.role == 'employee' %}selected{% endif %}>עובד</option>
+
+                        <option value="owner" data-i18n="users.role.owner"
+                            {% if user.role == 'owner' %}selected{% endif %}>בעלים</option>
+                    </select>
+                </form>
+                {% else %}
+                    {{ user.role }}
+                {% endif %}
+            </td>
+
+            <!-- שליחת לינק סיסמה -->
+            <td>
+                {% if is_owner %}
+                <form method="POST" action="{{ url_for('send_reset_link') }}">
+                    <input type="hidden" name="email" value="{{ user.email }}">
+                    <button type="submit" class="reset-link-button" data-i18n="users.button.reset_link">
+                        שלח לינק סיסמה
+                    </button>
+                </form>
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+    <script>
+        // סימון כל הצ'קבוקסים
+        document.getElementById('select-all').addEventListener('change', function () {
+            const checked = this.checked;
+            document.querySelectorAll('.select-box').forEach(cb => {
+                cb.checked = checked;
+            });
+        });
+    </script>
+
+<!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

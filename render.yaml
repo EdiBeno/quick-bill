@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: my-playwright-service
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+    startCommand: python app.py
+    disk:
+      name: translations-disk
+      mountPath: /opt/render/project/src/translations
+      sizeGB: 1

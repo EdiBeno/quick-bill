@@ -1,0 +1,375 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>רשימת חשבוניות</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .invoice-table th {
+            background: #007bff;
+            color: white;
+            padding: 2px;
+            font-size: 16px;
+        }
+
+        .invoice-table td {
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+            font-size: 15px;
+        }
+
+        .invoice-table tr:hover {
+            background: #f1f1f1;
+        }
+
+/* ===== עיצוב סרגל הכלים העליון כפתור לחיצה ===== */
+.top-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fffdf0; 
+    padding: 5px 12px;
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(255, 230, 0, 0.15);
+    border: 1px solid #fffae0;
+    margin-bottom: 20px;
+    height: 28px; 
+    box-sizing: border-box;
+}
+
+ .btn-open {
+     background: #28a745;
+      color: white;
+     padding: 2px 4px;
+     border: none;
+     border-radius: 4px;
+     cursor: pointer;
+     text-decoration: none;
+     font-weight: bold;
+}
+
+.btn-open:hover {
+    background: #218838;
+}
+
+/* Base button/input style for perfect alignment */
+.btn-home, .btn-clear, .btn-search, .search-box {
+    height: 20px !important; 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    border-radius: 4px;
+    box-sizing: border-box;
+    vertical-align: middle;
+    margin: 0;
+}
+
+/* Specific Style for invoice (Light Blue) */
+.btn-invoice {
+    background: #0056b3 !important;
+    color: #000000 !important;
+    border: 1px solid #bbdefb !important;
+    font-weight: bold;           
+}
+
+.btn-invoice:hover {
+    background: #bbdefb !important;
+    color: #000000 !important;   
+}
+
+/* "Back to Invoice" (Gray) */
+.btn-home {
+    background: #6c757d;
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    border: none;
+}
+
+.btn-home:hover {
+    background: #495057;
+}
+
+/* Search Box & Combos */
+.search-box {
+    border: 1px solid #ced4da;
+    background-color: white;
+    min-width: 100px;
+}
+
+input[type="text"].search-box {
+    flex-grow: 1;
+    min-width: 450px;
+}
+
+/* Blue Search Button */
+.btn-search {
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-search:hover {
+    background: #0056b3;
+}
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+
+    /* פותח את הדף לגובה מלא */
+    html, body {
+        height: auto !important;
+        min-height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* ===== TOP BAR ===== */
+    .top-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        padding: 12px;
+        box-sizing: border-box;
+        gap: 10px;
+        height: auto !important;
+    }
+
+    .top-bar form {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+        height: auto !important;
+    }
+
+    .search-box,
+    .btn-home,
+    .btn-search,
+    .btn-clear {
+        width: 100% !important;
+        height: 40px !important;
+        font-size: 15px !important;
+        box-sizing: border-box;
+    }
+
+    /* ===== טבלה ===== */
+    .invoice-table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+        margin-top: 15px;
+    }
+
+    .invoice-table th,
+    .invoice-table td {
+        white-space: normal !important;
+        height: auto !important;
+        padding: 10px !important;
+        text-align: center;
+        font-size: 14px !important;
+    }
+
+    /* ===== רוחב עמודות קבוע ===== */
+    .invoice-table th:nth-child(1),
+    .invoice-table td:nth-child(1) {
+        width: 12%;   /* מספר חשבונית */
+    }
+
+    .invoice-table th:nth-child(2),
+    .invoice-table td:nth-child(2) {
+        width: 18%;   /* תאריך */
+    }
+
+    .invoice-table th:nth-child(3),
+    .invoice-table td:nth-child(3) {
+        width: 22%;   /* לקוח */
+    }
+
+    .invoice-table th:nth-child(4),
+    .invoice-table td:nth-child(4) {
+        width: 28%;   /* סכום */
+    }
+
+    .invoice-table th:nth-child(5),
+    .invoice-table td:nth-child(5) {
+        width: 8%;   /* סטטוס */
+    }
+
+    .invoice-table th:nth-child(6),
+    .invoice-table td:nth-child(6) {
+        width: 12%;   /* פעולות */
+    }
+
+    /* כפתור פתח */
+    .btn-open {
+        width: 100%;
+        text-align: center;
+        padding: 8px 0;
+        display: inline-block;
+    }
+}
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+
+<form method="get" action="/invoices">
+
+    <a href="{{ url_for('invoice') }}" class="btn-home btn-invoice" data-i18n="invoice.main_page">
+        דף ראשי
+    </a>
+
+    <a href="{{ url_for('invoice') }}" class="btn-home" data-i18n="invoice.back_to_invoice">
+        חזור לחשבונית
+    </a>
+
+    <!-- בחירת חודש -->
+    <select id="searchMonth" name="month" class="search-box" style="width: auto;" onchange="this.form.submit()">
+        <option value="" data-i18n="invoice.all_months">כל החודשים</option>
+        {% for i in range(1,13) %}
+            {% set val = "%02d"|format(i) %}
+            <option value="{{ val }}" data-i18n-month="{{ i-1 }}" {% if selected_month == val %}selected{% endif %}>
+                {{ months[i-1] }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <!-- בחירת שנה -->
+    <select id="searchYear" name="year" class="search-box" style="width: auto;" onchange="this.form.submit()">
+        <option value="" data-i18n="invoice.all_years">כל השנים</option>
+        {% for year in years %}
+            <option value="{{ year }}" {% if selected_year == year|string %}selected{% endif %}>
+                {{ year }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <!-- תיבת חיפוש -->
+    <input type="text" id="searchInput" name="q" class="search-box"
+           placeholder="חפש לקוח או מספר..."
+           data-i18n-placeholder="invoice.search_placeholder"
+           value="{{ search }}">
+
+    <!-- כפתור חיפוש -->
+    <button type="submit" class="btn-search" data-i18n="invoice.search_btn">
+        חפש
+    </button>
+
+    <!-- כפתור ניקוי -->
+    <button type="button" class="btn-clear" data-i18n="products.clear" onclick="window.location='{{ url_for('invoice_data') }}'">
+        נקה
+    </button>
+
+</form>
+</div>
+
+<h1 data-i18n="invoice.list_title">רשימת חשבוניות</h1>
+
+<table class="invoice-table">
+    <thead>
+        <tr>
+            <th data-i18n="invoice.number">מספר חשבונית</th>
+            <th data-i18n="invoice.date">תאריך</th>
+            <th data-i18n="invoice.customer">לקוח</th>
+            <th data-i18n="invoice.total">סה״כ</th>
+            <th data-i18n="invoice.status">סטטוס</th>
+            <th data-i18n="invoice.actions">פעולות</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        <!-- שורת סיכום -->
+        <tr style="background:#fff8b3; font-weight:bold; color:black;">
+            <td colspan="2" data-i18n="invoice.summary_active">
+                סה״כ חשבוניות פעילות בתוצאות:
+            </td>
+            <td>{{ total_count }}</td>
+            <td>{{ total_amount|currency }}</td>
+            <td colspan="2"></td>
+        </tr>
+
+ <!-- תוצאות -->
+ {% for inv in invoices %}
+ <tr {% if inv.status == "canceled" %} style="background:#ffdddd;" {% endif %}>
+     <td>{{ inv.invoice_number }}</td>
+     <td>{{ inv.invoice_date|lang_date }}</td>
+
+        <!-- שם הלקוח — רק בשפה הנוכחית -->
+       <td>
+        {% set ci = customer_i18n_list.get(inv.customer.id) %}
+        {{ ci.name if ci and ci.name else inv.customer.customer_name }}
+    </td>
+
+    <td>{{ inv.grand_total|currency }}</td>
+
+    <td>
+        {% if inv.status == "canceled" %}
+            <span style="color:red; font-weight:bold;" data-i18n="invoice.status_canceled">
+                מבוטלת
+            </span>
+        {% else %}
+            <span data-i18n="invoice.status_active">פעילה</span>
+        {% endif %}
+    </td>
+
+    <td>
+        <a href="/invoice/{{ inv.id }}" class="btn-open" data-i18n="invoice.open_btn">
+            פתח
+        </a>
+    </td>
+</tr>
+{% endfor %}
+
+    </tbody>
+</table>
+
+<!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

@@ -1,0 +1,2353 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>חשבונית מס דינמית</title>
+
+<style>
+/* ===== בסיס כללי מסך מחשב ===== */
+body {
+    font-family: Arial, sans-serif;
+   line-height: 0.9;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    position: relative;
+}
+
+/* ===== דף A4 ===== */
+.invoice-container {
+    width: 21cm;
+    min-height: 29.7cm;
+    background-color: #fff;
+    padding: 2cm;
+    margin: 20px 0;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+}
+
+/* ===== כפתורי צד בתחילת הדף ===== */
+.back-home-container {
+    position: fixed;
+    top: 20px;
+    right: 20px; /* נצמד לימין */
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* רווח אחיד בין הכפתורים */
+   width: 280px;
+}
+
+/* קלאס בסיס לכל הכפתורים בצד */
+.btn-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 26px; /* במקום 0.6cm */
+    font-weight: bold;
+    font-size: 15px;
+    text-decoration: none;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* צבעים ייעודיים */
+.btn-blue { background-color: #007bff; color: white; border: none; }
+.btn-save { background-color: #007bff; color: white; border: none; }
+.btn-gray { background-color: #e2e6ea; color: black; }
+.btn-print { background-color: #ccffcc; color: black; }
+.btn-yellow { background-color: #fff8b3; color: black; }
+.btn-green { background-color: #ccffcc; color: black; }
+
+/* ===== כפתורי צד בסוף הדף ===== */
+/* עיצוב למחשב - צף מצד ימין */
+.action-buttons-container {
+    position: absolute;
+    right: 20px; 
+    top: 500px;    
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 280px;
+}
+
+.action-buttons-container button {
+    width: 100%;
+    height: 26px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 4px;
+}
+/* צבעים לכפתורים */
+.btn-cancel { background: red; color: white; }
+.btn-clear { background: #fff8b3; }
+.btn-credit { background: #007bff; color: white; }
+.btn-tax { background: #fff8b3; }
+
+/* ===== כותרת ===== */
+.header {
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+.header h1 {
+    text-align: center;
+    margin: 0;
+}
+
+/* ===== פרטי עסק ולקוח ===== */
+
+.details {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 20px;
+    padding-top: 5px;
+}
+
+.business-block,
+.customer-block {
+    width: 48%;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+    display: inline-block;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+
+/* איפוס רווחים לתגיות ה-p בתוך פרטי חברה ולקוח מתאים למחשב */
+.business-block p, .customer-block p {
+    margin: 0;         /* מבטל את הרווח הגדול שנוצר */
+    padding: 2px 0;    /* רווח קטן מאוד בין השורות */
+    line-height: 1.4;  /* גובה שורה נעים לעין */
+}
+
+/* ביטול ה-br המיותרים אם השתמשת ב-p */
+.business-block br, .customer-block br {
+    display: none; 
+}
+
+/* ===== שדות בתוך הטבלה פריטים מוצר item ===== */
+.item-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.item-table th,
+.item-table td {
+    border: 1px solid #000;
+    padding: 2px 6px;
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+
+/* כותרות — items */
+.item-table th {
+    background-color: #eaeaea;
+    font-weight: bold;
+    white-space: nowrap;
+    line-height: 15px;
+    font-size: 13px;   
+}
+
+/* כל הקופסאות הפנימיות */
+.item-table input,
+.item-table select {
+    width: 100%;
+    height: 18px;
+    line-height: 18px;
+    font-size: 14px;
+    box-sizing: border-box;
+    padding: 0 4px;
+}
+
+/* עמודה 1 ו־6 — שיהיו כמו שאר העמודות */
+.item-table .col-code input,
+.item-table .col-total input {
+    background: #fff;
+    border: 1px solid #ccc;
+}
+
+/* עמודת מק״ט — גמישה */
+.col-code {
+    min-width: 120px;
+    width: auto;
+}
+
+.item-code-input {
+    width: 100%;
+    box-sizing: border-box;
+    text-overflow: ellipsis;
+}
+
+/* יישור עמודות */
+.col-code { width: 10%; text-align: center; }
+.col-desc { width: 40%; text-align: center; }
+.col-qty { width: 10%; text-align: center; }
+.col-price { width: 15%; text-align: center; }
+.col-discount { width: 10%; text-align: center; }
+.col-total { width: 15%; text-align: center; }
+
+.num { text-align: left; white-space: nowrap; }
+
+/* ===== שדות בתוך הטבלה תשלום payment ===== */
+.payment-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.3px;
+    table-layout: auto; /* דינמי כמו items */
+}
+
+.payment-table th,
+.payment-table td {
+    border: 1px solid #000;
+    padding: 3px;
+    font-size: 13px;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    word-wrap: normal;
+}
+
+.payment-table th {
+    background: #eaeaea;
+    font-weight: bold;
+}
+
+.add-payment-btn {
+    margin-top: 5px;
+    padding: 2px 5px;
+    background: #e8f5e9;
+    border: 1px solid #4CAF50;
+    color: #2e7d32;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.add-payment-btn:hover {
+    background: #45a049;
+}
+
+.delete-payment-btn {
+    background: #d9534f;
+    color: white;
+    border: none;
+    padding: 1px 2px;
+    cursor: pointer;
+}
+
+.delete-payment-btn:hover {
+    background: #c9302c;
+}
+
+.payment-table input,
+.payment-table select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* פוטר */
+.footer {
+    margin-top: 2px;
+    padding-top: 0.3px;
+    border-top: 1px solid #000;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+    .footer a {
+      color: #000;
+      text-decoration: none;
+    }
+
+/* ===== הסרת חיצים מהקומבו מע"מ ואמצעי תשלום ===== */
+#vat-rate-select,
+.item-select,
+.product-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: none !important;
+    background-color: #fff;
+    padding-right: 8px;
+}
+
+/* Base style for all payment method selects */
+.payment-method-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    background-image: none !important;
+    background-color: #fff;
+
+    padding-right: 8px;
+    height: 20px;
+    line-height: 20px;
+
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+/* Extra class to hide arrow when printing or when needed */
+.no-print-arrow {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: none !important;
+}
+
+/* Remove arrow in old Firefox / IE */
+.payment-method-select::-ms-expand {
+    display: none;
+}
+
+
+/* ===== כפתור הוספת שורה ===== */
+.add-row-btn {
+    margin-top: 10px;
+    padding: 2px 5px;
+    background: #e8f5e9;
+    border: 1px solid #4CAF50;
+    color: #2e7d32;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.add-row-btn:hover {
+    background: #45a049;
+}
+
+/* ===== סכומים ביניים מע"מ הנחה סה"כ===== */
+.total-section {
+    margin-top: 30px;
+    width: 50%;
+    margin-left: auto;
+    border-top: 2px solid #333;
+    padding-top: 10px;
+}
+
+.total-section table {
+    width: 100%;
+}
+
+.total-section td {
+    padding: 5px 0;
+    font-size: 16px;
+}
+
+.total-section h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+/* ===== העתק נאמן למקור ===== */
+    .sub-title {
+      font-size: 13px;
+      color: #555;
+    }
+
+/* ===== חותמת חשבונית מבוטלת ===== */
+.canceled-stamp {
+    color: red;
+    font-size: 40px;
+    font-weight: bold;
+    border: 4px solid red;
+    padding: 10px 20px;
+    display: block;              
+      width: fit-content;          
+      margin: -550px auto 20px auto; 
+      transform: rotate(-15deg);
+    text-align: center;
+    background: rgba(255, 0, 0, 0.1);
+}
+
+/* ===== אישורים וחתימה דיגיטלית ===== */
+/* עיצוב כללי לאזור החתימות */
+.signature-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* מרכז את הקופסאות אחת מול השנייה */
+    margin-top: 6px;
+    padding: 5px;
+    border-top: 1px dashed #eee;
+    gap: 15px;
+}
+
+/* נעילת מידות - לא יזוז מילימטר */
+.tax-allocation-box {
+    flex: 0 0 300px; /* רווח קבוע */
+    height: 60px;    /* גובה נעול וקבוע */
+    box-sizing: border-box; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* מרכז טקסט אנכית בתוך הגובה הקבוע */
+    overflow: hidden; /* מונע מהטקסט להגדיל את הקופסה אם הוא ארוך מדי */
+}
+
+.digital-signature-box {
+    flex: 0 0 220px; /* רווח קבוע */
+    height: 60px;    /* גובה נעול וקבוע */
+    box-sizing: border-box; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* מרכז טקסט אנכית בתוך הגובה הקבוע */
+    overflow: hidden; /* מונע מהטקסט להגדיל את הקופסה אם הוא ארוך מדי */
+}
+
+/* תיבת מספר ההקצאה */
+.tax-allocation-box {
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    background: #f0f7ff;
+    text-align: center;
+    padding: 0 5px;
+}
+
+.allocation-number {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 15px;
+    font-weight: bold;
+    color: #0056b3;
+    letter-spacing: 2.5px; /* פותח את האותיות לרוחב */
+    line-height: 1.1; /* גובה שורה תקין שלא דוחף את הקירות */
+    margin: 0;
+}
+
+/* תיבת החתימה הדיגיטלית */
+.digital-signature-box {
+    border: 1px solid #28a745;
+    background: #f4fff6;
+    border-radius: 4px;
+    flex-direction: row; 
+    align-items: center;
+    padding: 0 8px;
+    gap: 8px;
+}
+
+.signature-text {
+    font-size: 14px;
+    line-height: 1.1;
+    color: #155724;
+    white-space: nowrap; /* מונע ירידת שורה שמגביהה את התיבה */
+    overflow: hidden;
+    text-overflow: ellipsis; /* אם הטקסט ארוך מדי, הוא יסתיים ב... ולא יגדיל את התיבה */
+}
+
+.seal-icon {
+    font-size: 20px;
+    flex-shrink: 0; /* מונע מהאייקון להתכווץ */
+}
+
+
+/* ===== PDF & EMAIL HIDER (FULL CORRECT VERSION) ===== */
+{% if is_pdf %}
+    /* 1. העלמת כל הכפתורים והאלמנטים האינטראקטיביים שראינו בתמונה */
+    .back-home-container,
+    .action-buttons-container,
+    .btn-side,
+    .top-buttons, 
+    .add-btn-container, 
+    .btn-remove, 
+    .remove-child-btn, 
+    .add-child-btn,
+    .add-row-btn,          /* הכפתור הירוק שראינו בתמונה */
+    .add-payment-btn,      /* כפתור הוספת תשלום */
+    button,
+    input[type="submit"],
+    input[type="button"],
+    .upload-btn,
+    .fa-trash-can,         /* אייקון הפח האדום */
+    .trash-icon {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* 2. הגדרות גוף הדף ל-PDF (עברית וניקיון) */
+    body { 
+        background-color: white !important; 
+        margin: 0 !important;
+        padding: 0 !important;
+        direction: rtl !important; /* קריטי לעברית ב-PDF */
+        font-family: Arial, sans-serif !important;
+    }
+
+    /* 3. התאמת המיכל הראשי לרוחב דף A4 */
+    .container {
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 4. ביטול Flexbox במידה והוא משבש את המיקומים ב-PDF */
+    .header-details-container { 
+        display: block !important; 
+    }
+    
+    /* מוודא שהטבלאות נראות טוב */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+{% endif %}
+
+/* ===== הדפסה ===== */
+@media print {
+    /* 1. Hide all UI elements */
+    button, .btn, .btn-side, .top-bar, 
+    .back-home-container, .action-buttons-container {
+        display: none !important;
+    }
+
+    /* 2. Define the physical A4 Page */
+    @page {
+        size: A4;
+        margin: 0; /* We control margins inside the body for better accuracy */
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+        width: 210mm; /* Full A4 Width */
+        display: block;
+    }
+
+    /* 3. The Invoice Container - This is the "Safe Zone" */
+    .invoice-container {
+        width: 190mm;        /* Leave 20mm total for side gaps */
+        margin: 0 auto;      /* Center it horizontally */
+        
+        /* THE FIX: Shift 1cm to the right */
+        padding-left: 0.5mm;  /* Pushes content away from the left edge */
+        padding-right: 0;
+        
+        /* Standard print clean-up */
+        box-shadow: none !important;
+        border: none !important;
+        background: transparent !important;
+    }
+}
+
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+    
+    /* יישור כללי לימין ומניעת בריחת תוכן */
+    body, .invoice-container {
+        direction: rtl !important;
+        text-align: right !important;
+        width: 100% !important;
+        padding: 10px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important; 
+    }
+
+    /* 1. ביטול ציפה לכל הכפתורים (התחלה וסוף) - כולם הופכים לבלוקים רגילים */
+    .back-home-container, 
+    .action-buttons-container {
+        position: static !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 15px !important;
+        padding: 15px 0 !important;
+        margin: 10px 0 !important;
+        right: auto !important;
+        top: auto !important;
+    }
+
+    .btn-side, .action-buttons-container button {
+        width: 100% !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin: 0 !important;
+        position: static !important;
+        border-radius: 6px !important;
+    }
+
+    /* 2. סידור פרטי עסק ולקוח - אחד מעל השני עם יישור פנימי */
+    .details {
+        flex-direction: column !important;
+        display: flex !important;
+        gap: 10px !important;
+    }
+
+    .business-block, .customer-block {
+        width: 100% !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+        margin-bottom: 10px !important;
+    }
+
+    .business-block p, .customer-block p {
+        display: flex !important;
+        justify-content: space-between !important;
+        border-bottom: 1px solid #eee;
+        padding: 5px 0;
+        margin: 0 !important;
+    }
+
+    .business-block p::before, .customer-block p::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #666;
+    }
+
+    /* 3. טבלאות הופכות לכרטיסים (Items & Payments) */
+    #invoice-items-table thead, #payment-table thead {
+        display: none !important;
+    }
+
+    .invoice-row, .payment-row {
+        display: block !important;
+        border: 1px solid #ddd !important;
+        margin-bottom: 15px !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+        background: #fff !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+    }
+
+    td {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        border: none !important;
+        padding: 10px 0 !important;
+    }
+
+    td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #555;
+        flex-shrink: 0;
+    }
+
+    .item-input, .payment-input, select {
+        width: 60% !important;
+        text-align: left !important;
+        height: 35px !important;
+    }
+
+    /* 4. תיקון לסכומים (סכום ביניים, מע"מ, סה"כ) - הכל בשורה אחת */
+    .total-section {
+        width: 100% !important;
+        margin-top: 20px !important;
+    }
+
+    .total-section table {
+        width: 100% !important;
+    }
+
+    .total-section tr {
+        display: flex !important;
+        justify-content: space-between !important; /* דוחף כותרת לימין וסכום לשמאל */
+        align-items: center !important;
+        border-bottom: 1px solid #eee !important;
+        padding: 12px 0 !important;
+        width: 100% !important;
+    }
+
+    .total-section td {
+        display: flex !important; /* משנה מ-block ל-flex */
+        align-items: center !important;
+        border: none !important;
+        padding: 0 !important;
+        width: auto !important; /* מאפשר להם לעמוד זה לצד זה */
+    }
+
+    /* תיקון ספציפי לתיבת הבחירה של המע"מ שתעמוד ליד הסכום */
+    #vat-rate-select {
+        margin-left: 8px !important; /* רווח קטן בין התיבה לסכום */
+        width: auto !important;      /* התיבה לא תתפוס 60% */
+        height: 30px !important;
+    }
+
+    /* יישור הסכומים לשמאל הקיצוני */
+    .total-section td:last-child {
+        justify-content: flex-end !important;
+        text-align: left !important;
+        font-weight: bold;
+    }
+
+    .total-section td:first-child {
+        font-weight: bold;
+        color: #333;
+    }
+
+/* ===== אישורים וחתימה דיגיטלית במובייל ===== */
+
+    /* מכריח כל קופסה לרדת שורה */
+    .signature-section {
+        width: 100% !important;
+        display: block !important; /* ← לא flex */
+    }
+
+    /* קופסת אישור רשות המיסים */
+    .tax-allocation-box {
+        width: 100%;
+        height: 75px !important;          
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+        line-height: 20px !important;      
+        box-sizing: border-box;
+    }
+
+    /* קופסת חתימה דיגיטלית */
+    .digital-signature-box {
+        width: 100%;
+        height: 75px !important;          
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+        line-height: 20px !important;      
+        box-sizing: border-box;
+    }
+
+    /* כל הטקסט בפנים לא יגדיל את הגובה */
+    .tax-allocation-box *,
+    .digital-signature-box * {
+        font-size: 12px !important;
+        line-height: 20px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<form action="{{ url_for('save_invoice') }}"
+      method="POST"
+      onsubmit="this.querySelector('#save-btn').disabled = true; calculateTotals(); buildItemsForSubmit();">
+
+    <!-- מזהה חשבונית -->
+    <input type="hidden" name="invoice_id" value="{{ invoice_id or '' }}">
+
+    <!-- סכומים חבויים -->
+      <input type="hidden" id="sub-total-input"      name="sub_total"      value="{{ '%.2f' % sub_total }}">
+    <input type="hidden" id="vat-amount-input"     name="vat_amount"     value="{{ '%.2f' % vat_amount }}">
+    <input type="hidden" id="grand-total-input"    name="grand_total"    value="{{ '%.2f' % grand_total }}">
+    <input type="hidden" id="discount-total-input" name="discount_total" value="{{ '%.2f' % (discount_total or 0) }}">
+    <input type="hidden" id="payment-amount-input" name="payment_amount" value="{{ '%.2f' % (grand_total or 0) }}">
+      <input type="hidden" id="vat-rate-input" name="vat_rate" value="{{ vat_rate }}">
+
+    <!-- כפתורים עליונים -->
+<div class="back-home-container">
+
+    <a href="{{ url_for('customer_data') }}" class="btn-side btn-yellow" data-i18n="go_customer_data">עבור למידע לקוחות</a>
+
+    <a href="{{ url_for('customer') }}" class="btn-side btn-green" data-i18n="go_add_customer">עבור להוסף לקוח</a>
+
+    <a href="{{ url_for('clients') }}" class="btn-side btn-yellow" data-i18n="go_clients_data">עבור למידע הרשמה</a>
+
+    <a href="{{ url_for('set_password') }}" class="btn-side btn-gray" data-i18n="go_password_page">עבור לדף סיסמה</a>
+
+    <a href="{{ url_for('manage_products') }}" class="btn-side btn-yellow" data-i18n="go_products_page">עבור לדף המוצר</a>
+
+    <button type="submit" id="save-btn" class="btn-side btn-save" data-i18n="save_invoice">שמור חשבונית</button>
+
+    <button type="button" onclick="window.print()" class="btn-side btn-print" data-i18n="print_invoice">הדפס חשבונית</button>
+
+    <a href="{{ url_for('invoice_data') }}" class="btn-side btn-yellow" onclick="event.stopPropagation();" data-i18n="show_invoices">הצג חשבוניות</a>
+
+    {% if invoice and invoice.id %}
+        <a href="{{ url_for('send_invoice_email', invoice_id=invoice.id) }}" 
+           class="btn-side btn-green"
+           onclick="return confirm('האם לשלוח את החשבונית למייל הלקוח?');"
+           data-i18n="send_invoice_email">
+           שלח מייל
+        </a>
+    {% endif %}
+</div>
+
+<div class="invoice-container">
+
+    <!-- Header -->
+    <div class="header">
+        <h1 data-i18n="invoice_title">חשבונית מס/קבלה</h1>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap;">
+
+            <div class="header-info-block">
+                <span style="font-size: 16px;">
+                    <strong data-i18n="date_label">תאריך:</strong> {{ invoice_date|lang_date  }}
+                </span>
+            </div>
+
+            <div class="header-info-block" style="text-align: left;">
+                <span style="font-size: 18px; font-weight: bold;">
+                    <span data-i18n="invoice_number_label">מס' חשבונית:</span> {{ invoice_number }}
+                </span>
+                <div class="sub-title" data-i18n="original_copy">העתק נאמן למקור</div>
+            </div>
+        </div>
+
+    <!-- Details -->
+    <div class="details">
+
+        <!-- Business -->
+        <div class="business-block">
+            <strong data-i18n="business_details">פרטי העסק:</strong><br>
+            <p><span data-i18n="business_name_label">שם עסק:</span> {{ company.name }}</p>
+            <p><span data-i18n="business_address_label">כתובת:</span> {{ company.address }}</p>
+            <p><span data-i18n="business_id_label">ח.פ./ע.מ.:</span> {{ company.company_id_number }}</p>
+            <p><span data-i18n="business_phone_label">טלפון:</span> {{ company.phone }}</p>
+            <p><span data-i18n="business_email_label">דוא״ל:</span> {{ company.email }}</p>
+        </div>
+
+        <!-- Customer -->
+        <div class="customer-block">
+
+            <div id="customer_select_wrapper">
+                <label><strong data-i18n="select_customer">בחר לקוח:</strong></label><br>
+                <select id="customer_select"
+                        name="customer_id"
+                        onchange="loadCustomerData()"
+                        style="width: 100%; max-width: 3000px; height: 24px;">
+                    <option value="" data-i18n="choose_customer">בחר לקוח...</option>
+                    {% for c in all_customers_json %}
+                        <option value="{{ c.id }}"
+                                {% if customer_json and customer_json.id == c.id %}selected{% endif %}>
+                            {{ c.customer_name }} | {{ c.id_number }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="customer_details" style="display:none;">
+                <strong data-i18n="customer_details">פרטי לקוח:</strong><br>
+                <p><span data-i18n="customer_name_label">שם לקוח:</span> <span id="customer_name_field"></span></p>
+                <p><span data-i18n="customer_address_label">כתובת:</span> <span id="customer_address_field"></span></p>
+                <p><span data-i18n="customer_id_label">ח.פ./ע.מ.:</span> <span id="customer_id_field"></span></p>
+                <p><span data-i18n="customer_phone_label">טלפון:</span> <span id="customer_phone_field"></span></p>
+                <p><span data-i18n="customer_email_label">דוא״ל:</span> <span id="customer_email_field"></span></p>
+            </div>
+
+        </div>
+    </div>
+
+<!-- Items Table טבלת פריטים -->
+<table class="item-table" id="invoice-items-table">
+    <thead>
+        <tr>
+            <th class="col-code" data-i18n="product_code"></th>
+            <th class="col-desc" data-i18n="description"></th>
+            <th class="col-qty" data-i18n="quantity"></th>
+            <th class="col-price" data-i18n="unit_price"></th>
+            <th class="col-discount" data-i18n="discount"></th>
+            <th class="col-total" data-i18n="total"></th>
+        </tr>
+    </thead>
+    <tbody id="items-tbody">
+        <!-- dynamic rows -->
+    </tbody>
+</table>
+
+<div id="items-container"></div>
+<button type="button" class="add-row-btn" id="add-item-btn" data-i18n="add_row"></button>
+
+<!-- סכומים סופיים -->
+<div class="total-section">
+    <table style="width: 100%;">
+        <tr>
+            <td style="border: none;" data-i18n="sub_total_label"></td>
+            <td style="border: none; text-align: left;">
+                <!-- data-raw שומר על מספר נקי לחישוב, הפילטר currency דואג לתצוגה -->
+                <span id="sub-total-display" data-raw="{{ sub_total }}">{{ sub_total | currency }}</span>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="border: none;" data-i18n="discount_total_label"></td>
+            <td style="border: none; text-align: left;">
+                <span id="discount-total-display" data-raw="0">{{ 0 | currency }}</span>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="border: none;" data-i18n="vat_label"></td>
+            <td style="border: none; text-align: left;">
+                <select id="vat-rate-select" onchange="calculateTotals()">
+                    {% for rate in vat_options %}
+                    <option value="{{ rate }}" {% if rate == vat_rate %}selected{% endif %}>
+                        {{ rate }}%
+                    </option>
+                    {% endfor %}
+                </select>
+                (<span id="vat-amount-display" data-raw="{{ vat_amount }}">{{ vat_amount | currency }}</span>)
+            </td>
+        </tr>
+
+        <tr class="grand-total-row">
+            <td style="border: none;" data-i18n="grand_total_label"></td>
+            <td style="border: none; text-align: left;">
+                <h3>
+                    <span id="grand-total-display" data-raw="{{ grand_total }}">{{ grand_total | currency }}</span>
+                </h3>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<script>
+// ניהול VAT וחישוב אוטומטי בטעינה
+document.getElementById("vat-rate-select").addEventListener("change", function() {
+    localStorage.setItem("last_vat_rate", this.value);
+});
+
+// פונקציית סנכרון לאחר Reload
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof calculateTotals === "function") {
+        // מריצים השהיה קלה כדי לוודא שכל השורות נטענו
+        setTimeout(calculateTotals, 100);
+    }
+});
+</script>
+<!-- Payments -->
+<div class="section" style="margin-top: 20px;">
+    <div class="section-title" data-i18n="payment_methods"></div>
+    <button type="button" id="add-payment-btn" class="add-payment-btn" data-i18n="add_payment"></button>
+
+    <table class="payment-table" id="payment-table">
+        <thead>
+            <tr>
+            <th data-i18n="date_label" data-label="Date"></th>
+            <th data-i18n="payment_method_label" data-label="Method"></th>
+            <th data-i18n="bank_label" data-label="Bank"></th>
+            <th data-i18n="branch_label" data-label="Branch"></th>
+            <th data-i18n="account_check_label" data-label="Account/Check"></th>
+            <th style="width: 20px;"></th> 
+            <th data-i18n="amount_label" data-label="Amount"></th>
+            <th></th> <!-- Delete button column -->
+            </tr>
+        </thead>
+        <tbody id="payment-tbody"></tbody>
+    </table>
+</div>
+
+<!-- Signature -->
+<div class="signature-section">
+
+    <div class="tax-allocation-box">
+        <strong data-i18n="tax_authority_approval"></strong>
+
+        <div id="allocation-number-display" class="allocation-number">
+            {% if allocation_number %}
+                <span>{{ allocation_number }}</span>
+                <span data-i18n="allocation.exists"></span>
+            {% else %}
+                <span data-i18n="allocation.not_assigned"></span>
+            {% endif %}
+        </div>
+
+        <small data-i18n="allocation_model_note"></small>
+    </div>
+
+    <div class="digital-signature-box">
+        <div class="seal-icon">🔒</div>
+
+        <div class="signature-text">
+            <strong data-i18n="digitally_signed"></strong><br>
+
+            <span data-i18n="signed_by"></span> {{ company.name }}<br>
+
+            <span id="signature-date">
+                <span data-i18n="date_label"></span> {{ invoice_date|lang_date }}
+            </span>
+        </div>
+    </div>
+
+</div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div style="height: 0.2cm;"></div>
+        <div data-i18n="footer_generated_by">חשבונית מס קבלה זו הופקה באמצעות מערכת BENO</div>
+        <div><a href="https://quick-bill-405l.onrender.com" target="_blank">quick-bill-405l.onrender.com</a></div>
+    </div>
+
+</form>
+
+
+<!-- מחזיר את כל הכפתורים לצד ימין -->
+<div class="action-buttons-container">
+
+    <!-- ביטול חשבונית (טופס נפרד!) -->
+{% if invoice_id %}
+<form id="cancel-form"
+      action="{{ url_for('cancel_invoice', invoice_id=invoice_id) }}"
+      method="POST"
+      style="display:inline;">
+</form>
+
+<button type="button" class="btn-cancel" data-i18n="cancel_invoice"
+        onclick="document.getElementById('cancel-form').submit()">
+    בטל חשבונית
+</button>
+{% endif %}
+
+<!-- ניקוי חשבונית -->    
+<form method="POST" action="/invoice/new">
+    <button type="submit" class="btn-clear" data-i18n="clear_invoice">נקה מידע</button>
+</form>
+
+<!-- דף צור שם חברה -->
+<a href="{{ url_for('company') }}">
+    <button type="button" class="btn-green" data-i18n="company_page">
+        צור שם חברה
+    </button>
+</a>
+
+<!-- תשלום באשראי -->
+<button type="button" class="btn-credit" data-i18n="credit_payment"
+        onclick="startPayment('{{ allocation_number }}')">
+    תשלום באשראי
+</button>
+
+<!-- שליחה לרשות המיסים -->    
+<button type="button" class="btn-tax" data-i18n="send_to_tax">
+    📤 שלח לרשות המיסים
+</button>
+
+<!-- דף יציאה -->
+<form action="{{ url_for('logout') }}" method="POST">
+    <button type="submit" class="btn-side btn-gray" data-i18n="logout_page">
+        עבור לדף יציאה
+    </button>
+</form>
+
+</div>
+
+<!-- חותמת / טופס ביטול נפרד -->
+{% if invoice_status in ["canceled", "מבוטלת"] %}
+    <div class="canceled-stamp" data-i18n="invoice_canceled">חשבונית מבוטלת</div>
+{% endif %}
+
+
+<script>
+// ===== טעינת נתונים מהשרת =====
+let loadedCustomer  = {{ customer_json      | tojson | safe }};
+let allCustomers    = {{ all_customers_json | tojson | safe }};
+let products        = {{ products           | tojson | safe }};
+let loadedItems     = {{ items              | tojson | safe }};
+let loadedPayments  = {{ loadedPayments     | tojson | safe }};   
+
+
+/* ----- הגדרות שפה ותרגום (JSON + Fallback) ----- */
+const CURRENT_LANG = localStorage.getItem('lang') || 'he';
+
+// FALLBACK – משמש אם ה‑JSON לא נטען או חסר מפתח
+const FALLBACK_TRANSLATIONS = {
+  he: {
+     choose: "בחר מוצר",
+    date_label: "תאריך:",
+    payment_method_label: "אמצעי תשלום",
+    bank_label: "בנק",
+    branch_label: "סניף",
+    account_check_label: "חשבון / צ'ק",
+    amount_label: "סכום",
+    cash_label: "מזומן",
+    bank_transfer_label: "העברה בנקאית",
+    check_label: "צ'ק",
+    credit_label: "אשראי",
+    paypal_label: "פייפל"
+  },
+  en: {
+    choose: "Select product",
+    date_label: "Date:",
+    payment_method_label: "Payment method",
+    bank_label: "Bank",
+    branch_label: "Branch",
+    account_check_label: "Account / Check",
+    amount_label: "Amount",
+    cash_label: "Cash",
+    bank_transfer_label: "Bank transfer",
+    check_label: "Check",
+    credit_label: "Credit",
+    paypal_label: "PayPal"
+  },
+  fr: {
+    choose: "Sélectionner un produit",
+    date_label: "Date :",
+    payment_method_label: "Méthode de paiement",
+    bank_label: "Banque",
+    branch_label: "Agence",
+    account_check_label: "Compte / Chèque",
+    amount_label: "Montant",
+    cash_label: "Espèces",
+    bank_transfer_label: "Virement bancaire",
+    check_label: "Chèque",
+    credit_label: "Crédit",
+    paypal_label: "PayPal"
+  },
+  de: {
+    choose: "Produkt auswählen",
+    date_label: "Datum:",
+    payment_method_label: "Zahlungsmethode",
+    bank_label: "Bank",
+    branch_label: "Filiale",
+    account_check_label: "Konto / Scheck",
+    amount_label: "Betrag",
+    cash_label: "Bargeld",
+    bank_transfer_label: "Banküberweisung",
+    check_label: "Scheck",
+    credit_label: "Kreditkarte",
+    paypal_label: "PayPal"
+  },
+  es: {
+    choose: "Seleccionar producto",
+    date_label: "Fecha:",
+    payment_method_label: "Método de pago",
+    bank_label: "Banco",
+    branch_label: "Sucursal",
+    account_check_label: "Cuenta / Cheque",
+    amount_label: "Monto",
+    cash_label: "Efectivo",
+    bank_transfer_label: "Transferencia bancaria",
+    check_label: "Cheque",
+    credit_label: "Crédito",
+    paypal_label: "PayPal"
+  },
+  it: {
+    choose: "Seleziona prodotto",
+    date_label: "Data:",
+    payment_method_label: "Metodo di pagamento",
+    bank_label: "Banca",
+    branch_label: "Filiale",
+    account_check_label: "Conto / Assegno",
+    amount_label: "Importo",
+    cash_label: "Contanti",
+    bank_transfer_label: "Bonifico bancario",
+    check_label: "Assegno",
+    credit_label: "Carta di credito",
+    paypal_label: "PayPal"
+  },
+  nl: {
+    choose: "Selecteer product",
+    date_label: "Datum:",
+    payment_method_label: "Betaalmethode",
+    bank_label: "Bank",
+    branch_label: "Filiaal",
+    account_check_label: "Rekening / Cheque",
+    amount_label: "Bedrag",
+    cash_label: "Contant",
+    bank_transfer_label: "Overschrijving",
+    check_label: "Cheque",
+    credit_label: "Creditcard",
+    paypal_label: "PayPal"
+  },
+  pt: {
+    choose: "Selecionar produto",
+    date_label: "Data:",
+    payment_method_label: "Método de pagamento",
+    bank_label: "Banco",
+    branch_label: "Agência",
+    account_check_label: "Conta / Cheque",
+    amount_label: "Valor",
+    cash_label: "Dinheiro",
+    bank_transfer_label: "Transferência bancária",
+    check_label: "Cheque",
+    credit_label: "Crédito",
+    paypal_label: "PayPal"
+  },
+  el: {
+    choose: "Επιλέξτε προϊόν",
+    date_label: "Ημερομηνία:",
+    payment_method_label: "Τρόπος πληρωμής",
+    bank_label: "Τράπεζα",
+    branch_label: "Κατάστημα",
+    account_check_label: "Λογαριασμός / Επιταγή",
+    amount_label: "Ποσό",
+    cash_label: "Μετρητά",
+    bank_transfer_label: "Τραπεζική μεταφορά",
+    check_label: "Επιταγή",
+    credit_label: "Πιστωτική κάρτα",
+    paypal_label: "PayPal"
+  },
+  ro: {
+    choose: "Selectați produsul",
+    date_label: "Data:",
+    payment_method_label: "Metodă de plată",
+    bank_label: "Bancă",
+    branch_label: "Sucursala",
+    account_check_label: "Cont / Cec",
+    amount_label: "Sumă",
+    cash_label: "Numerar",
+    bank_transfer_label: "Transfer bancar",
+    check_label: "Cec",
+    credit_label: "Credit",
+    paypal_label: "PayPal"
+  },
+  ru: {
+    choose: "Выберите товар",
+    date_label: "Дата:",
+    payment_method_label: "Способ оплаты",
+    bank_label: "Банк",
+    branch_label: "Филиал",
+    account_check_label: "Счёт / Чек",
+    amount_label: "Сумма",
+    cash_label: "Наличные",
+    bank_transfer_label: "Банковский перевод",
+    check_label: "Чек",
+    credit_label: "Кредит",
+    paypal_label: "PayPal"
+  },
+  tr: {
+    choose: "Ürün seçin",
+    date_label: "Tarih:",
+    payment_method_label: "Ödeme yöntemi",
+    bank_label: "Banka",
+    branch_label: "Şube",
+    account_check_label: "Hesap / Çek",
+    amount_label: "Tutar",
+    cash_label: "Nakit",
+    bank_transfer_label: "Banka havalesi",
+    check_label: "Çek",
+    credit_label: "Kredi kartı",
+    paypal_label: "PayPal"
+  },
+  ar: {
+    choose: "اختر المنتج",
+    date_label: "التاريخ:",
+    payment_method_label: "طريقة الدفع",
+    bank_label: "البنك",
+    branch_label: "الفرع",
+    account_check_label: "الحساب / الشيك",
+    amount_label: "المبلغ",
+    cash_label: "نقدًا",
+    bank_transfer_label: "تحويل بنكي",
+    check_label: "شيك",
+    credit_label: "بطاقة ائتمان",
+    paypal_label: "PayPal"
+  },
+  zh: {
+    choose: "选择产品",
+    date_label: "日期:",
+    payment_method_label: "支付方式",
+    bank_label: "银行",
+    branch_label: "分行",
+    account_check_label: "账户 / 支票",
+    amount_label: "金额",
+    cash_label: "现金",
+    bank_transfer_label: "银行转账",
+    check_label: "支票",
+    credit_label: "信用卡",
+    paypal_label: "PayPal"
+  },
+  ja: {
+    choose: "商品を選択",
+    date_label: "日付:",
+    payment_method_label: "支払い方法",
+    bank_label: "銀行",
+    branch_label: "支店",
+    account_check_label: "口座 / 小切手",
+    amount_label: "金額",
+    cash_label: "現金",
+    bank_transfer_label: "銀行振込",
+    check_label: "小切手",
+    credit_label: "クレジットカード",
+    paypal_label: "PayPal"
+  },
+  hi: {
+    choose: "उत्पाद चुनें",
+    date_label: "तारीख:",
+    payment_method_label: "भुगतान विधि",
+    bank_label: "बैंक",
+    branch_label: "शाखा",
+    account_check_label: "खाता / चेक",
+    amount_label: "राशि",
+    cash_label: "नकद",
+    bank_transfer_label: "बैंक ट्रांसफ़र",
+    check_label: "चेक",
+    credit_label: "क्रेडिट",
+    paypal_label: "PayPal"
+  },
+  ko: {
+    choose: "제품 선택",
+    date_label: "날짜:",
+    payment_method_label: "결제 방법",
+    bank_label: "은행",
+    branch_label: "지점",
+    account_check_label: "계좌 / 수표",
+    amount_label: "금액",
+    cash_label: "현금",
+    bank_transfer_label: "계좌 이체",
+    check_label: "수표",
+    credit_label: "신용카드",
+    paypal_label: "PayPal"
+  },
+  pl: {
+    choose: "Wybierz produkt",
+    date_label: "Data:",
+    payment_method_label: "Metoda płatności",
+    bank_label: "Bank",
+    branch_label: "Oddział",
+    account_check_label: "Konto / Czek",
+    amount_label: "Kwota",
+    cash_label: "Gotówka",
+    bank_transfer_label: "Przelew bankowy",
+    check_label: "Czek",
+    credit_label: "Karta kredytowa",
+    paypal_label: "PayPal"
+  },
+  uk: {
+    choose: "Виберіть продукт",
+    date_label: "Дата:",
+    payment_method_label: "Спосіб оплати",
+    bank_label: "Банк",
+    branch_label: "Відділення",
+    account_check_label: "Рахунок / Чек",
+    amount_label: "Сума",
+    cash_label: "Готівка",
+    bank_transfer_label: "Банківський переказ",
+    check_label: "Чек",
+    credit_label: "Кредитна картка",
+    paypal_label: "PayPal"
+  },
+  fa: {
+    choose: "انتخاب محصول",
+    date_label: "تاریخ:",
+    payment_method_label: "روش پرداخت",
+    bank_label: "بانک",
+    branch_label: "شعبه",
+    account_check_label: "حساب / چک",
+    amount_label: "مبلغ",
+    cash_label: "نقدی",
+    bank_transfer_label: "انتقال بانکی",
+    check_label: "چک",
+    credit_label: "کارت اعتباری",
+    paypal_label: "PayPal"
+  },
+  cs: {
+    choose: "Vyberte produkt",
+    date_label: "Datum:",
+    payment_method_label: "Platební metoda",
+    bank_label: "Banka",
+    branch_label: "Pobočka",
+    account_check_label: "Účet / Šek",
+    amount_label: "Částka",
+    cash_label: "Hotovost",
+    bank_transfer_label: "Bankovní převod",
+    check_label: "Šek",
+    credit_label: "Kreditní karta",
+    paypal_label: "PayPal"
+  },
+  sv: {
+    choose: "Välj produkt",
+    date_label: "Datum:",
+    payment_method_label: "Betalningsmetod",
+    bank_label: "Bank",
+    branch_label: "Filial",
+    account_check_label: "Konto / Check",
+    amount_label: "Belopp",
+    cash_label: "Kontanter",
+    bank_transfer_label: "Banköverföring",
+    check_label: "Check",
+    credit_label: "Kreditkort",
+    paypal_label: "PayPal"
+  },
+  th: {
+    choose: "เลือกสินค้า",
+    date_label: "วันที่:",
+    payment_method_label: "วิธีการชำระเงิน",
+    bank_label: "ธนาคาร",
+    branch_label: "สาขา",
+    account_check_label: "บัญชี / เช็ค",
+    amount_label: "จำนวนเงิน",
+    cash_label: "เงินสด",
+    bank_transfer_label: "โอนเงินผ่านธนาคาร",
+    check_label: "เช็ค",
+    credit_label: "บัตรเครดิต",
+    paypal_label: "PayPal"
+  },
+  vi: {
+    choose: "Chọn sản phẩm",
+    date_label: "Ngày:",
+    payment_method_label: "Phương thức thanh toán",
+    bank_label: "Ngân hàng",
+    branch_label: "Chi nhánh",
+    account_check_label: "Tài khoản / Séc",
+    amount_label: "Số tiền",
+    cash_label: "Tiền mặt",
+    bank_transfer_label: "Chuyển khoản ngân hàng",
+    check_label: "Séc",
+    credit_label: "Thẻ tín dụng",
+    paypal_label: "PayPal"
+},
+bn: {
+  choose: "পণ্য নির্বাচন করুন",
+  date_label: "তারিখ:",
+  payment_method_label: "পেমেন্ট পদ্ধতি",
+  bank_label: "ব্যাংক",
+  branch_label: "শাখা",
+  account_check_label: "অ্যাকাউন্ট / চেক",
+  amount_label: "পরিমাণ",
+  cash_label: "নগদ",
+  bank_transfer_label: "ব্যাংক ট্রান্সফার",
+  check_label: "চেক",
+  credit_label: "ক্রেডিট",
+  paypal_label: "PayPal"
+},
+id: {
+  choose: "Pilih produk",
+  date_label: "Tanggal:",
+  payment_method_label: "Metode pembayaran",
+  bank_label: "Bank",
+  branch_label: "Cabang",
+  account_check_label: "Akun / Cek",
+  amount_label: "Jumlah",
+  cash_label: "Tunai",
+  bank_transfer_label: "Transfer bank",
+  check_label: "Cek",
+  credit_label: "Kredit",
+  paypal_label: "PayPal"
+},
+ms: {
+  choose: "Pilih produk",
+  date_label: "Tarikh:",
+  payment_method_label: "Kaedah pembayaran",
+  bank_label: "Bank",
+  branch_label: "Cawangan",
+  account_check_label: "Akaun / Cek",
+  amount_label: "Jumlah",
+  cash_label: "Tunai",
+  bank_transfer_label: "Pindahan bank",
+  check_label: "Cek",
+  credit_label: "Kredit",
+  paypal_label: "PayPal"
+},
+tl: {
+  choose: "Pumili ng produkto",
+  date_label: "Petsa:",
+  payment_method_label: "Paraan ng pagbabayad",
+  bank_label: "Bangko",
+  branch_label: "Sangay",
+  account_check_label: "Account / Cheke",
+  amount_label: "Halaga",
+  cash_label: "Cash",
+  bank_transfer_label: "Bank transfer",
+  check_label: "Cheke",
+  credit_label: "Credit",
+  paypal_label: "PayPal"
+},
+hu: {
+  choose: "Válasszon terméket",
+  date_label: "Dátum:",
+  payment_method_label: "Fizetési mód",
+  bank_label: "Bank",
+  branch_label: "Fiók",
+  account_check_label: "Számla / Csekk",
+  amount_label: "Összeg",
+  cash_label: "Készpénz",
+  bank_transfer_label: "Banki átutalás",
+  check_label: "Csekk",
+  credit_label: "Hitelkártya",
+  paypal_label: "PayPal"
+},
+bg: {
+  choose: "Изберете продукт",
+  date_label: "Дата:",
+  payment_method_label: "Метод на плащане",
+  bank_label: "Банка",
+  branch_label: "Клон",
+  account_check_label: "Сметка / Чек",
+  amount_label: "Сума",
+  cash_label: "В брой",
+  bank_transfer_label: "Банков превод",
+  check_label: "Чек",
+  credit_label: "Кредит",
+  paypal_label: "PayPal"
+ }
+};
+
+
+// פונקציית תרגום – קודם JSON (TRANSLATIONS)
+function t(key) {
+    const lang = (typeof CURRENT_LANG !== "undefined" && CURRENT_LANG in FALLBACK_TRANSLATIONS)
+        ? CURRENT_LANG
+        : "he";
+
+    if (window.TRANSLATIONS &&
+        window.TRANSLATIONS[lang] &&
+        Object.prototype.hasOwnProperty.call(window.TRANSLATIONS[lang], key)) {
+        return window.TRANSLATIONS[lang][key];
+    }
+
+    if (FALLBACK_TRANSLATIONS[lang] &&
+        Object.prototype.hasOwnProperty.call(FALLBACK_TRANSLATIONS[lang], key)) {
+        return FALLBACK_TRANSLATIONS[lang][key];
+    }
+
+    return key;
+}
+
+// ===== נרמול =====
+
+// לקוח
+if (!loadedCustomer || typeof loadedCustomer !== "object" || Object.keys(loadedCustomer).length === 0) {
+    loadedCustomer = null;
+}
+
+// רשימת לקוחות
+if (!Array.isArray(allCustomers)) {
+    allCustomers = [];
+}
+
+// מוצרים
+if (!Array.isArray(products)) {
+    products = [];
+}
+
+// פריטים
+if (!Array.isArray(loadedItems)) {
+    loadedItems = [];
+}
+
+// תשלומים
+if (!Array.isArray(loadedPayments)) {
+    loadedPayments = [];
+}
+
+/* -----  פונקציות עזר למספרים + מטבע  ----- */
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+}
+
+// מספר עם פסיקים (2,787.75)
+function formatLocaleNumber(num) {
+    return Number(num || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// ניקוי פסיקים → 2787.75
+function parseLocaleNumber(string) {
+    if (!string) return 0;
+    const clean = string.toString().replace(/[^\d.,-]/g, "");
+    return parseFloat(clean.replace(/,/g, "")) || 0;
+}
+
+function getCurrencyFromCookie() {
+    return getCookie("currency") || "ILS";
+}
+
+// פורמט מטבע כללי (עם סימן מטבע)
+function formatCurrencyJS(amount) {
+    amount = parseFloat(amount) || 0;
+
+    const lang = getCookie("lang") || "he";
+    const currency = getCurrencyFromCookie();
+
+    try {
+        return new Intl.NumberFormat(lang, {
+            style: "currency",
+            currency: currency,
+            minimumFractionDigits: 2
+        }).format(amount);
+    } catch (e) {
+        return amount.toFixed(2) + " " + currency;
+    }
+}
+
+// פורמט מטבע לשימוש בחישובי totals
+function formatCurrency(num) {
+    const lang = getCookie("lang") || "he";
+    const currency = getCurrencyFromCookie();
+
+    return new Intl.NumberFormat(lang, {
+        style: "currency",
+        currency: currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(num || 0);
+}
+
+
+/* ----- טען פרטי לקוח בלחיצה על select ----- */
+function loadCustomerData() {
+    let id = document.getElementById("customer_select").value;
+    if (!id) {
+        document.getElementById("customer_details").style.display = "none";
+        return;
+    }
+
+    fetch(`/api/customer/${id}`)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("customer_name_field").innerText = data.customer_name || "";
+
+            const addr = [data.address, data.city, data.postal_code].filter(Boolean).join(", ");
+            document.getElementById("customer_address_field").innerText = addr;
+
+            document.getElementById("customer_id_field").innerText = data.id_number || "";
+            document.getElementById("customer_phone_field").innerText = data.phone || "";
+            document.getElementById("customer_email_field").innerText = data.email || "";
+
+            document.getElementById("customer_details").style.display = "block";
+            document.getElementById("customer_select_wrapper").style.display = "none";
+        });
+}
+
+
+// ----- יצירת SELECT של פריטים עם תרגום -----
+function createItemSelect(selectedId = "", priceInput = null) {
+    const lang = localStorage.getItem("lang") || "he";
+
+    const select = document.createElement("select");
+    select.className = "item-select no-print-arrow";
+    select.name = "product_id[]";
+
+    // ברירת מחדל "בחר"
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = t("choose");
+    select.appendChild(defaultOption);
+
+    // טעינת פריטים מתוך itemsList (עכשיו מהשרת)
+    window.itemsList.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.id;
+
+        // אם בעתיד תרצה name לפי שפה, תוכל לשנות כאן
+        // כרגע נניח item.name הוא מחרוזת
+        if (typeof item.name === "object") {
+            opt.textContent = item.name[lang] || item.name["he"];
+        } else {
+            opt.textContent = item.name;
+        }
+
+        if (item.price) opt.dataset.price = item.price;
+
+        if (item.id == selectedId) opt.selected = true;
+
+        select.appendChild(opt);
+    });
+
+    // שינוי מחיר אוטומטי
+    select.addEventListener("change", () => {
+        const selected = select.selectedOptions[0];
+        const price = selected ? selected.dataset.price : 0;
+
+        if (priceInput) {
+            priceInput.value = parseFloat(price || 0).toFixed(2);
+        }
+
+        calculateTotals();
+    });
+
+    return select;
+}
+
+
+/* ----- יצירת select מוצרים ----- */
+function createProductSelectElement(priceInput) {
+    const lang = localStorage.getItem("lang") || "he";
+
+    const selectElement = document.createElement("select");
+    selectElement.className = "product-select item-select";
+    selectElement.name = "product_id[]";
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.setAttribute("data-i18n", "choose");
+    defaultOption.textContent = t("choose");
+    selectElement.appendChild(defaultOption);
+
+    products.forEach(product => {
+        const option = document.createElement("option");
+        option.value = product.id;
+
+        if (typeof product.name === "object") {
+            option.textContent = product.name[lang] || product.name["he"];
+        } else {
+            option.textContent = product.name;
+        }
+
+        option.dataset.price = product.price;
+        selectElement.appendChild(option);
+    });
+
+    selectElement.addEventListener("change", () => {
+        const selected = selectElement.selectedOptions[0];
+        const price = selected ? selected.dataset.price : 0;
+        priceInput.value = parseFloat(price || 0).toFixed(2);
+        updateCode(selectElement);
+        calculateTotals();
+    });
+
+    return selectElement;
+}
+
+/* ----- Update Code ----- */
+function updateCode(selectEl) {
+    const row = selectEl.closest("tr");
+    const codeInput = row.querySelector(".item-code-input");
+    if (codeInput) codeInput.value = selectEl.value || "";
+}
+
+/* ----- Calculate Totals ----- */
+function calculateTotals() {
+
+    let subTotal = 0;
+    let discountTotal = 0;
+
+    const rows = document.querySelectorAll("#items-tbody tr");
+
+    rows.forEach(row => {
+        const getVal = selector => {
+            const el = row.querySelector(selector);
+            if (!el) return 0;
+            return parseLocaleNumber(el.value);
+        };
+
+        const quantity = getVal(".quantity-input");
+        const price    = getVal(".price-input");
+        const discount = getVal(".discount-input");
+
+        const original = quantity * price;
+        const lineDiscountAmount = original * (discount / 100);
+        const total = original - lineDiscountAmount;
+
+        const totalInput = row.querySelector(".total-input");
+        if (totalInput) {
+            // תצוגת סה"כ שורה – מספר עם פסיקים (ללא סימן מטבע אם תרצה)
+            totalInput.value = formatLocaleNumber(total);
+        }
+
+        subTotal += total;
+        discountTotal += lineDiscountAmount;
+    });
+
+    const vatRate = parseFloat(document.getElementById("vat-rate-select").value) || 0;
+
+    const vatAmount  = subTotal * (vatRate / 100);
+    const grandTotal = subTotal + vatAmount;
+
+    document.getElementById("sub-total-display").textContent      = formatCurrency(subTotal);
+    document.getElementById("discount-total-display").textContent = formatCurrency(discountTotal);
+    document.getElementById("vat-amount-display").textContent     = formatCurrency(vatAmount);
+    document.getElementById("grand-total-display").textContent    = formatCurrency(grandTotal);
+
+    // Hidden fields
+    const setHidden = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = (val || 0).toFixed(2);
+    };
+
+    setHidden("sub-total-input", subTotal);
+    setHidden("vat-amount-input", vatAmount);
+    setHidden("grand-total-input", grandTotal);
+    setHidden("discount-total-input", discountTotal);
+
+    // Payment auto-fill
+    const paymentInputs = document.querySelectorAll(".payment-amount-input");
+    if (paymentInputs.length === 1) {
+        const raw = paymentInputs[0].value;
+        const currentVal = parseLocaleNumber(raw);
+
+        if (currentVal === 0) {
+            paymentInputs[0].value = formatLocaleNumber(grandTotal);
+
+            const hiddenInp = paymentInputs[0].nextElementSibling;
+            if (hiddenInp && hiddenInp.type === "hidden") {
+                hiddenInp.value = grandTotal.toFixed(2);
+            }
+        }
+    }
+
+    if (typeof updatePaymentTotals === "function") {
+        updatePaymentTotals();
+    }
+}
+
+/* ----- בניית items[] לפני שליחה ----- */
+function buildItemsForSubmit() {
+    const rows = document.querySelectorAll('#items-tbody tr');
+    const container = document.getElementById('items-container');
+    container.innerHTML = '';
+
+    rows.forEach(row => {
+        const productId = row.querySelector('.product-select')?.value;
+        if (!productId) return;
+
+        // איסוף נתונים נקיים ללא פסיקים למשלוח ל-Database
+        const clean = (sel) => row.querySelector(sel).value.replace(/,/g, '');
+
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'items[]';
+        hidden.value = JSON.stringify({
+            product_id: productId,
+            quantity: clean('.quantity-input'),
+            price: clean('.price-input'),
+            discount: clean('.discount-input')
+        });
+        container.appendChild(hidden);
+    });
+}
+
+/* -----  כל פונקציית חישוב יתרת אמצעי תשלום  ----- */
+
+/* ----- פונקציה שמחזירה כמה שולם עד עכשיו  ----- */
+function getCurrentPaid() {
+    let paid = 0;
+    document.querySelectorAll('.payment-amount-input').forEach(input => {
+        const val = typeof parseLocaleNumber === 'function'
+            ? parseLocaleNumber(input.value)
+            : parseFloat(input.value.replace(/,/g, '')) || 0;
+        paid += val;
+    });
+    return typeof round2 === 'function' ? round2(paid) : Math.round(paid * 100) / 100;
+}
+
+/* ----- פונקציית חישוב יתרת תשלום ועדכון תצוגה ----- */
+function updatePaymentTotals() {
+    const grandInput = document.getElementById('grand-total-input');
+    const paidSpan   = document.getElementById('paid-total');
+    const balSpan    = document.getElementById('balance-total');
+
+    if (!grandInput || !paidSpan || !balSpan) return;
+
+    const grandValue = typeof parseLocaleNumber === 'function'
+        ? parseLocaleNumber(grandInput.value || 0)
+        : parseFloat(grandInput.value.replace(/,/g, '')) || 0;
+    
+    const grandTotal = typeof round2 === 'function' ? round2(grandValue) : grandValue;
+    const paid       = getCurrentPaid();
+    const balance    = Math.max(grandTotal - paid, 0);
+
+    paidSpan.innerText = typeof formatLocaleNumber === 'function'
+        ? formatLocaleNumber(paid)
+        : paid.toLocaleString();
+    balSpan.innerText  = typeof formatLocaleNumber === 'function'
+        ? formatLocaleNumber(balance)
+        : balance.toLocaleString();
+}
+
+/* ----- הוספת שורת תשלום (כולל תמיכה במובייל ) ----- */
+function addPaymentRow(amount = null, date = null, method = "cash", bank = "", branch = "", account = "") {
+    const tbody = document.getElementById('payment-tbody');
+    if (!tbody) return;
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const grandValue = typeof parseLocaleNumber === 'function'
+        ? parseLocaleNumber(document.getElementById('grand-total-input')?.value || "0")
+        : 0;
+
+    const paidSoFar = typeof getCurrentPaid === 'function' ? getCurrentPaid() : 0;
+
+    let valueToUse;
+    if (amount !== null && amount !== "" && !isNaN(parseFloat(amount.toString().replace(/,/g, '')))) {
+        valueToUse = typeof parseLocaleNumber === 'function'
+            ? parseLocaleNumber(amount)
+            : parseFloat(amount);
+    } else {
+        valueToUse = Math.max(grandValue - paidSoFar, 0);
+    }
+
+    const row = document.createElement('tr');
+    row.className = "payment-row invoice-row";
+
+    row.innerHTML = `
+        <td data-i18n-label="date_label" data-label="${t('date_label')}">
+            <input type="date" name="payment_date[]" value="${date || today}">
+        </td>
+
+        <td data-i18n-label="payment_method_label" data-label="${t('payment_method_label')}">
+            <select name="payment_method[]" class="payment-method-select no-print-arrow">
+                <option value="cash" ${method === "cash" ? "selected" : ""} data-i18n="cash_label">${t('cash_label')}</option>
+                <option value="bank_transfer" ${method === "bank_transfer" ? "selected" : ""} data-i18n="bank_transfer_label">${t('bank_transfer_label')}</option>
+                <option value="check" ${method === "check" ? "selected" : ""} data-i18n="check_label">${t('check_label')}</option>
+                <option value="credit" ${method === "credit" ? "selected" : ""} data-i18n="credit_label">${t('credit_label')}</option>
+                <option value="paypal" ${method === "paypal" ? "selected" : ""} data-i18n="paypal_label">${t('paypal_label')}</option>
+            </select>
+        </td>
+
+        <td data-i18n-label="bank_label" data-label="${t('bank_label')}">
+            <input type="text" name="bank[]" value="${bank}" 
+                   data-i18n-placeholder="bank_label" 
+                   placeholder="${t('bank_label')}">
+        </td>
+
+        <td data-i18n-label="branch_label" data-label="${t('branch_label')}">
+            <input type="text" name="branch[]" value="${branch}" 
+                   data-i18n-placeholder="branch_label" 
+                   placeholder="${t('branch_label')}">
+        </td>
+
+        <td data-i18n-label="account_check_label" data-label="${t('account_check_label')}">
+            <input type="text" name="account_number[]" value="${account}" 
+                   data-i18n-placeholder="account_check_label" 
+                   placeholder="${t('account_check_label')}">
+        </td>
+
+        <td class="currency-symbol" style="text-align:center; font-weight:bold; min-width:25px;">
+            ${t('currency_symbol')}
+        </td>
+
+        <td data-i18n-label="amount_label" data-label="${t('amount_label')}">
+            <input type="text" 
+                   class="payment-amount-input item-input"
+                   value="${typeof formatLocaleNumber === 'function' ? formatLocaleNumber(valueToUse) : valueToUse}"
+                   oninput="this.nextElementSibling.value = (typeof parseLocaleNumber === 'function' ? parseLocaleNumber(this.value) : this.value.replace(/,/g, '')); updatePaymentTotals();"
+                   style="width: 100%; box-sizing: border-box;">
+            <input type="hidden" name="payment_amount[]" value="${valueToUse.toFixed(2)}">
+        </td>
+
+        <td class="col-delete">
+            <button type="button" class="delete-payment-btn" onclick="this.closest('tr').remove(); updatePaymentTotals();">🗑️</button>
+        </td>
+    `;
+
+    tbody.appendChild(row);
+
+    // Re-translate new row (mobile labels, placeholders, options, currency)
+    const currentLang = localStorage.getItem("lang") || "he";
+    loadLanguage(currentLang);
+
+    updatePaymentTotals();
+}
+
+
+// ============ DOM + EVENTS =============
+document.addEventListener("DOMContentLoaded", async () => {
+
+    // ----- טעינת items.json  פריטים דינמיים מהשרת -----
+    window.itemsList = [];
+       products = [];
+
+    try {
+       const response = await fetch("/api/products_list");
+       const data = await response.json();
+
+       window.itemsList = data;
+       products = data;
+    } catch (err) {
+        window.itemsList = [];
+       products = [];
+    }
+
+    /* ----- תאריך היום ----- */
+    const dateEl = document.getElementById("payment-date");
+    if (dateEl) {
+        dateEl.textContent = new Date().toLocaleDateString('he-IL');
+    }
+
+    /* ----- טעינת לקוח קיים ----- */
+    function loadExistingCustomer() {
+        if (!loadedCustomer) return;
+
+        document.getElementById("customer_name_field").innerText = loadedCustomer.customer_name || "";
+
+        const addressParts = [
+            loadedCustomer.address,
+            loadedCustomer.city,
+            loadedCustomer.postal_code
+        ].filter(part => part && part.trim() !== "");
+        
+        document.getElementById("customer_address_field").innerText = addressParts.join(", ");
+
+        document.getElementById("customer_id_field").innerText = loadedCustomer.id_number || "";
+        document.getElementById("customer_phone_field").innerText = loadedCustomer.phone || "";
+        document.getElementById("customer_email_field").innerText = loadedCustomer.email || "";
+
+        document.getElementById("customer_select_wrapper").style.display = "none";
+        document.getElementById("customer_details").style.display = "block";
+    }
+
+/* ----- טעינת פריטים קיימים ----- */
+function loadExistingItems() {
+    if (!loadedItems || loadedItems.length === 0) return;
+
+    const tableBody = document.getElementById('items-tbody');
+    tableBody.innerHTML = "";
+
+    loadedItems.forEach(item => {
+        const row = document.createElement('tr');
+        row.className = "invoice-row";
+
+        // --- מק"ט ---
+        const codeCell = document.createElement('td');
+        codeCell.className = 'col-code';
+        codeCell.setAttribute('data-label', 'מק"ט:');
+        const codeInput = document.createElement('input');
+        codeInput.type = "text";
+        codeInput.className = "item-input item-code-input";
+        codeInput.value = item.product_id;
+        codeCell.appendChild(codeInput);
+        row.appendChild(codeCell);
+
+        // --- תיאור ---
+        const descCell = document.createElement('td');
+        descCell.setAttribute('data-label', 'תיאור מוצר:');
+
+        const priceInput = document.createElement('input');
+        priceInput.type = "number";
+        priceInput.className = "item-input price-input";
+        priceInput.step = "0.01";
+        priceInput.value = Number(item.unit_price).toFixed(2);
+        priceInput.oninput = calculateTotals;
+
+        const select = createItemSelect(item.product_id, priceInput);
+        descCell.appendChild(select);
+        row.appendChild(descCell);
+
+        // --- כמות ---
+        const qtyCell = document.createElement('td');
+        qtyCell.setAttribute('data-label', 'כמות:');
+        const qtyInput = document.createElement('input');
+        qtyInput.type = "number";
+        qtyInput.className = "item-input quantity-input";
+        qtyInput.value = item.quantity;
+        qtyInput.oninput = calculateTotals;
+        qtyCell.appendChild(qtyInput);
+        row.appendChild(qtyCell);
+
+        // --- מחיר ---
+        const priceCell = document.createElement('td');
+        priceCell.setAttribute('data-label', 'מחיר יחידה:');
+        priceCell.appendChild(priceInput);
+        row.appendChild(priceCell);
+
+        // --- הנחה ---
+        const discountCell = document.createElement('td');
+        discountCell.setAttribute('data-label', 'הנחה:');
+        const discountInput = document.createElement('input');
+        discountInput.type = "number";
+        discountInput.value = item.discount || 0;
+        discountInput.className = "item-input discount-input";
+        discountInput.oninput = calculateTotals;
+        discountCell.appendChild(discountInput);
+        row.appendChild(discountCell);
+
+        // --- סה"כ ---
+        const totalCell = document.createElement('td');
+        totalCell.className = 'col-total';
+        totalCell.setAttribute('data-label', 'סה"כ שורה:');
+        const totalInput = document.createElement('input');
+        totalInput.type = "text";
+        totalInput.className = "item-input total-input";
+        totalInput.value = formatLocaleNumber(item.total_price || 0);
+        totalInput.readOnly = true;
+        totalCell.appendChild(totalInput);
+        row.appendChild(totalCell);
+
+        tableBody.appendChild(row);
+    });
+
+    calculateTotals();
+}
+
+    /* ----- הוספת שורת פריט ----- */
+    function addRow() {
+        const tableBody = document.getElementById('items-tbody');
+        const newRow = document.createElement('tr');
+        newRow.className = "invoice-row";
+
+        // --- מק"ט ---
+        const codeCell = document.createElement('td');
+        codeCell.className = "col-code";
+        codeCell.setAttribute('data-label', 'מק"ט:');
+        const codeInput = document.createElement('input');
+        codeInput.type = "text";
+        codeInput.className = "item-input item-code-input";
+        codeCell.appendChild(codeInput);
+
+        // --- תיאור ---
+        const descCell = document.createElement('td');
+        descCell.setAttribute('data-label', 'תיאור מוצר:');
+        const priceInput = document.createElement('input');
+        priceInput.type = "number";
+        priceInput.className = "item-input price-input";
+        priceInput.value = "0.00";
+        priceInput.step = "0.01";
+        priceInput.oninput = calculateTotals;
+
+        const selectElement = createProductSelectElement(priceInput);
+        descCell.appendChild(selectElement);
+
+        // --- כמות ---
+        const qtyCell = document.createElement('td');
+        qtyCell.setAttribute('data-label', 'כמות:');
+        const qtyInput = document.createElement('input');
+        qtyInput.type = "number";
+        qtyInput.className = "item-input quantity-input";
+        qtyInput.value = "1";
+        qtyInput.oninput = calculateTotals;
+        qtyCell.appendChild(qtyInput);
+
+        // --- מחיר ---
+        const priceCell = document.createElement('td');
+        priceCell.setAttribute('data-label', 'מחיר יחידה:');
+        priceCell.appendChild(priceInput);
+
+        // --- הנחה ---
+        const discountCell = document.createElement('td');
+        discountCell.setAttribute('data-label', 'הנחה:');
+        const discountInput = document.createElement('input');
+        discountInput.type = "number";
+        discountInput.className = "item-input discount-input";
+        discountInput.value = "0";
+        discountInput.style.width = '60px';
+        discountInput.oninput = calculateTotals;
+        discountCell.appendChild(discountInput);
+
+        // --- סה"כ ---
+        const totalCell = document.createElement('td');
+        totalCell.className = "col-total";
+        totalCell.setAttribute('data-label', 'סה"כ שורה:');
+        const totalInput = document.createElement('input');
+        totalInput.type = "text";
+        totalInput.className = "item-input total-input";
+        totalInput.value = "0.00";
+        totalInput.readOnly = true;
+        totalCell.appendChild(totalInput);
+
+        newRow.appendChild(codeCell);
+        newRow.appendChild(descCell);
+        newRow.appendChild(qtyCell);
+        newRow.appendChild(priceCell);
+        newRow.appendChild(discountCell);
+        newRow.appendChild(totalCell);
+
+        tableBody.appendChild(newRow);
+
+        calculateTotals();
+      translateMobileItemLabels();
+    }
+
+    /* ----- כפתור הוספת שורת פריט ----- */
+    const addItemBtn = document.getElementById('add-item-btn');
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', () => {
+            addRow();
+        });
+    }
+
+    /* ----- טעינת תשלומים קיימים מהשרת ----- */
+    function loadExistingPayments() {
+        if (typeof loadedPayments === "undefined" || !Array.isArray(loadedPayments) || loadedPayments.length === 0) {
+            return;
+        }
+
+        const tbody = document.getElementById('payment-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = ""; 
+
+        loadedPayments.forEach(item => {
+            addPaymentRow(
+                item.payment_amount, 
+                item.payment_date,
+                item.payment_method,
+                item.bank,
+                item.branch,
+                item.account_number
+            );
+        });
+
+        updatePaymentTotals();
+
+    //  Re-run translations for dynamically added rows
+    loadLanguage(localStorage.getItem("lang") || "he");
+}
+
+    /* ----- כפתור הוספת תשלום ----- */
+    const addPaymentBtn = document.getElementById('add-payment-btn');
+    if (addPaymentBtn) {
+        addPaymentBtn.addEventListener('click', () => addPaymentRow());
+    }
+
+    /* ----- שינוי סכום תשלום → עדכון דינמי ----- */
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('payment-amount-input')) {
+            updatePaymentTotals();
+        }
+    });
+
+    /* ----- מחיקת שורת תשלום ----- */
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('delete-payment-btn')) {
+            const row = e.target.closest('tr');
+            if (row) row.remove();
+            updatePaymentTotals();
+        }
+    });
+
+    /* ----- APPLY FORMATTING ON PAGE LOAD (totals) ----- */
+    function applyTotalsFormatting() {
+        const totalIds = [
+            "sub-total-display",
+            "discount-total-display",
+            "vat-amount-display",
+            "grand-total-display"
+        ];
+
+        totalIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.innerText.trim() !== "") {
+                const raw = el.innerText.replace(/[^\d.-]/g, "");
+                el.innerText = formatCurrencyJS(raw);
+            }
+        });
+    }
+
+/* ----- טעינה ראשונית ----- */
+
+if (typeof loadedItems !== "undefined" && Array.isArray(loadedItems) && loadedItems.length > 0) {
+    loadExistingItems();
+} else {
+    addRow();
+}
+
+if (typeof loadedCustomer !== "undefined" && loadedCustomer) {
+    loadExistingCustomer();
+}
+
+if (typeof loadExistingPayments === "function") {
+    loadExistingPayments();
+}
+
+if (typeof calculateTotals === "function") {
+    calculateTotals();
+}
+
+applyTotalsFormatting();
+});
+</script>
+
+<script>
+/* ----- חתימה דיגיטלית  signatureBox ----- */
+document.addEventListener("DOMContentLoaded", function() {
+    const sigDate = document.getElementById('signature-date');
+    if (!sigDate) return;
+
+    const lang = localStorage.getItem('lang') || 'he';
+
+    const LABEL_DATE = t('date_label') || "תאריך:";
+    const LABEL_SIGNED = t('digitally_signed') || "נחתם בתאריך:";
+    const LABEL_TIME = t('time_label') || "שעה:";
+    const WAITING = t('waiting_allocation') || "ממתין...";
+
+    const content = sigDate.innerText.trim();
+
+    if (
+        content === LABEL_DATE ||
+        content === `${LABEL_DATE} None` ||
+        content === "" ||
+        content === `${LABEL_DATE} ${WAITING}`
+    ) {
+        const now = new Date();
+        const locale = lang === 'he' ? 'he-IL' : 'en-US';
+
+        const dateStr = now.toLocaleDateString(locale).replace(/\./g, '/');
+        const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+
+        sigDate.innerHTML = `${LABEL_SIGNED} ${dateStr} | ${LABEL_TIME} ${timeStr}`;
+    }
+});
+</script>
+
+<script>
+function sendInvoice() {
+    fetch("/send_invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoice_id: invoiceId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert(t('invoice_sent_success') + " " + data.allocation_number);
+            document.getElementById("allocation-number-display").textContent = data.allocation_number;
+        } else {
+            alert(t('invoice_send_error') + " " + data.message);
+        }
+    })
+    .catch(err => alert(t('communication_error') + " " + err));
+}
+</script>
+
+<script>
+/* ----- שינוי ה מע"מ לקבוע   vat-rate-select ----- */
+document.addEventListener("DOMContentLoaded", function() {
+    const savedVat = localStorage.getItem("last_vat_rate");
+    if (savedVat) {
+        document.getElementById("vat-rate-select").value = savedVat;
+    }
+    calculateTotals();
+});
+</script>
+
+<script>
+    // פונקציה קריאה לשרת לאישור תשלום כרטיס אשראי
+function startPayment(allocationNumber) {
+    fetch('/api/payments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allocation_number: allocationNumber })
+    })
+    .then(res => res.json())
+    .then(data => {
+        window.location.href = data.payment_url;
+    });
+}
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

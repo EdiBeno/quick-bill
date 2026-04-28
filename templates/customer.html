@@ -1,0 +1,633 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול לקוחות</title>
+    <script>
+        function clearData() {
+            fetch('/clear_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Refresh the page
+                } else {
+                    alert('Failed to clear data: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while clearing data');
+            });
+        }
+
+        function validateForm() {
+            var form = document.getElementById('customer');
+            var inputs = form.querySelectorAll('input[required]');
+            var errorMessage = '';
+            
+            inputs.forEach(function(input) {
+                if (!input.value) {
+                    errorMessage += 'Please fill out the ' + input.name + ' field.<br>';
+                }
+            });
+            
+            if (errorMessage) {
+                document.getElementById('error-message').innerHTML = errorMessage;
+            } else {
+                form.submit();
+            }
+        }
+    </script>
+<style>
+/* Wrapper that adds 4cm spacing on both sides */
+.form-wrapper {
+    padding-left: 4cm;
+    padding-right: 4cm;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Container of all columns */
+.form-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Each column */
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 33%;
+}
+
+/* Each row inside a column */
+.form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Labels */
+.form-row label {
+    width: 35%;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Inputs */
+.form-row input,
+.form-row select {
+    width: 60%;
+    height: 0.6cm;
+    padding: 3px 6px;
+    font-size: 1em;
+    font-weight: bold;
+    border: 1px solid #999;
+    border-radius: 4px;
+    direction: rtl;
+}
+
+/* Full-width message row */
+.full-width-row {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.full-width-row label {
+    width: 2cm;
+    font-weight: bold;
+}
+
+.full-width-row input {
+    width: calc(100% - 2.5cm);
+    height: 0.9cm;
+    font-size: 1.1em;
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding-right: 8px;
+}
+
+/* Buttons */
+button {
+    cursor: pointer;
+    border: none;
+    background-color: #0078d4;
+    color: white;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #005fa3;
+}
+
+/* נטרול כל הכפתורים עד שהתרגום מסיים */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+
+    body {
+        direction: rtl !important;
+        text-align: right !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .form-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .form-container {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .form-column {
+        width: 100% !important;
+        display: block !important;
+        margin-bottom: 15px !important;
+    }
+
+    .form-row {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        margin-bottom: 12px !important;
+    }
+
+    .form-row label {
+        width: 100% !important;
+        font-size: 16px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .form-row input,
+    .form-row select {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        padding: 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .full-width-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+    }
+
+    .full-width-row label {
+        width: 100% !important;
+        margin-bottom: 4px !important;
+    }
+
+    .full-width-row input,
+    .full-width-row textarea {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    *[style*="width"],
+    *[style*="height"] {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    button,
+    a button {
+        width: 100% !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin-bottom: 10px !important;
+        border-radius: 6px !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    div[style*="display: flex"] {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* מסתיר את הכותרת במובייל */
+    form[action*="search_customer"] label {
+        display: none !important;
+    }
+
+    /* מפרק את השורה של החיפוש */
+    form[action*="search_customer"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* שדה החיפוש */
+    #search_name {
+        width: 100% !important;
+        margin-bottom: 12px !important;
+        font-size: 18px !important;
+    }
+
+    /* כפתור החיפוש */
+    form[action*="search_customer"] button {
+        width: 100% !important;
+        height: 40px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    /* כותרת ראשית */
+    h1 {
+        width: 100% !important;
+        display: block !important;
+        text-align: center !important;
+        font-size: 26px !important;
+        margin: 0 0 15px 0 !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* מבטל FLEX מהטופס של נקה מידע */
+    form[action*="clear_search_results_customer"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* הכפתור עצמו – 100% רוחב */
+    form[action*="clear_search_results_customer"] button {
+        width: 100% !important;
+        height: 45px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin: 0 0 12px 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* חיסול מוחלט של כל רוחב קבוע ל‑SELECT */
+    select,
+    select#search_name,
+    form[action*="search_customer"] select {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        display: block !important;
+    }
+
+
+    /* מבטל FLEX מהטופס עצמו */
+    form[action*="search_customer"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* מסתיר את הלייבל במובייל */
+    form[action*="search_customer"] label {
+        display: none !important;
+    }
+
+    /* ה‑SELECT */
+    form[action*="search_customer"] select#search_name {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 0 12px 0 !important;
+        padding: 8px !important;
+        font-size: 18px !important;
+        box-sizing: border-box !important;
+        display: block !important;
+    }
+
+    /* הכפתור */
+    form[action*="search_customer"] button {
+        width: 100% !important;
+        height: 45px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+    }
+
+    /* מבטל FLEX מכל אלמנט פנימי */
+    form[action*="search_customer"] *[style*="display:flex"] {
+        display: block !important;
+        width: 100% !important;
+    }
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="container">
+    <div class="column1"></div>
+    <div class="column2">
+
+        <!-- TITLE -->
+        <h1 data-i18n="customer.add_or_update" style="text-align: center;">הוסף או עדכן לקוח</h1>
+
+<form action="{{ url_for('customer') }}" method="POST" id="form-body">
+    <input type="hidden" id="customer_id" name="customer_id" value="{{ customer.id if customer else '' }}">
+
+    <div style="height: 0.1cm;"></div>
+
+<div class="form-wrapper">
+
+    <div class="form-container">
+
+        <!-- COLUMN 1 -->
+        <div class="form-column">
+            <div class="form-row">
+                <label for="date" data-i18n="customer.date">תאריך:</label>
+                <input type="date" id="date" name="date" style="font-size: 17px; height: 0.6cm;" value="{{ customer.date }}" required>
+            </div>
+
+            <div class="form-row">
+                <label for="customer_name" data-i18n="customer.name">שם הלקוח:</label>
+                <input type="text" id="customer_name" name="customer_name"
+                       value="{{ customer_i18n.name or customer.customer_name }}">
+            </div>
+
+            <div class="form-row">
+                <label for="id_number" data-i18n="customer.id_number">מספר זהות / ח.פ:</label>
+                <input type="text" id="id_number" name="id_number" value="{{ customer.id_number if customer else '' }}">
+            </div>
+        </div>
+
+        <!-- COLUMN 2 -->
+        <div class="form-column">
+            <div class="form-row">
+                <label for="address" data-i18n="customer.address">כתובת:</label>
+                <input type="text" id="address" name="address"
+                       value="{{ customer_i18n.address or customer.address }}">
+            </div>
+
+            <div class="form-row">
+                <label for="city" data-i18n="customer.city">עיר:</label>
+                <input type="text" id="city" name="city"
+                       value="{{ customer_i18n.city or customer.city }}">
+            </div>
+
+            <div class="form-row">
+                <label for="postal_code" data-i18n="customer.postal_code">מיקוד:</label>
+                <input type="text" id="postal_code" name="postal_code" value="{{ customer.postal_code if customer else '' }}">
+            </div>
+        </div>
+
+        <!-- COLUMN 3 -->
+        <div class="form-column">
+            <div class="form-row">
+                <label for="phone" data-i18n="customer.phone">טלפון:</label>
+                <input type="text" id="phone" name="phone" value="{{ customer.phone if customer else '' }}">
+            </div>
+
+            <div class="form-row">
+                <label for="email" data-i18n="customer.email">מייל:</label>
+                <input type="text" id="email" name="email" value="{{ customer.email if customer else '' }}">
+            </div>
+
+            <div class="form-row">
+                <label for="contract_status" data-i18n="customer.contract_status">סוג חוזה:</label>
+      <select id="contract_status" name="contract_status" style="width: 8.6cm; height: 0.8cm;">
+    <option value="אישי" data-i18n="customer.contract_personal"
+        {% if customer.contract_status == "אישי" %}selected{% endif %}>
+        אישי
+    </option>
+
+    <option value="התקשרות" data-i18n="customer.contract_business"
+        {% if customer.contract_status == "התקשרות" %}selected{% endif %}>
+        התקשרות
+    </option>
+                </select>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FULL WIDTH MESSAGE -->
+    <div class="full-width-row">
+        <label for="message" data-i18n="customer.notes" style="font-size: 1em; font-weight: bold; margin-bottom: 0.01px;">הערות:</label>
+        <textarea id="message" name="message" rows="5" style="width: 39.75cm; height: 1.5cm; font-size: 21px; font-weight: bold; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+{{ customer_i18n.message or customer.message }}
+        </textarea>
+    </div>
+
+    <div style="height: 4.1cm;"></div>
+
+    <!-- Button Section -->
+<div style="display: flex; gap: 40.3px; margin-top: 1px; align-items: center;">
+
+    <!-- Save Data Button -->
+    <form action="{{ url_for('customer') }}" method="POST">
+    <button type="submit" data-i18n="customer.save" style="font-weight: bold; width: 3.9cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+           שמירת נתונים
+        </button>
+    </form>
+
+    <!-- Go to Main Page Button -->
+    <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+        <button type="button" data-i18n="customer.main_page" style="font-weight: bold; width: 5.8cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+            עבור לדף הראשי
+        </button>
+    </a>
+
+    <!-- Search Form for Customer  -->
+ <form method="POST" action="{{ url_for('search_customer') }}" style="display: flex; align-items: center;">
+    <label for="search_name" data-i18n="customer.search" style="font-weight: bold; width: 5.7cm; height: 0.8cm; font-size: 19px; display: flex; align-items: center; margin-right: 9px;">חיפוש שם לקוחות:</label>
+    <select id="search_name" name="search_name" style="margin-right: 10px; width: 200px;">
+                <option value="" data-i18n="customer.search_name">
+            בחר שם לקוח
+        </option>
+        {% for c in all_customers %}
+            <option value="{{ c.customer_name }}">
+                {{ customer_i18n_list[c.id].name }}
+            </option>
+        {% endfor %}
+    </select>
+    <button type="submit" data-i18n="customer.search_button" style="font-weight: bold; width: 2.4cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+       חיפוש
+    </button>
+</form>
+
+    <!-- LOADING OVERLAY (פופאפ הודעה מבצע תרגום עד שמסיים) -->
+      <div id="loadingOverlay" data-i18n="loading.translation">⏳ מבצע תרגום... אנא המתן...</div>
+
+    <!-- Clear Data Button for Customer  -->
+<form method="POST" action="{{ url_for('clear_search_results_customer') }}" style="display: flex; align-items: center;">
+    <button type="submit" data-i18n="customer.clear" style="font-weight: bold; width: 3.5cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+        נקה מידע
+    </button>
+</form>
+
+<!-- Go to Customer Data Page Button -->
+<a href="{{ url_for('customer_data') }}" style="text-decoration: none;">
+    <button type="button" data-i18n="customer.data" style="font-weight: bold; width: 4.7cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+            מידע לקוחות
+        </button>
+    </a>
+
+    </div>
+ </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formBody = document.getElementById('form-body');
+    if (formBody) {
+        const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
+
+        formBody.addEventListener('keydown', function (event) {
+            const key = event.key;
+            const current = event.target;
+            const index = allFields.indexOf(current);
+
+            if (index === -1) return;
+
+            // אם השדה הוא select ונלחץ חץ למטה — נפתח את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowDown') {
+                current.size = current.options.length; // פותח את כל האפשרויות
+                event.preventDefault();
+                return;
+            }
+
+            // אם השדה הוא select ונלחץ חץ למעלה — סוגר את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowUp') {
+                current.size = 1;
+                event.preventDefault();
+                return;
+            }
+
+            // ניווט רגיל בין שדות
+            if (key === 'ArrowDown' && index < allFields.length - 1) {
+                allFields[index + 1].focus();
+                event.preventDefault();
+            }
+            if (key === 'ArrowUp' && index > 0) {
+                allFields[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+
+        // הדגשה כששדה נבחר
+        allFields.forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.backgroundColor = '#e6f7ff';
+                field.style.outline = '1px solid #007bff';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כברירת מחדל
+                }
+            });
+            field.addEventListener('blur', () => {
+                field.style.backgroundColor = '';
+                field.style.outline = '';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כשמאבדים פוקוס
+                }
+            });
+        });
+    }
+});
+</script>
+
+  <!-- פופאפ הודעה מבצע תרגום עד שמסיים -->
+<script>
+function lockUI() {
+    const lang = localStorage.getItem("lang") || "he";
+
+    const messages = {
+        "he": "⏳ מבצע תרגום... אנא המתן...",
+        "en": "⏳ Translating... Please wait...",
+        "fr": "⏳ Traduction en cours... Veuillez patienter...",
+        "es": "⏳ Traduciendo... Por favor espera...",
+        "de": "⏳ Übersetzung läuft... Bitte warten...",
+        "ru": "⏳ Выполняется перевод... Пожалуйста, подождите...",
+        "ar": "⏳ جارٍ الترجمة... يرجى الانتظار...",
+        "zh": "⏳ 正在翻译... 请稍候...",
+        "ja": "⏳ 翻訳中... お待ちください...",
+        "hi": "⏳ अनुवाद हो रहा है... कृपया प्रतीक्षा करें...",
+        "pt": "⏳ Traduzindo... Por favor, aguarde...",
+        "it": "⏳ Traduzione in corso... Attendere prego...",
+        "nl": "⏳ Vertalen... Even geduld aub...",
+        "sv": "⏳ Översätter... Vänta...",
+        "tr": "⏳ Çeviri yapılıyor... Lütfen bekleyin...",
+        "ko": "⏳ 번역 중... 잠시만 기다려주세요...",
+        "pl": "⏳ Tłumaczenie... Proszę czekać...",
+        "uk": "⏳ Виконується переклад... Зачекайте...",
+        "fa": "⏳ در حال ترجمه... لطفاً صبر کنید...",
+        "ro": "⏳ Se traduce... Vă rugăm așteptați...",
+        "cs": "⏳ Probíhá překlad... Počkejte prosím...",
+        "el": "⏳ Μετάφραση σε εξέλιξη... Παρακαλώ περιμένετε...",
+        "th": "⏳ กำลังแปล... กรุณารอสักครู่...",
+        "vi": "⏳ Đang dịch... Vui lòng chờ...",
+        "bn": "⏳ অনুবাদ হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন...",
+        "id": "⏳ Menerjemahkan... Harap tunggu...",
+        "ms": "⏳ Menterjemah... Sila tunggu...",
+        "tl": "⏳ Isinasalin... Mangyaring maghintay...",
+        "hu": "⏳ Fordítás folyamatban... Kérjük, várjon...",
+        "bg": "⏳ Превежда се... Моля, изчакайте..."
+    };
+
+    document.getElementById("loadingOverlay").innerText =
+        messages[lang] || messages["en"];
+
+    document.getElementById("loadingOverlay").style.display = "flex";
+}
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

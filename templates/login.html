@@ -1,0 +1,602 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>כניסה למערכת</title>
+ <script src="https://cdn.tailwindcss.com"></script>
+
+<!-- jQuery + Select2 -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<style>
+/* רקע */
+body {
+    background: linear-gradient(135deg, #0d1117, #1f6feb);
+    background-size: 500% 500%;
+    animation: flashBlue 12s ease infinite;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+@keyframes flashBlue {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* לוגואים */
+.gradient-b {
+    background: linear-gradient(90deg, #22d3ee, #86efac, #fde68a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+.logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    margin-top: 1px;
+}
+
+.beno-letter {
+    font-size: 90px;
+    line-height: 90px;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    color: #22d3ee;
+}
+
+.beno-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 5px solid #22d3ee;
+    overflow: hidden;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    transform: translateY(+5px);
+}
+
+.beno-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.logo-text {
+    font-size: 46px;
+    line-height: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    font-weight: 900;
+}
+
+.logo-circle {
+    width: 37px;
+    height: 37px;
+    border-radius: 50%;
+    border: 3px solid #22d3ee;
+    overflow: hidden;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    transform: translateY(+1px);
+}
+
+.logo-circle img {
+    width: 95%;
+    height: 95%;
+    object-fit: cover;
+}
+
+/* -------------------------------------- */
+/* Select2 — דגלים (KEEP THIS PART)       */
+/* -------------------------------------- */
+.language-option {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.language-option img {
+    width: 20px;
+    height: 14px;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+/* -------------------------------------- */
+/* GOLD SELECT2 THEME (REPLACES YOUR OLD) */
+/* -------------------------------------- */
+
+/* Closed select text */
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #f5d76e !important;
+    font-weight: 400;
+    text-shadow: 0 0 4px rgba(245, 215, 110, 0.4);
+}
+
+/* Dropdown option text */
+.select2-container--default .select2-results__option {
+    color: #f5d76e !important;
+}
+
+/* Search field inside dropdown */
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    background-color: #111827;
+    color: #f5d76e !important;
+    border: 1px solid #d4af37;
+}
+
+/* Highlighted option */
+.select2-container--default .select2-results__option--highlighted {
+    background-color: #3b2f00 !important;
+    color: #ffe9a3 !important;
+}
+
+/* Select box container */
+.select2-container--default .select2-selection--single {
+    background-color: #1f2937;
+    border: 1px solid #d4af37;
+    height: 32px;
+    padding: 2px;
+    color: #f5d76e;
+    box-shadow: 0 0 6px rgba(212, 175, 55, 0.4);
+}
+
+/* Dropdown background */
+.select2-container--default .select2-results > .select2-results__options {
+    background-color: #1f2937;
+    border: 1px solid #3a2f00;
+}
+
+/* Arrow gold */
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: #f5d76e transparent transparent transparent !important;
+}
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+
+    /* Bottom logo circle */
+    .logo-circle {
+        width: 34px !important;
+        height: 34px !important;
+        border-width: 3px !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* TOP BENO circle */
+    .beno-circle {
+        width: 54px !important;
+        height: 54px !important;
+        transform: translateY(-1px) !important;  
+    }
+
+    /* TOP BENO letters */
+    .beno-letter {
+        font-size: 72px !important;   
+        line-height: 72px !important;
+        }
+            
+    /* Force full width */
+    .select2-container {
+        width: 100% !important;
+    }
+
+    /* Bigger touch-friendly text */
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        font-size: 18px;
+        color: #f5d76e !important;
+    }
+
+    .select2-container--default .select2-results__option {
+        font-size: 18px;
+        color: #f5d76e !important;
+    }
+
+    /* Mobile dropdown spacing */
+    .select2-results__option {
+        padding: 14px 12px;
+    }
+}
+</style>
+
+</head>
+
+<body class="flex items-center justify-center min-h-screen bg-gray-900 text-gray-200 p-4">
+
+<!-- 🔹 LOGIN CONTAINER -->
+<div class="w-full max-w-md bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 text-center space-y-6">
+
+    <!-- Logo -->
+    <h1 dir="ltr" class="logo-container">
+      <span class="beno-letter gradient-b">B</span>
+      <span class="beno-letter gradient-b">E</span>
+      <span class="beno-letter gradient-b">N</span>
+      <span class="beno-circle">
+        <img src="/static/img/tiger.jpg" alt="O">
+      </span>
+    </h1>
+
+    <h1 dir="ltr" class="text-cyan-400 text-lg md:text-2xl font-bold">
+      Accounting Management AI
+    </h1>
+
+    <!-- 🌍 Language Selector -->
+    <div class="text-right mb-4">
+        <label class="block mb-1 text-gray-300 font-semibold">🌐 Language</label>
+       <select id="language" name="lang" class="w-full bg-gray-700 text-white rounded-lg"
+               onchange="setLanguage(this.value)">
+      <option value="he" data-flag="he">🇮🇱 Hebrew</option>
+      <option value="en" data-flag="en">🇺🇸 English</option>
+      <option value="fr" data-flag="fr">🇫🇷 Français</option>
+      <option value="es" data-flag="es">🇪🇸 Español</option>
+      <option value="de" data-flag="de">🇩🇪 Deutsch</option>
+      <option value="ru" data-flag="ru">🇷🇺 Русский</option>
+      <option value="ar" data-flag="sa">🇸🇦 العربية</option>
+      <option value="zh" data-flag="cn">🇨🇳 中文</option>
+      <option value="ja" data-flag="jp">🇯🇵 日本語</option>
+      <option value="hi" data-flag="in">🇮🇳 हिन्दी</option>
+      <option value="pt" data-flag="pt">🇵🇹 Português</option>
+      <option value="it" data-flag="it">🇮🇹 Italiano</option>
+      <option value="nl" data-flag="nl">🇳🇱 Nederlands</option>
+      <option value="sv" data-flag="se">🇸🇪 Svenska</option>
+      <option value="tr" data-flag="tr">🇹🇷 Türkçe</option>
+      <option value="ko" data-flag="kr">🇰🇷 한국어</option>
+      <option value="pl" data-flag="pl">🇵🇱 Polski</option>
+      <option value="uk" data-flag="ua">🇺🇦 Українська</option>
+      <option value="fa" data-flag="ir">🇮🇷 فارسی</option>
+      <option value="ro" data-flag="ro">🇷🇴 Română</option>
+      <option value="cs" data-flag="cz">🇨🇿 Čeština</option>
+      <option value="el" data-flag="gr">🇬🇷 Ελληνικά</option>
+      <option value="th" data-flag="th">🇹🇭 ไทย</option>
+      <option value="vi" data-flag="vn">🇻🇳 Tiếng Việt</option>
+      <option value="bn" data-flag="bn">🇧🇩 Bengali</option>
+      <option value="id" data-flag="id">🇮🇩 Indonesian</option>
+      <option value="ms" data-flag="ms">🇲🇾 Malay</option>
+      <option value="tl" data-flag="tl">🇵🇭 Filipino / Tagalog</option>
+      <option value="hu" data-flag="hu">🇭🇺 Hungarian</option>
+      <option value="bg" data-flag="bg">🇧🇬 Bulgarian</option>
+        </select>
+    </div>
+
+<!-- Tabs -->
+<div class="flex justify-center mb-6">
+  <button id="login-tab" data-i18n="login_tab"
+    class="px-6 py-0.5 text-lg font-semibold rounded-l-lg transition-all duration-300 bg-indigo-600 text-white shadow-lg">
+    Login
+  </button>
+
+  <button id="register-tab" data-i18n="register_tab"
+    class="px-6 py-0.5 text-lg font-semibold rounded-r-lg transition-all duration-300 bg-gray-700 text-gray-400">
+    Register
+  </button>
+</div>
+
+<!-- Form Title -->
+<h2 id="form-title" data-i18n="login_title"
+  class="text-3xl font-extrabold text-center text-white mb-6">
+  Log in to your account
+</h2>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div id="flash-messages" class="mb-6 space-y-2">
+  {% for category, message in messages %}
+  <div class="p-3 rounded-lg text-sm text-center font-medium
+    {% if category == 'success' %} bg-green-700 text-green-200
+    {% elif category == 'danger' or category == 'warning' %} bg-red-700 text-red-200
+    {% endif %}">
+    {{ message }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- 🔹 Auth Form -->
+<form id="auth-form" method="POST" action="{{ url_for('login') }}" class="space-y-6 text-right">
+
+  <!-- Username (Register Only) -->
+  <div id="username-field">
+    <label for="username" data-i18n="username_label"
+      class="block text-sm font-medium text-gray-400 mb-1">Username</label>
+
+    <input type="text" name="username" id="username"
+      class="w-full px-4 py-2 bg-gray-700 rounded-lg border border-gray-600 text-white focus:ring-2 focus:ring-indigo-500 text-right"
+      placeholder="Enter username" data-i18n-placeholder="username_placeholder" />
+  </div>
+
+  <!-- Email Normal -->
+  <div id="email-normal">
+    <label for="email" data-i18n="email_label">Email Address</label>
+    <input type="email" name="email" id="email"
+      class="w-full px-4 py-1 bg-gray-700 rounded-lg border border-gray-600 text-white"
+      placeholder="name@example.com" data-i18n-placeholder="email_placeholder" />
+  </div>
+
+  <!-- Email Employee -->
+  <div id="email-employee" style="display:none;">
+    <label for="employee_email" data-i18n="email_label">Email Address</label>
+    <input type="text" name="employee_email" id="employee_email"
+      inputmode="email" autocomplete="off"
+      class="w-full px-4 py-1 bg-gray-700 rounded-lg border border-gray-600 text-white"
+      placeholder="name@example.com" data-i18n-placeholder="email_placeholder" />
+  </div>
+
+  <!-- Password -->
+  <div>
+    <label for="password" data-i18n="password_label"
+      class="block text-sm font-medium text-gray-400 mb-1">Password</label>
+
+    <input type="password" name="password" id="password" required
+      class="w-full px-4 py-1 bg-gray-700 rounded-lg border border-gray-600 text-white focus:ring-2 focus:ring-indigo-500 text-right"
+      placeholder="••••••••" data-i18n-placeholder="password_placeholder" />
+  </div>
+
+  <!-- Role -->
+  <div>
+    <label for="role" data-i18n="role_label"
+      class="block text-sm font-medium text-gray-400 mb-1">User Type</label>
+
+    <select name="role" id="role"
+      class="w-full px-4 py-1 bg-gray-700 rounded-lg border border-gray-600 text-white focus:ring-2 focus:ring-indigo-500 text-right">
+      <option value="customer" data-i18n="role_customer">Customer</option>
+      <option value="employee" data-i18n="role_employee">Employee</option>
+    </select>
+  </div>
+
+  <!-- Submit -->
+  <button id="submit-btn" type="submit" data-i18n="login_button"
+    class="w-full py-0.5 px-4 rounded-lg text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500">
+    Login
+  </button>
+
+</form>
+
+<!-- Subtitle -->
+<h2 dir="rtl" data-i18n="smart_accounting"
+  class="text-cyan-400 text-lg md:text-2xl font-bold">
+  Smart Accounting Management
+</h2>
+
+<!-- Bottom Title -->
+<h1 dir="ltr" class="flex items-center justify-center gap-4 flex-nowrap">
+
+  <span class="logo-text gradient-b">BE</span>
+  <span class="logo-text gradient-b">Number</span>
+
+  <span class="flex items-center gap-0">
+    <span class="logo-circle">
+      <img src="/static/img/tiger.jpg" alt="O">
+    </span>
+    <span class="logo-text gradient-b">ne</span>
+  </span>
+
+</h1>
+
+</div>
+
+  <!-- 🔹 Scripts -->
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // ===============================
+    // ELEMENTS
+    // ===============================
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const formTitle = document.getElementById('form-title');
+    const authForm = document.getElementById('auth-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const usernameField = document.getElementById('username-field');
+    const roleSelect = document.getElementById("role");
+
+    // ===============================
+    // RTL LANGUAGES
+    // ===============================
+    const rtlLangs = ["he", "ar", "fa", "ur"];
+
+    // ===============================
+    // LOAD LANGUAGE JSON
+    // ===============================
+    function loadLanguage(lang) {
+        fetch(`/static/${lang}.json`)
+            .then(res => res.json())
+            .then(data => {
+
+                // Translate text
+                document.querySelectorAll("[data-i18n]").forEach(el => {
+                    const key = el.getAttribute("data-i18n");
+                    if (data[key]) el.textContent = data[key];
+                });
+
+                // Translate placeholders
+                document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+                    const key = el.getAttribute("data-i18n-placeholder");
+                    if (data[key]) el.placeholder = data[key];
+                });
+
+                // Translate <option>
+                document.querySelectorAll("option[data-i18n]").forEach(el => {
+                    const key = el.getAttribute("data-i18n");
+                    if (data[key]) el.textContent = data[key];
+                });
+            });
+    }
+
+    window.loadLanguage = loadLanguage;
+
+// ===============================
+// SELECT2 INIT
+// ===============================
+$("#language").select2({
+    templateResult: formatLang,
+    templateSelection: formatLang,
+    width: "100%"
+});
+
+// FIXED: use data-flag instead of lang.id
+function formatLang(lang) {
+    if (!lang.id) return lang.text;
+
+    // get correct flag code from <option data-flag="xx">
+    const flag = $(lang.element).data("flag");
+
+    return $(`
+        <span class="language-option">
+            <img src="/static/flags/${flag}.svg" class="flag-icon" />
+            ${lang.text}
+        </span>
+    `);
+}
+
+    // ===============================
+    // LOAD SAVED LANGUAGE
+    // ===============================
+    const savedLang = localStorage.getItem("lang") || "en";
+    $("#language").val(savedLang).trigger("change");
+
+    // Apply language + RTL
+    loadLanguage(savedLang);
+    document.documentElement.setAttribute("dir", rtlLangs.includes(savedLang) ? "rtl" : "ltr");
+
+    // ===============================
+    // LANGUAGE CHANGE EVENT
+    // ===============================
+    $("#language").on("select2:select", function () {
+        const lang = $(this).val();
+
+        localStorage.setItem("lang", lang);
+
+        document.documentElement.setAttribute("dir",
+            rtlLangs.includes(lang) ? "rtl" : "ltr"
+        );
+
+        loadLanguage(lang);
+    });
+
+    // ===============================
+    // LOGIN / REGISTER MODE
+    // ===============================
+    function setFormMode(isLoginMode) {
+
+        if (isLoginMode) {
+            loginTab.classList.add('bg-indigo-600', 'text-white', 'shadow-lg');
+            loginTab.classList.remove('bg-gray-700', 'text-gray-400');
+            registerTab.classList.add('bg-gray-700', 'text-gray-400');
+            registerTab.classList.remove('bg-indigo-600', 'text-white', 'shadow-lg');
+
+            formTitle.setAttribute("data-i18n", "login_title");
+            submitBtn.setAttribute("data-i18n", "login_button");
+
+            authForm.action = "{{ url_for('login') }}";
+            usernameField.style.display = "none";
+
+        } else {
+            registerTab.classList.add('bg-indigo-600', 'text-white', 'shadow-lg');
+            registerTab.classList.remove('bg-gray-700', 'text-gray-400');
+            loginTab.classList.add('bg-gray-700', 'text-gray-400');
+            loginTab.classList.remove('bg-indigo-600', 'text-white', 'shadow-lg');
+
+            formTitle.setAttribute("data-i18n", "register_title");
+            submitBtn.setAttribute("data-i18n", "register_button");
+
+            authForm.action = "{{ url_for('register') }}";
+            usernameField.style.display = "block";
+        }
+
+        loadLanguage(localStorage.getItem("lang") || "en");
+    }
+
+    loginTab.addEventListener('click', () => setFormMode(true));
+    registerTab.addEventListener('click', () => setFormMode(false));
+    setFormMode(true);
+
+    // ===============================
+    // ROLE SWITCH
+    // ===============================
+    roleSelect.addEventListener("change", function() {
+        const normal = document.getElementById("email-normal");
+        const employee = document.getElementById("email-employee");
+
+        if (this.value === "employee") {
+            normal.style.display = "none";
+            employee.style.display = "block";
+        } else {
+            normal.style.display = "block";
+            employee.style.display = "none";
+        }
+    });
+
+    // ===============================
+    // KEYBOARD NAVIGATION
+    // ===============================
+    document.addEventListener('keydown', function(e) {
+
+        const inputs = Array.from(
+            document.querySelectorAll('#auth-form input:not([type=hidden]):not([disabled])')
+        ).filter(el => el.offsetParent !== null);
+
+        const focusedIndex = inputs.indexOf(document.activeElement);
+        if (focusedIndex === -1) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            inputs[(focusedIndex + 1) % inputs.length].focus();
+        }
+
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            inputs[(focusedIndex - 1 + inputs.length) % inputs.length].focus();
+        }
+    });
+
+    // ===============================
+    // VIDEO CONTROLS
+    // ===============================
+    window.openVideo = function() {
+        document.getElementById('videoModal').style.display = 'flex';
+    };
+
+    window.closeVideo = function() {
+        document.getElementById('videoModal').style.display = 'none';
+    };
+
+    window.launchFullscreen = function() {
+        const video = document.getElementById('demoVideo');
+        if (video.requestFullscreen) video.requestFullscreen();
+        else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+        else if (video.msRequestFullscreen) video.msRequestFullscreen();
+    };
+
+});
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

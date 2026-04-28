@@ -1,0 +1,439 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="company.title">ניהול פרטי חברה</title>
+
+    <script>
+        function validateForm() {
+            var form = document.getElementById('company-form');
+            var inputs = form.querySelectorAll('input[required]');
+            var errorMessage = '';
+            
+            inputs.forEach(function(input) {
+                if (!input.value) {
+                    errorMessage += 'Please fill out the ' + input.name + ' field.<br>';
+                }
+            });
+            
+            if (errorMessage) {
+                document.getElementById('error-message').innerHTML = errorMessage;
+            } else {
+                form.submit();
+            }
+        }
+    </script>
+
+<style>
+/* Wrapper that adds 4cm spacing on both sides */
+/* ===== WRAPPER ===== */
+.form-wrapper {
+    padding-left: 4cm;
+    padding-right: 4cm;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ===== 3 COLUMNS LAYOUT ===== */
+.form-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 33%;
+}
+
+/* ===== ROWS ===== */
+.form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.form-row label {
+    width: 35%;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.form-row input,
+.form-row select {
+    width: 60%;
+    height: 0.6cm;
+    padding: 3px 6px;
+    font-size: 1em;
+    font-weight: bold;
+    border: 1px solid #999;
+    border-radius: 4px;
+    direction: rtl;
+}
+
+/* ===== FULL WIDTH ROW ===== */
+.full-width-row {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.full-width-row label {
+    width: 2cm;
+    font-weight: bold;
+}
+
+.full-width-row input {
+    width: calc(100% - 2.5cm);
+    height: 0.9cm;
+    font-size: 1.1em;
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding-right: 8px;
+}
+
+/* ===== BUTTONS ===== */
+button {
+    cursor: pointer;
+    border: none;
+    background-color: #0078d4;
+    color: white;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #005fa3;
+}
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+
+    body {
+        direction: rtl !important;
+        text-align: right !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .form-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+    }
+
+    .form-container {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .form-column {
+        width: 100% !important;
+        display: block !important;
+        margin-bottom: 15px !important;
+    }
+
+    .form-row {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        margin-bottom: 12px !important;
+    }
+
+    .form-row label {
+        width: 100% !important;
+        font-size: 16px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .form-row input,
+    .form-row select {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        padding: 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .full-width-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+    }
+
+    .full-width-row label {
+        width: 100% !important;
+        margin-bottom: 4px !important;
+    }
+
+    .full-width-row input {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+    }
+
+    button {
+        width: 100% !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        margin-bottom: 10px !important;
+        border-radius: 6px !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    div[style*="display: flex"] {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    h1 {
+        width: 100% !important;
+        text-align: center !important;
+        font-size: 26px !important;
+        margin: 0 0 15px 0 !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+    }
+}
+
+</style>
+
+</head>
+<body>
+<div class="container">
+    <div class="column1"></div>
+    <div class="column2">
+
+        <!-- TITLE -->
+        <h1 style="text-align: center;">
+            <span data-i18n="company.add_or_update">הוסף או עדכן פרטי חברה</span>
+        </h1>
+
+        <form action="{{ url_for('company') }}" method="POST" id="company-form">
+            <input type="hidden" id="company_id" name="company_id" value="{{ company.id if company else '' }}">
+
+            <div style="height: 0.1cm;"></div>
+
+            <div class="form-wrapper">
+                <div class="form-container">
+
+                    <!-- COLUMN 1 -->
+                    <div class="form-column">
+                        <div class="form-row">
+                            <label for="name">
+                                <span data-i18n="company.name">שם החברה:</span>
+                            </label>
+                            <input type="text" id="name" name="name" value="{{ company.name if company else '' }}" required>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="company_id_number">
+                                <span data-i18n="company.company_id">ח.פ./ע.מ.:</span>
+                            </label>
+                            <input type="text" id="company_id_number" name="company_id_number" value="{{ company.company_id_number if company else '' }}" required>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="deduction_file">
+                                <span data-i18n="company.deduction_file">תיק ניכויים:</span>
+                            </label>
+                            <input type="text" id="deduction_file" name="deduction_file" value="{{ company.deduction_file if company else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 2 -->
+                    <div class="form-column">
+                        <div class="form-row">
+                            <label for="address">
+                                <span data-i18n="company.address">כתובת:</span>
+                            </label>
+                            <input type="text" id="address" name="address" value="{{ company.address if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="city">
+                                <span data-i18n="company.city">עיר:</span>
+                            </label>
+                            <input type="text" id="city" name="city" value="{{ company.city if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="postal_code">
+                                <span data-i18n="company.postal_code">מיקוד:</span>
+                            </label>
+                            <input type="text" id="postal_code" name="postal_code" value="{{ company.postal_code if company else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 3 -->
+                    <div class="form-column">
+                        <div class="form-row">
+                            <label for="phone">
+                                <span data-i18n="company.phone">טלפון:</span>
+                            </label>
+                            <input type="text" id="phone" name="phone" value="{{ company.phone if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="email">
+                                <span data-i18n="company.email">מייל:</span>
+                            </label>
+                            <input type="text" id="email" name="email" value="{{ company.email if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="logo">
+                                <span data-i18n="company.logo">לוגו (URL):</span>
+                            </label>
+                            <input type="text" id="logo" name="logo" value="{{ company.logo if company else '' }}">
+            </div>
+        </div>
+
+    </div>
+</form>   
+
+<!-- ERROR MESSAGE -->
+<div id="error-message" style="color: red; text-align: center; margin-top: 10px;"></div>
+
+    <div style="height: 4.1cm;"></div>
+
+    <!-- BUTTONS -->
+    <div style="display: flex; gap: 40.3px; margin-top: 1px; align-items: center;">
+
+        <!-- MAIN PAGE -->
+        <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+            <button type="button" data-i18n="company.main_page" style="font-weight: bold; width: 5.8cm; height: 0.5cm; font-size: 17px;">
+                עבור לדף הראשי
+            </button>
+        </a>
+
+        <!-- CLEAR COMPANY -->
+        <form method="POST" action="{{ url_for('clear_company_results') }}">
+            <button type="submit" data-i18n="company.clear" style="font-weight: bold; width: 6.8cm; height: 0.5cm; font-size: 17px;">
+                נקה מידע
+            </button>
+        </form>
+
+        <!-- SAVE -->
+        <button type="button" onclick="validateForm()" data-i18n="company.save" style="font-weight: bold; width: 5.5cm; height: 0.5cm; font-size: 17px;">
+            עדכן ושמור
+        </button>
+
+               <!--  צור תרגום שם חברה -->
+        <button type="button"
+          id="generateCompanyBtn"
+          onclick="generateCompanyTranslation()"
+          data-i18n="company.generate"
+          style="font-weight: bold; width: 5.5cm; height: 0.5cm; font-size: 17px;">
+               צור תרגום שם חברה
+           </button>
+
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formBody = document.getElementById('company-form');
+    if (formBody) {
+        const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
+
+        formBody.addEventListener('keydown', function (event) {
+            const key = event.key;
+            const current = event.target;
+            const index = allFields.indexOf(current);
+
+            if (index === -1) return;
+
+            // אם השדה הוא select ונלחץ חץ למטה — נפתח את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowDown') {
+                current.size = current.options.length; // פותח את כל האפשרויות
+                event.preventDefault();
+                return;
+            }
+
+            // אם השדה הוא select ונלחץ חץ למעלה — סוגר את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowUp') {
+                current.size = 1;
+                event.preventDefault();
+                return;
+            }
+
+            // ניווט רגיל בין שדות
+            if (key === 'ArrowDown' && index < allFields.length - 1) {
+                allFields[index + 1].focus();
+                event.preventDefault();
+            }
+            if (key === 'ArrowUp' && index > 0) {
+                allFields[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+
+        // הדגשה כששדה נבחר
+        allFields.forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.backgroundColor = '#e6f7ff';
+                field.style.outline = '1px solid #007bff';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כברירת מחדל
+                }
+            });
+            field.addEventListener('blur', () => {
+                field.style.backgroundColor = '';
+                field.style.outline = '';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כשמאבדים פוקוס
+                }
+            });
+        });
+    }
+});
+</script>
+
+  <!-- Translate language -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const btn = document.getElementById("generateCompanyBtn");
+
+    if (btn) {
+        btn.onclick = function () {
+            btn.innerText = "..."; 
+
+            fetch("/admin/generate_company", {
+                method: "POST"
+            })
+            .then(() => {
+                location.reload();
+            })
+            .catch(() => {
+                location.reload();
+            });
+        };
+    }
+});
+</script>
+
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
