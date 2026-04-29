@@ -2120,10 +2120,22 @@ def customer():
                 flash("קיים כבר לקוח עם מספר זהות זה", "error")
                 return redirect(url_for('customer'))
 
-            # --- FIX FOR USER_ID 0 ---
-            # אם המערכת מזהה 0, אנחנו נותנים את ה-ID של המשתמש המחובר, 
-            # ואם גם הוא לא תקין, ברירת מחדל ל-1 (המשתמש הראשון במערכת)
-            safe_user_id = current_user.id if (current_user.is_authenticated and current_user.id != 0) else 1
+            # --- התיקון הקריטי למשתמש ב-Postgres ---
+            from database import User
+            # אנחנו מוודאים שיש משתמש עם ID=1 בטבלה, אחרת Postgres יזרוק 500
+            db_admin = User.query.get(1)
+            if not db_admin:
+                db_admin = User(
+                    id=1,
+                    username=os.getenv("OWNER_USERNAME"),
+                    password=generate_password_hash(os.getenv("OWNER_PASSWORD")),
+                    role='admin'
+                )
+                db.session.add(db_admin)
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
             # --- ADD NEW CUSTOMER ---
             new_customer = Customer(
@@ -2139,7 +2151,7 @@ def customer():
                 message=request.form.get('message'),
                 role='customer',
                 is_active=True,
-                user_id=safe_user_id  # <--- השתמשנו ב-ID המאובטח
+                user_id=1 # תמיד מקשרים למשתמש מספר 1 ב-DB
             )
 
             db.session.add(new_customer)
