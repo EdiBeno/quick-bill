@@ -406,32 +406,26 @@ def generate_translations(text):
 # ---------------------------------------------------------
 # Flask-Login: User Loader (CRITICAL FOR SESSIONS)
 # ---------------------------------------------------------
+
 @login_manager.user_loader
 def load_user(user_id):
-    from database import User
-    
-    # 1. חיפוש רגיל ב-DB
-    user = User.query.get(int(user_id))
-    if user:
-        return user
-
-    # 2. אם אתה מחובר כ-Owner (0) אבל Postgres דורש משתמש בטבלה (1)
-    if user_id == "0" or user_id == "1":
-        # אנחנו יוצרים שורה ב-DB שתתאים לנתונים מה-.env שלך
-        # ככה Postgres יזהה את ה-ID ולא יזרוק 500
-        admin = User.query.filter_by(username=os.getenv("OWNER_USERNAME")).first()
-        if not admin:
-            admin = User(
-                id=1, 
-                username=os.getenv("OWNER_USERNAME"), 
-                password=generate_password_hash(os.getenv("OWNER_PASSWORD")),
-                role='admin'
-            )
-            db.session.add(admin)
-            db.session.commit()
-        return admin
-
-    return None
+    try:
+        # 1. Handle the Owner (ID 0)
+        if user_id == "0":
+            from database import OwnerUser
+            return OwnerUser(os.getenv("OWNER_USERNAME"))
+        
+        # 2. Handle regular SQL users
+        # Use .get() and handle the possibility of None
+        from database import User
+        user = User.query.get(int(user_id))
+        if user:
+            return user
+            
+    except Exception as e:
+        print(f"❌ Error in load_user: {e}")
+        
+    return None # Flask-Login expects None if user doesn't exist
 
 # -----------------------------
 # Decorators
