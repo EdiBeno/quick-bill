@@ -1557,18 +1557,44 @@ function getCookie(name) {
 }
 
 // מספר עם פסיקים (2,787.75)
-function formatLocaleNumber(num) {
-    return Number(num || 0).toLocaleString("en-US", {
+function formatLocaleNumber(number) {
+    const lang = localStorage.getItem("lang") || "he";
+    // כאן אנחנו לא מגבילים ל-latn. אם השפה היא ערבית/בנגלדש, הוא יציג ספרות מקומיות!
+    return new Intl.NumberFormat(lang, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
-    });
+    }).format(number);
 }
 
 // ניקוי פסיקים → 2787.75
 function parseLocaleNumber(string) {
     if (!string) return 0;
-    const clean = string.toString().replace(/[^\d.,-]/g, "");
-    return parseFloat(clean.replace(/,/g, "")) || 0;
+    
+    // הפיכה למחרוזת
+    let s = string.toString();
+
+    // תיקון קריטי: המרה של ספרות בנגליות וערביות למספרים רגילים 0-9
+    const nativeDigits = {"০":"0","১":"1","২":"2","৩":"3","۴":"4","৫":"5","৬":"6","৭":"7","৮":"8","৯":"9",
+                          "٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"};
+    
+    s = s.replace(/[০-৯٠-٩]/g, function(m) { return nativeDigits[m]; });
+
+    // ניקוי סימני מטבע ורווחים
+    s = s.replace(/[^\d,.\-]/g, "");
+
+    // לוגיקה של פסיק ונקודה (גרמנית מול אנגלית)
+    if (s.includes(',') && s.includes('.')) {
+        if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+            s = s.replace(/\./g, "").replace(',', '.');
+        } else {
+            s = s.replace(/,/g, "");
+        }
+    } else if (s.includes(',')) {
+        s = s.replace(',', '.');
+    }
+
+    const val = parseFloat(s);
+    return isNaN(val) ? 0 : val;
 }
 
 function getCurrencyFromCookie() {
@@ -1731,7 +1757,6 @@ function updateCode(selectEl) {
 
 /* ----- Calculate Totals ----- */
 function calculateTotals() {
-
     let subTotal = 0;
     let discountTotal = 0;
 
@@ -1741,7 +1766,7 @@ function calculateTotals() {
         const getVal = selector => {
             const el = row.querySelector(selector);
             if (!el) return 0;
-            return parseLocaleNumber(el.value);
+            return typeof parseLocaleNumber === 'function' ? parseLocaleNumber(el.value) : parseFloat(el.value) || 0;
         };
 
         const quantity = getVal(".quantity-input");
@@ -1754,7 +1779,6 @@ function calculateTotals() {
 
         const totalInput = row.querySelector(".total-input");
         if (totalInput) {
-            // תצוגת סה"כ שורה – מספר עם פסיקים (ללא סימן מטבע אם תרצה)
             totalInput.value = formatLocaleNumber(total);
         }
 
@@ -1762,17 +1786,17 @@ function calculateTotals() {
         discountTotal += lineDiscountAmount;
     });
 
-    const vatRate = parseFloat(document.getElementById("vat-rate-select").value) || 0;
-
+    const vatRate = parseFloat(document.getElementById("vat-rate-select")?.value) || 0;
     const vatAmount  = subTotal * (vatRate / 100);
     const grandTotal = subTotal + vatAmount;
 
+    // Update UI Displays
     document.getElementById("sub-total-display").textContent      = formatCurrency(subTotal);
     document.getElementById("discount-total-display").textContent = formatCurrency(discountTotal);
     document.getElementById("vat-amount-display").textContent     = formatCurrency(vatAmount);
     document.getElementById("grand-total-display").textContent    = formatCurrency(grandTotal);
 
-    // Hidden fields
+    // Update Hidden Fields for Flask
     const setHidden = (id, val) => {
         const el = document.getElementById(id);
         if (el) el.value = (val || 0).toFixed(2);
@@ -1783,22 +1807,22 @@ function calculateTotals() {
     setHidden("grand-total-input", grandTotal);
     setHidden("discount-total-input", discountTotal);
 
-    // Payment auto-fill
-    const paymentInputs = document.querySelectorAll(".payment-amount-input");
-    if (paymentInputs.length === 1) {
-        const raw = paymentInputs[0].value;
-        const currentVal = parseLocaleNumber(raw);
-
-        if (currentVal === 0) {
-            paymentInputs[0].value = formatLocaleNumber(grandTotal);
-
-            const hiddenInp = paymentInputs[0].nextElementSibling;
-            if (hiddenInp && hiddenInp.type === "hidden") {
-                hiddenInp.value = grandTotal.toFixed(2);
-            }
+    // --- התיקון הדינמי לתשלומים (DYNAMIC PAYMENT UPDATE) ---
+    const allPaymentRows = document.querySelectorAll(".payment-row");
+    
+    // If there is only ONE payment row and it hasn't been edited manually yet, 
+    // auto-fill it with the new Grand Total.
+    if (allPaymentRows.length === 1) {
+        const visualInp = allPaymentRows[0].querySelector(".payment-amount-input");
+        const hiddenInp = allPaymentRows[0].querySelector('input[name="payment_amount[]"]');
+        
+        if (visualInp && hiddenInp) {
+            visualInp.value = formatLocaleNumber(grandTotal);
+            hiddenInp.value = grandTotal.toFixed(2);
         }
     }
 
+    // Always refresh the balance logic
     if (typeof updatePaymentTotals === "function") {
         updatePaymentTotals();
     }
@@ -1814,8 +1838,11 @@ function buildItemsForSubmit() {
         const productId = row.querySelector('.product-select')?.value;
         if (!productId) return;
 
-        // איסוף נתונים נקיים ללא פסיקים למשלוח ל-Database
-        const clean = (sel) => row.querySelector(sel).value.replace(/,/g, '');
+        // FIX: Use your locale-aware parser instead of just replacing commas
+        const clean = (sel) => {
+            const val = row.querySelector(sel).value;
+            return typeof parseLocaleNumber === 'function' ? parseLocaleNumber(val) : val.replace(/,/g, '');
+        };
 
         const hidden = document.createElement('input');
         hidden.type = 'hidden';
@@ -1835,13 +1862,13 @@ function buildItemsForSubmit() {
 /* ----- פונקציה שמחזירה כמה שולם עד עכשיו  ----- */
 function getCurrentPaid() {
     let paid = 0;
+    // רצים על כל שדות הסכום בתשלומים
     document.querySelectorAll('.payment-amount-input').forEach(input => {
-        const val = typeof parseLocaleNumber === 'function'
-            ? parseLocaleNumber(input.value)
-            : parseFloat(input.value.replace(/,/g, '')) || 0;
+        // שימוש ב-parseLocaleNumber שבנינו קודם כדי להבין גם 1.115,22 וגם 1,115.22
+        const val = parseLocaleNumber(input.value);
         paid += val;
     });
-    return typeof round2 === 'function' ? round2(paid) : Math.round(paid * 100) / 100;
+    return paid;
 }
 
 /* ----- פונקציית חישוב יתרת תשלום ועדכון תצוגה ----- */
@@ -1852,29 +1879,41 @@ function updatePaymentTotals() {
 
     if (!grandInput || !paidSpan || !balSpan) return;
 
+    // 1. סכום סופי מהשדה הנסתר (מספר נקי)
+    const rawGrand = grandInput.value || "0";
     const grandValue = typeof parseLocaleNumber === 'function'
-        ? parseLocaleNumber(grandInput.value || 0)
-        : parseFloat(grandInput.value.replace(/,/g, '')) || 0;
+        ? parseLocaleNumber(rawGrand)
+        : parseFloat(rawGrand) || 0;
     
     const grandTotal = typeof round2 === 'function' ? round2(grandValue) : grandValue;
-    const paid       = getCurrentPaid();
-    const balance    = Math.max(grandTotal - paid, 0);
 
+    // 2. סכימת תשלומים מהשדות הנסתרים
+    let paid = 0;
+    document.querySelectorAll('input[name="payment_amount[]"]').forEach(input => {
+        paid += parseFloat(input.value || 0);
+    });
+
+    // 3. חישוב יתרה
+    const balance = Math.max(grandTotal - paid, 0);
+
+    // 4. עדכון תצוגה מעוצבת למשתמש
     paidSpan.innerText = typeof formatLocaleNumber === 'function'
         ? formatLocaleNumber(paid)
         : paid.toLocaleString();
+        
     balSpan.innerText  = typeof formatLocaleNumber === 'function'
         ? formatLocaleNumber(balance)
         : balance.toLocaleString();
 }
 
-/* ----- הוספת שורת תשלום (כולל תמיכה במובייל ) ----- */
+/* ----- הוספת שורת תשלום (Corrected Version) ----- */
 function addPaymentRow(amount = null, date = null, method = "cash", bank = "", branch = "", account = "") {
     const tbody = document.getElementById('payment-tbody');
     if (!tbody) return;
 
     const today = new Date().toISOString().split("T")[0];
 
+    // 1. בדיקת יתרה לתשלום (בצורה נקייה)
     const grandValue = typeof parseLocaleNumber === 'function'
         ? parseLocaleNumber(document.getElementById('grand-total-input')?.value || "0")
         : 0;
@@ -1883,9 +1922,7 @@ function addPaymentRow(amount = null, date = null, method = "cash", bank = "", b
 
     let valueToUse;
     if (amount !== null && amount !== "" && !isNaN(parseFloat(amount.toString().replace(/,/g, '')))) {
-        valueToUse = typeof parseLocaleNumber === 'function'
-            ? parseLocaleNumber(amount)
-            : parseFloat(amount);
+        valueToUse = typeof parseLocaleNumber === 'function' ? parseLocaleNumber(amount) : parseFloat(amount);
     } else {
         valueToUse = Math.max(grandValue - paidSoFar, 0);
     }
@@ -1909,21 +1946,15 @@ function addPaymentRow(amount = null, date = null, method = "cash", bank = "", b
         </td>
 
         <td data-i18n-label="bank_label" data-label="${t('bank_label')}">
-            <input type="text" name="bank[]" value="${bank}" 
-                   data-i18n-placeholder="bank_label" 
-                   placeholder="${t('bank_label')}">
+            <input type="text" name="bank[]" value="${bank}" placeholder="${t('bank_label')}">
         </td>
 
         <td data-i18n-label="branch_label" data-label="${t('branch_label')}">
-            <input type="text" name="branch[]" value="${branch}" 
-                   data-i18n-placeholder="branch_label" 
-                   placeholder="${t('branch_label')}">
+            <input type="text" name="branch[]" value="${branch}" placeholder="${t('branch_label')}">
         </td>
 
         <td data-i18n-label="account_check_label" data-label="${t('account_check_label')}">
-            <input type="text" name="account_number[]" value="${account}" 
-                   data-i18n-placeholder="account_check_label" 
-                   placeholder="${t('account_check_label')}">
+            <input type="text" name="account_number[]" value="${account}" placeholder="${t('account_check_label')}">
         </td>
 
         <td class="currency-symbol" style="text-align:center; font-weight:bold; min-width:25px;">
@@ -1934,9 +1965,14 @@ function addPaymentRow(amount = null, date = null, method = "cash", bank = "", b
             <input type="text" 
                    class="payment-amount-input item-input"
                    value="${typeof formatLocaleNumber === 'function' ? formatLocaleNumber(valueToUse) : valueToUse}"
-                   oninput="this.nextElementSibling.value = (typeof parseLocaleNumber === 'function' ? parseLocaleNumber(this.value) : this.value.replace(/,/g, '')); updatePaymentTotals();"
+                   oninput="
+                        const cleanVal = (typeof parseLocaleNumber === 'function' ? parseLocaleNumber(this.value) : this.value.replace(/,/g, ''));
+                        const hiddenInput = this.closest('td').querySelector('input[type=hidden]');
+                        if (hiddenInput) { hiddenInput.value = cleanVal; }
+                        updatePaymentTotals();
+                   "
                    style="width: 100%; box-sizing: border-box;">
-            <input type="hidden" name="payment_amount[]" value="${valueToUse.toFixed(2)}">
+            <input type="hidden" name="payment_amount[]" value="${parseFloat(valueToUse || 0).toFixed(2)}">
         </td>
 
         <td class="col-delete">
@@ -1946,9 +1982,9 @@ function addPaymentRow(amount = null, date = null, method = "cash", bank = "", b
 
     tbody.appendChild(row);
 
-    // Re-translate new row (mobile labels, placeholders, options, currency)
+    // תרגום מיידי לשפה הנכונה
     const currentLang = localStorage.getItem("lang") || "he";
-    loadLanguage(currentLang);
+    if (typeof loadLanguage === "function") loadLanguage(currentLang);
 
     updatePaymentTotals();
 }
@@ -2048,6 +2084,7 @@ function loadExistingItems() {
         qtyCell.appendChild(qtyInput);
         row.appendChild(qtyCell);
 
+        
         // --- מחיר ---
         const priceCell = document.createElement('td');
         priceCell.setAttribute('data-label', 'מחיר יחידה:');
@@ -2072,7 +2109,10 @@ function loadExistingItems() {
         const totalInput = document.createElement('input');
         totalInput.type = "text";
         totalInput.className = "item-input total-input";
-        totalInput.value = formatLocaleNumber(item.total_price || 0);
+        totalInput.value = typeof formatLocaleNumber === 'function' 
+            ? formatLocaleNumber(item.total_price || 0) 
+            : (item.total_price || 0).toFixed(2);
+
         totalInput.readOnly = true;
         totalCell.appendChild(totalInput);
         row.appendChild(totalCell);
@@ -2144,7 +2184,10 @@ function loadExistingItems() {
         const totalInput = document.createElement('input');
         totalInput.type = "text";
         totalInput.className = "item-input total-input";
-        totalInput.value = "0.00";
+        totalInput.value = typeof formatLocaleNumber === 'function' 
+            ? formatLocaleNumber(0) 
+            : "0.00";
+
         totalInput.readOnly = true;
         totalCell.appendChild(totalInput);
 
@@ -2169,32 +2212,54 @@ function loadExistingItems() {
         });
     }
 
-    /* ----- טעינת תשלומים קיימים מהשרת ----- */
-    function loadExistingPayments() {
-        if (typeof loadedPayments === "undefined" || !Array.isArray(loadedPayments) || loadedPayments.length === 0) {
-            return;
+/* ----- טעינת תשלומים קיימים מהשרת (Fixed) ----- */
+function loadExistingPayments() {
+    if (typeof loadedPayments === "undefined" || !Array.isArray(loadedPayments) || loadedPayments.length === 0) {
+        if (typeof addPaymentRow === "function") addPaymentRow();
+        return;
+    }
+
+    const tbody = document.getElementById('payment-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = ""; 
+
+    loadedPayments.forEach(item => {
+        // 1. Grab the raw amount from the server data
+        const rawAmount = item.payment_amount || item.amount || 0;
+        
+        // 2. Add the row
+        addPaymentRow(
+            rawAmount, 
+            item.payment_date || item.date,
+            item.payment_method || item.payment_type || "cash",
+            item.bank || "",
+            item.branch || "",
+            item.account_number || ""
+        );
+
+        // 3. FIX: Find the row we just added and FORCE the hidden value to match
+        const rows = tbody.querySelectorAll('.payment-row');
+        const lastRow = rows[rows.length - 1];
+        if (lastRow) {
+            const hiddenInp = lastRow.querySelector('input[name="payment_amount[]"]');
+            const visualInp = lastRow.querySelector('.payment-amount-input');
+            
+            if (hiddenInp) hiddenInp.value = parseFloat(rawAmount).toFixed(2);
+            if (visualInp && typeof formatLocaleNumber === 'function') {
+                visualInp.value = formatLocaleNumber(rawAmount);
+            }
         }
+    });
 
-        const tbody = document.getElementById('payment-tbody');
-        if (!tbody) return;
-
-        tbody.innerHTML = ""; 
-
-        loadedPayments.forEach(item => {
-            addPaymentRow(
-                item.payment_amount, 
-                item.payment_date,
-                item.payment_method,
-                item.bank,
-                item.branch,
-                item.account_number
-            );
-        });
-
+    if (typeof updatePaymentTotals === "function") {
         updatePaymentTotals();
+    }
 
-    //  Re-run translations for dynamically added rows
-    loadLanguage(localStorage.getItem("lang") || "he");
+    const currentLang = localStorage.getItem("lang") || "he";
+    if (typeof loadLanguage === "function") {
+        loadLanguage(currentLang);
+    }
 }
 
     /* ----- כפתור הוספת תשלום ----- */
@@ -2231,8 +2296,11 @@ function loadExistingItems() {
         totalIds.forEach(id => {
             const el = document.getElementById(id);
             if (el && el.innerText.trim() !== "") {
-                const raw = el.innerText.replace(/[^\d.-]/g, "");
-                el.innerText = formatCurrencyJS(raw);
+            const rawValue = typeof parseLocaleNumber === 'function' 
+                ? parseLocaleNumber(el.innerText) 
+                : parseFloat(el.innerText.replace(/[^\d.-]/g, "")) || 0;
+                
+            el.innerText = formatCurrencyJS(rawValue);
             }
         });
     }
@@ -2348,6 +2416,6 @@ function startPayment(allocationNumber) {
 
     <!--  DevTools F12 Browser Blocker Script  -->
     <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
-
+ 
 </body>
 </html>

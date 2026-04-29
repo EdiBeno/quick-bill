@@ -26,24 +26,6 @@
                 alert('An error occurred while clearing data');
             });
         }
-
-        function validateForm() {
-            var form = document.getElementById('customer');
-            var inputs = form.querySelectorAll('input[required]');
-            var errorMessage = '';
-            
-            inputs.forEach(function(input) {
-                if (!input.value) {
-                    errorMessage += 'Please fill out the ' + input.name + ' field.<br>';
-                }
-            });
-            
-            if (errorMessage) {
-                document.getElementById('error-message').innerHTML = errorMessage;
-            } else {
-                form.submit();
-            }
-        }
     </script>
 <style>
 /* Wrapper that adds 4cm spacing on both sides */
@@ -373,7 +355,7 @@ button:hover {
         <h1 data-i18n="customer.add_or_update" style="text-align: center;">הוסף או עדכן לקוח</h1>
 
 <!-- הטופס הראשי שמתחיל כאן חייב לעטוף את הכל -->
-<form action="{{ url_for('customer') }}" method="POST" id="form-body">
+<form action="{{ url_for('customer') }}" method="POST" id="customer">
     <input type="hidden" id="customer_id" name="customer_id" value="{{ customer.id if customer else '' }}">
 
     <div style="height: 0.1cm;"></div>
@@ -460,7 +442,7 @@ button:hover {
             שמירת נתונים
         </button>
 
-</form> <!-- סגירת הטופס הראשי כאן, אחרי כפתור השמירה -->
+        </form> 
 
         <!-- Go to Main Page Button -->
         <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
@@ -498,7 +480,7 @@ button:hover {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const formBody = document.getElementById('form-body');
+    const formBody = document.getElementById('customer');
     if (formBody) {
         const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
 

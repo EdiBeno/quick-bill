@@ -43,28 +43,53 @@ from database import db, PasswordResetToken, Customer, BankAccount, Payment, Inv
 # -----------------------------------------------------------
 #  Load Environment & Init Flask
 # -----------------------------------------------------------
+
 load_dotenv()
 app = Flask(__name__, static_folder="static")
 
-# Detect Render
+# זיהוי סביבה
 is_render = bool(os.environ.get("RENDER"))
-
-# Fetch BASE_URL for HTTPS detection
-base_url = os.environ.get("BASE_URL", "*")
-is_https = base_url.startswith("https")
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # -----------------------------------------------------------
-#  Security, Session & Proxy Config
+#  2. טיפול בתיקיית ה-Instance (התיקון לשגיאה שלך)
 # -----------------------------------------------------------
+if not is_render:
+    # רק בלוקאל ניצור את התיקייה פיזית אם היא חסרה (בשביל SQLite)
+    os.makedirs(app.instance_path, exist_ok=True)
+
+# -----------------------------------------------------------
+# COMPANY CUSTOMERS ITEMS TRANSLATION FOLDER 
+# -----------------------------------------------------------
+
+# COMPANY
+COMPANY_DIR = os.path.join(base_dir, "company")
+
+# ITEMS
+ITEMS_DIR = os.path.join(base_dir, "static", "items")
+
+# CUSTOMERS (כאן ה-tmp קריטי לרנדר)
+if is_render:
+    CUSTOMERS_DIR = "/tmp/customers"
+else:
+    CUSTOMERS_DIR = os.path.join(base_dir, "customers")
+
+# יצירת התיקיות רק אם אנחנו בלוקאל או בנתיב מותר ברנדר
+for d in [COMPANY_DIR, ITEMS_DIR, CUSTOMERS_DIR]:
+    try:
+        os.makedirs(d, exist_ok=True)
+    except Exception as e:
+        print(f"Skipping folder creation for {d}: {e}")
+
+# -----------------------------------------------------------
+#  Security & Session Config
+# -----------------------------------------------------------
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
-# Ensure instance folder exists (important for session files)
-os.makedirs(app.instance_path, exist_ok=True)
 
 app.config.update(
     SESSION_PERMANENT=True,
     PERMANENT_SESSION_LIFETIME=timedelta(days=7),
-
     SESSION_COOKIE_SECURE=is_render,
     REMEMBER_COOKIE_SECURE=is_render,
     SESSION_COOKIE_HTTPONLY=True,
@@ -333,40 +358,6 @@ def inject_globals():
         "format_currency": format_currency_custom,
         "time": time
     }
-
-
-# בענן (Render) – שמור בתיקייה קבועה App TRANSLATIONS Path & Folders
-# -----------------------------
-# COMPANY TRANSLATION FOLDER
-# -----------------------------
-
-if os.environ.get("RENDER"):
-    COMPANY_DIR = "/opt/render/project/src/company"
-else:
-    COMPANY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "company")
-
-os.makedirs(COMPANY_DIR, exist_ok=True)
-
-# -----------------------------
-# ITEMS TRANSLATION FOLDER
-# -----------------------------
-if os.environ.get("RENDER"):
-    ITEMS_DIR = "/opt/render/project/src/static/items"
-else:
-    ITEMS_DIR = os.path.join(os.getcwd(), "static", "items")
-
-os.makedirs(ITEMS_DIR, exist_ok=True)
-
-
-# -----------------------------
-# CUSTOMERS TRANSLATION FOLDER - FIXED FOR RENDER
-# -----------------------------
-if os.environ.get("RENDER"):
-    CUSTOMERS_DIR = "/tmp/customers"
-else:
-    CUSTOMERS_DIR = os.path.join(os.getcwd(), "customers")
-
-os.makedirs(CUSTOMERS_DIR, exist_ok=True)
 
 
 # -----------------------------
@@ -2065,7 +2056,7 @@ def delete_selected_products():
 @login_required
 def customer():
     if request.method == 'POST':
-        # --- 1. איסוף נתונים בסיסי ---
+        # --- 1. אימות ועיבוד תאריך ---
         date_str = request.form.get('date')
         if not date_str:
             flash('תאריך הוא שדה חובה', 'error')
@@ -2074,7 +2065,7 @@ def customer():
         try:
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
             formatted_date = date_obj.strftime('%d/%m/%Y')
-        except ValueError:
+        except Exception:
             formatted_date = date_str 
 
         customer_id = request.form.get('customer_id')
@@ -2097,10 +2088,12 @@ def customer():
                 
                 db.session.commit()
                 
-                # תרגום ברקע (מעבירים את הנתונים המעודכנים)
+                # תרגום ברקע (מוודאים שכל המשתנים נשלחים כמחרוזות)
                 t = threading.Thread(
                     target=translate_in_background,
-                    args=(customer_obj.id, customer_obj.customer_name, customer_obj.address, customer_obj.city, customer_obj.message or "")
+                    args=(customer_obj.id, customer_obj.customer_name, 
+                          customer_obj.address, customer_obj.city, 
+                          customer_obj.message or "")
                 )
                 t.daemon = True
                 t.start()
@@ -2109,18 +2102,20 @@ def customer():
         
         # --- 3. הוספת לקוח חדש ---
         else:
-            if Customer.query.filter_by(id_number=id_number).first():
+            # בדיקה אם הלקוח כבר קיים לפי תעודת זהות
+            if id_number and Customer.query.filter_by(id_number=id_number).first():
                 flash("קיים כבר לקוח עם מספר זהות זה", "error")
                 return redirect(url_for('customer'))
 
-            # לוגיקת ה-User ID הנקייה: 
-            # אם אתה ה-Owner (מזהה 0), Postgres יקבל None ולא יזרוק שגיאה
+            # לוגיקת המשתמש המחובר:
+            # אם ה-ID הוא "0" (בעלים), נשמור NULL (None) כדי למנוע שגיאת Postgres
             try:
-                curr_id = int(current_user.id)
+                curr_user_id = str(current_user.id)
             except:
-                curr_id = 0
+                curr_user_id = "0"
             
-            actual_user_id = curr_id if curr_id != 0 else None
+            # אם הבעלים מחובר, ה-user_id יהיה None (בזכות ה-nullable=True במודל)
+            actual_user_id = int(curr_user_id) if curr_user_id != "0" else None
 
             new_customer = Customer(
                 date=formatted_date,
@@ -2135,7 +2130,7 @@ def customer():
                 message=request.form.get('message'),
                 role='customer',
                 is_active=True,
-                user_id=actual_user_id  # כאן נשמר NULL אם אתה הבעלים
+                user_id=actual_user_id
             )
 
             db.session.add(new_customer)
@@ -2144,7 +2139,9 @@ def customer():
             # תרגום ברקע ללקוח החדש
             t = threading.Thread(
                 target=translate_in_background,
-                args=(new_customer.id, new_customer.customer_name, new_customer.address, new_customer.city, new_customer.message or "")
+                args=(new_customer.id, new_customer.customer_name, 
+                      new_customer.address, new_customer.city, 
+                      new_customer.message or "")
             )
             t.daemon = True
             t.start()
@@ -2153,14 +2150,16 @@ def customer():
 
         return redirect(url_for('customer'))
 
-    # --- 4. תצוגת GET (כולל תרגומים קיימים) ---
+    # --- 4. תצוגת GET (טעינת נתונים ותרגומים) ---
     customer_id = request.args.get('customer_id')
     selected_customer = Customer.query.get(customer_id) if customer_id else None
 
     language = get_lang()
+    # טעינת תרגום ללקוח הנבחר
     customer_i18n = load_customer_translated(selected_customer, language) if selected_customer else {}
 
-    all_customers = Customer.query.all()
+    # טעינת רשימת כל הלקוחות לתיבת הבחירה (Dropdown)
+    all_customers = Customer.query.order_by(Customer.customer_name).all()
     customer_i18n_list = {
         c.id: load_customer_translated(c, language)
         for c in all_customers
