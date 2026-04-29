@@ -372,6 +372,7 @@ button:hover {
         <!-- TITLE -->
         <h1 data-i18n="customer.add_or_update" style="text-align: center;">הוסף או עדכן לקוח</h1>
 
+<!-- הטופס הראשי שמתחיל כאן חייב לעטוף את הכל -->
 <form action="{{ url_for('customer') }}" method="POST" id="form-body">
     <input type="hidden" id="customer_id" name="customer_id" value="{{ customer.id if customer else '' }}">
 
@@ -434,16 +435,9 @@ button:hover {
 
             <div class="form-row">
                 <label for="contract_status" data-i18n="customer.contract_status">סוג חוזה:</label>
-      <select id="contract_status" name="contract_status" style="width: 8.6cm; height: 0.8cm;">
-    <option value="אישי" data-i18n="customer.contract_personal"
-        {% if customer.contract_status == "אישי" %}selected{% endif %}>
-        אישי
-    </option>
-
-    <option value="התקשרות" data-i18n="customer.contract_business"
-        {% if customer.contract_status == "התקשרות" %}selected{% endif %}>
-        התקשרות
-    </option>
+                <select id="contract_status" name="contract_status" style="width: 8.6cm; height: 0.8cm;">
+                    <option value="אישי" data-i18n="customer.contract_personal" {% if customer.contract_status == "אישי" %}selected{% endif %}>אישי</option>
+                    <option value="התקשרות" data-i18n="customer.contract_business" {% if customer.contract_status == "התקשרות" %}selected{% endif %}>התקשרות</option>
                 </select>
             </div>
         </div>
@@ -453,67 +447,54 @@ button:hover {
     <!-- FULL WIDTH MESSAGE -->
     <div class="full-width-row">
         <label for="message" data-i18n="customer.notes" style="font-size: 1em; font-weight: bold; margin-bottom: 0.01px;">הערות:</label>
-        <textarea id="message" name="message" rows="5" style="width: 39.75cm; height: 1.5cm; font-size: 21px; font-weight: bold; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-{{ customer_i18n.message or customer.message }}
-        </textarea>
+        <textarea id="message" name="message" rows="5" style="width: 39.75cm; height: 1.5cm; font-size: 21px; font-weight: bold; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">{{ customer_i18n.message or customer.message }}</textarea>
     </div>
 
     <div style="height: 4.1cm;"></div>
 
     <!-- Button Section -->
-<div style="display: flex; gap: 40.3px; margin-top: 1px; align-items: center;">
+    <div style="display: flex; gap: 40.3px; margin-top: 1px; align-items: center;">
 
-    <!-- Save Data Button -->
-    <form action="{{ url_for('customer') }}" method="POST">
-    <button type="submit" data-i18n="customer.save" style="font-weight: bold; width: 3.9cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
-           שמירת נתונים
+        <!-- Save Data Button - שים לב: הורדתי את תגית ה-form המיותרת שהייתה כאן -->
+        <button type="submit" data-i18n="customer.save" style="font-weight: bold; width: 3.9cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+            שמירת נתונים
         </button>
-    </form>
 
-    <!-- Go to Main Page Button -->
-    <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
-        <button type="button" data-i18n="customer.main_page" style="font-weight: bold; width: 5.8cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
-            עבור לדף הראשי
-        </button>
-    </a>
+</form> <!-- סגירת הטופס הראשי כאן, אחרי כפתור השמירה -->
 
-    <!-- Search Form for Customer  -->
- <form method="POST" action="{{ url_for('search_customer') }}" style="display: flex; align-items: center;">
-    <label for="search_name" data-i18n="customer.search" style="font-weight: bold; width: 5.7cm; height: 0.8cm; font-size: 19px; display: flex; align-items: center; margin-right: 9px;">חיפוש שם לקוחות:</label>
-    <select id="search_name" name="search_name" style="margin-right: 10px; width: 200px;">
-                <option value="" data-i18n="customer.search_name">
-            בחר שם לקוח
-        </option>
-        {% for c in all_customers %}
-            <option value="{{ c.customer_name }}">
-                {{ customer_i18n_list[c.id].name }}
-            </option>
-        {% endfor %}
-    </select>
-    <button type="submit" data-i18n="customer.search_button" style="font-weight: bold; width: 2.4cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
-       חיפוש
-    </button>
-</form>
+        <!-- Go to Main Page Button -->
+        <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+            <button type="button" data-i18n="customer.main_page" style="font-weight: bold; width: 5.8cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+                עבור לדף הראשי
+            </button>
+        </a>
 
-    <!-- LOADING OVERLAY (פופאפ הודעה מבצע תרגום עד שמסיים) -->
-      <div id="loadingOverlay" data-i18n="loading.translation">⏳ מבצע תרגום... אנא המתן...</div>
+        <!-- Search Form for Customer -->
+        <form method="POST" action="{{ url_for('search_customer') }}" style="display: flex; align-items: center;">
+            <label for="search_name" data-i18n="customer.search" style="font-weight: bold; width: 5.7cm; height: 0.8cm; font-size: 19px; display: flex; align-items: center; margin-right: 9px;">חיפוש שם לקוחות:</label>
+            <select id="search_name" name="search_name" style="margin-right: 10px; width: 200px;">
+                <option value="" data-i18n="customer.search_name">בחר שם לקוח</option>
+                {% for c in all_customers %}
+                    <option value="{{ c.customer_name }}">{{ customer_i18n_list[c.id].name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" data-i18n="customer.search_button" style="font-weight: bold; width: 2.4cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">חיפוש</button>
+        </form>
 
-    <!-- Clear Data Button for Customer  -->
-<form method="POST" action="{{ url_for('clear_search_results_customer') }}" style="display: flex; align-items: center;">
-    <button type="submit" data-i18n="customer.clear" style="font-weight: bold; width: 3.5cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
-        נקה מידע
-    </button>
-</form>
+        <div id="loadingOverlay" data-i18n="loading.translation">⏳ מבצע תרגום... אנא המתן...</div>
 
-<!-- Go to Customer Data Page Button -->
-<a href="{{ url_for('customer_data') }}" style="text-decoration: none;">
-    <button type="button" data-i18n="customer.data" style="font-weight: bold; width: 4.7cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
-            מידע לקוחות
-        </button>
-    </a>
+        <!-- Clear Data Button for Customer -->
+        <form method="POST" action="{{ url_for('clear_search_results_customer') }}" style="display: flex; align-items: center;">
+            <button type="submit" data-i18n="customer.clear" style="font-weight: bold; width: 3.5cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">נקה מידע</button>
+        </form>
+
+        <!-- Go to Customer Data Page Button -->
+        <a href="{{ url_for('customer_data') }}" style="text-decoration: none;">
+            <button type="button" data-i18n="customer.data" style="font-weight: bold; width: 4.7cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">מידע לקוחות</button>
+        </a>
 
     </div>
- </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
