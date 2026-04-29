@@ -1,5 +1,6 @@
 # -----------------------------
 import os
+import threading
 import json
 import logging
 import calendar
@@ -12,7 +13,6 @@ import xml.etree.ElementTree as ET
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from flask_babel import Babel
-import threading
 import babel.dates
 import babel.numbers
 import random
@@ -410,22 +410,15 @@ def generate_translations(text):
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        # 1. Handle the Owner (ID 0)
         if user_id == "0":
-            from database import OwnerUser
             return OwnerUser(os.getenv("OWNER_USERNAME"))
         
-        # 2. Handle regular SQL users
-        # Use .get() and handle the possibility of None
+        # משתמשים רגילים מה-DB
         from database import User
-        user = User.query.get(int(user_id))
-        if user:
-            return user
+        return User.query.get(int(user_id))
             
     except Exception as e:
-        print(f"❌ Error in load_user: {e}")
-        
-    return None # Flask-Login expects None if user doesn't exist
+        return None
 
 # -----------------------------
 # Decorators
@@ -2072,7 +2065,7 @@ def delete_selected_products():
 @login_required
 def customer():
     if request.method == 'POST':
-        # --- Validate date ---
+        # --- 1. איסוף נתונים בסיסי ---
         date_str = request.form.get('date')
         if not date_str:
             flash('תאריך הוא שדה חובה', 'error')
@@ -2087,7 +2080,7 @@ def customer():
         customer_id = request.form.get('customer_id')
         id_number = request.form.get('id_number')
 
-        # --- UPDATE EXISTING CUSTOMER ---
+        # --- 2. עדכון לקוח קיים ---
         if customer_id:
             customer_obj = Customer.query.get(customer_id)
             if customer_obj:
@@ -2104,7 +2097,7 @@ def customer():
                 
                 db.session.commit()
                 
-                # תרגום ברקע
+                # תרגום ברקע (מעבירים את הנתונים המעודכנים)
                 t = threading.Thread(
                     target=translate_in_background,
                     args=(customer_obj.id, customer_obj.customer_name, customer_obj.address, customer_obj.city, customer_obj.message or "")
@@ -2114,30 +2107,21 @@ def customer():
                 
                 flash('הנתונים עודכנו בהצלחה!', 'success')
         
+        # --- 3. הוספת לקוח חדש ---
         else:
-            # --- Check if ID number exists (New customer only) ---
             if Customer.query.filter_by(id_number=id_number).first():
                 flash("קיים כבר לקוח עם מספר זהות זה", "error")
                 return redirect(url_for('customer'))
 
-            # --- התיקון הקריטי למשתמש ב-Postgres ---
-            from database import User
-            # אנחנו מוודאים שיש משתמש עם ID=1 בטבלה, אחרת Postgres יזרוק 500
-            db_admin = User.query.get(1)
-            if not db_admin:
-                db_admin = User(
-                    id=1,
-                    username=os.getenv("OWNER_USERNAME"),
-                    password=generate_password_hash(os.getenv("OWNER_PASSWORD")),
-                    role='admin'
-                )
-                db.session.add(db_admin)
-                try:
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
+            # לוגיקת ה-User ID הנקייה: 
+            # אם אתה ה-Owner (מזהה 0), Postgres יקבל None ולא יזרוק שגיאה
+            try:
+                curr_id = int(current_user.id)
+            except:
+                curr_id = 0
+            
+            actual_user_id = curr_id if curr_id != 0 else None
 
-            # --- ADD NEW CUSTOMER ---
             new_customer = Customer(
                 date=formatted_date,
                 customer_name=request.form.get('customer_name'),
@@ -2151,13 +2135,13 @@ def customer():
                 message=request.form.get('message'),
                 role='customer',
                 is_active=True,
-                user_id=1 # תמיד מקשרים למשתמש מספר 1 ב-DB
+                user_id=actual_user_id  # כאן נשמר NULL אם אתה הבעלים
             )
 
             db.session.add(new_customer)
             db.session.commit()
 
-            # שליחה לתרגום ברקע
+            # תרגום ברקע ללקוח החדש
             t = threading.Thread(
                 target=translate_in_background,
                 args=(new_customer.id, new_customer.customer_name, new_customer.address, new_customer.city, new_customer.message or "")
@@ -2169,7 +2153,7 @@ def customer():
 
         return redirect(url_for('customer'))
 
-    # --- GET REQUEST ---
+    # --- 4. תצוגת GET (כולל תרגומים קיימים) ---
     customer_id = request.args.get('customer_id')
     selected_customer = Customer.query.get(customer_id) if customer_id else None
 
