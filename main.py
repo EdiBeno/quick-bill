@@ -62,11 +62,6 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 os.makedirs(app.instance_path, exist_ok=True)
 
 app.config.update(
-    SECRET_KEY=os.getenv("SECRET_KEY", secrets.token_hex(32)),
-    JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", secrets.token_hex(32)),
-
-    SESSION_TYPE='filesystem',
-    SESSION_FILE_DIR=os.path.join(app.instance_path, 'flask_sessions'),
     SESSION_PERMANENT=True,
     PERMANENT_SESSION_LIFETIME=timedelta(days=7),
 
@@ -74,9 +69,18 @@ app.config.update(
     REMEMBER_COOKIE_SECURE=is_render,
     SESSION_COOKIE_HTTPONLY=True,
     REMEMBER_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax',
-    REMEMBER_COOKIE_SAMESITE='Lax'
+    SESSION_COOKIE_SAMESITE='Lax'
 )
+
+# -----------------------------
+# Secret Key
+# -----------------------------
+app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+
+# -----------------------------
+# JWT Config
+# -----------------------------
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", secrets.token_hex(32))
 
 # -----------------------------
 # Database Config (multi-option)
@@ -964,24 +968,36 @@ def load_customer_file(customer_id):
 
 
 def load_customer_translated(customer, language):
-    # This line fixes the "zh" to "zh-CN" mapping
-    lookup_lang = "zh-CN" if language == "zh" else language
+    # 1. טיפול במיפוי שפות מיוחדות (כמו סינית)
+    special_mappings = {
+        "zh": "zh-CN",
+        "en": "en", # דוגמה אם תרצה להוסיף בעתיד
+    }
+    lookup_lang = special_mappings.get(language, language)
     
+    # 2. ניסיון טעינת הקובץ
     data = load_customer_file(customer.id)
 
+    # 3. אם אין קובץ (קורה הרבה ב-Render בגלל ה-Restart), נחזיר את נתוני ה-DB המקוריים
     if not data:
         return {
-            "name": customer.customer_name,
-            "address": customer.address,
-            "city": customer.city,
-            "message": customer.message
+            "name": customer.customer_name or "",
+            "address": customer.address or "",
+            "city": customer.city or "",
+            "message": customer.message or ""
         }
 
+    # 4. פונקציית עזר פנימית לחילוץ התרגום (למניעת חזרתיות)
+    def get_val(field_key, default_val):
+        field_data = data.get(field_key, {})
+        # סדר העדיפויות: השפה שנבחרה -> עברית (מקור) -> הערך בבסיס הנתונים -> מחרוזת ריקה
+        return field_data.get(lookup_lang) or field_data.get("he") or default_val or ""
+
     return {
-        "name": data["name"].get(lookup_lang, data["name"].get("he", customer.customer_name)),
-        "address": data["address"].get(lookup_lang, data["address"].get("he", customer.address)),
-        "city": data["city"].get(lookup_lang, data["city"].get("he", customer.city)),
-        "message": data["message"].get(lookup_lang, data["message"].get("he", customer.message))
+        "name": get_val("name", customer.customer_name),
+        "address": get_val("address", customer.address),
+        "city": get_val("city", customer.city),
+        "message": get_val("message", customer.message)
     }
 
 
@@ -1225,132 +1241,106 @@ def get_next_invoice_number():
 # ----------------------
 
 def invoice_context(invoice_id=None):
-    language = get_lang()
-    invoice = Invoice.query.get(invoice_id) if invoice_id else None
+    try:
+        language = get_lang()
+        invoice = Invoice.query.get(invoice_id) if invoice_id else None
 
-    # ----- לקוח -----
-    customer_json = {}
-    if invoice and invoice.customer_id:
-        customer_obj = Customer.query.get(invoice.customer_id)
-        if customer_obj:
-            translated = load_customer_translated(customer_obj, language)
-            customer_json = {
-                "id": customer_obj.id,
-                "customer_name": translated["name"],
-                "address": translated["address"],
-                "city": translated["city"],
-                "postal_code": customer_obj.postal_code,
-                "id_number": customer_obj.id_number,
-                "phone": customer_obj.phone,
-                "email": customer_obj.email
-            }
-
-    # ----- פריטים -----
-    items_json = []
-    if invoice:
-        items = InvoiceItem.query.filter_by(invoice_id=invoice.id).all()
-        for item in items:
-            items_json.append({
-                "product_id": item.product_id,
-                "quantity": float(item.quantity or 0),
-                "unit_price": float(item.unit_price or 0),
-                "discount": float(item.discount or 0),
-                "total_price": float(item.total_price or 0)
-            })
-
-    # ----- כל הלקוחות (מתורגם) -----
-    all_customers_json = []
-    for c in Customer.query.order_by(Customer.customer_name).all():
-        translated = load_customer_translated(c, language)
-        all_customers_json.append({
-            "id": c.id,
-            "customer_name": translated["name"],
-            "address": translated["address"],
-            "city": translated["city"],
-            "postal_code": c.postal_code,
-            "id_number": c.id_number,
-            "phone": c.phone,
-            "email": c.email
-        })
-
-    # ----- כל המוצרים (מתורגם) -----
-    products = []
-    for p in Product.query.all():
-        item_file = load_item_file(p.id)
-
-        if item_file:
-            products.append({
-                "id": p.id,
-                "name": item_file.get("name", {"he": p.name}),
-                "price": float(p.price or 0),
-                "description": item_file.get("description", {"he": p.description})
-            })
-        else:
-            products.append({
-                "id": p.id,
-                "name": {"he": p.name},
-                "price": float(p.price or 0),
-                "description": {"he": p.description}
-            })
-
-    # ----- תשלומים -----
-    payments_json = []
-    if invoice:
-        payments = Payment.query.filter_by(invoice_id=invoice.id).all()
-        for p in payments:
-            payments_json.append({
-                "payment_date": p.payment_date.strftime('%Y-%m-%d') if p.payment_date else "",
-                "payment_method": p.payment_method,
-                "bank": p.bank,
-                "branch": p.branch,
-                "account_number": p.account_number,
-                "payment_amount": float(p.payment_amount or 0)
-            })
-
-    # ----- סכומים -----
-    sub_total = float(invoice.sub_total or 0) if invoice else 0
-    vat_amount = float(invoice.vat_amount or 0) if invoice else 0
-    grand_total = float(invoice.grand_total or 0) if invoice else 0
-    discount_total = float(getattr(invoice, 'discount_total', 0) or 0) if invoice else 0
-    invoice_status = invoice.status if invoice else "active"
-
-    # ----- RESET -----
-    if not invoice:
+        # ----- לקוח נבחר -----
         customer_json = {}
+        if invoice and invoice.customer_id:
+            c_obj = Customer.query.get(invoice.customer_id)
+            if c_obj:
+                trans = load_customer_translated(c_obj, language)
+                # שימוש ב-.get כדי למנוע קריסה
+                customer_json = {
+                    "id": c_obj.id,
+                    "customer_name": trans.get("name", c_obj.customer_name),
+                    "address": trans.get("address", c_obj.address),
+                    "city": trans.get("city", c_obj.city),
+                    "postal_code": c_obj.postal_code or "",
+                    "id_number": c_obj.id_number or "",
+                    "phone": c_obj.phone or "",
+                    "email": c_obj.email or ""
+                }
+
+        # ----- פריטים -----
         items_json = []
+        if invoice:
+            items = InvoiceItem.query.filter_by(invoice_id=invoice.id).all()
+            for item in items:
+                items_json.append({
+                    "product_id": item.product_id,
+                    "quantity": float(item.quantity or 0),
+                    "unit_price": float(item.unit_price or 0),
+                    "discount": float(item.discount or 0),
+                    "total_price": float(item.total_price or 0)
+                })
+
+        # ----- כל הלקוחות (אופטימיזציה) -----
+        all_customers_json = []
+        for c in Customer.query.order_by(Customer.customer_name).all():
+            trans = load_customer_translated(c, language)
+            all_customers_json.append({
+                "id": c.id,
+                "customer_name": trans.get("name", c.customer_name),
+                "id_number": c.id_number or ""
+            })
+
+        # ----- כל המוצרים -----
+        products_json = []
+        for p in Product.query.all():
+            item_file = load_item_file(p.id) or {} # הגנה אם חסר
+            
+            # חילוץ שם מתורגם או שם ברירת מחדל
+            p_name = item_file.get("name", {}).get(language, p.name)
+            
+            products_json.append({
+                "id": p.id,
+                "name": p_name,
+                "price": float(p.price or 0)
+            })
+
+        # ----- תשלומים וסכומים -----
         payments_json = []
-        sub_total = 0
-        vat_amount = 0
-        grand_total = 0
-        discount_total = 0
+        if invoice:
+            payments = Payment.query.filter_by(invoice_id=invoice.id).all()
+            for p in payments:
+                payments_json.append({
+                    "payment_date": p.payment_date.strftime('%Y-%m-%d') if p.payment_date else "",
+                    "payment_method": p.payment_method,
+                    "payment_amount": float(p.payment_amount or 0)
+                })
 
-    # ----- בסיס -----
-    ctx = base_invoice_context()
-    ctx.update({
-        "invoice": invoice,
-        "invoice_id": invoice.id if invoice else None,
-        "invoice_number": invoice.invoice_number if invoice else get_next_invoice_number(),
-        "invoice_date": invoice.invoice_date.strftime('%d-%m-%Y') if invoice else datetime.today().strftime('%d-%m-%Y'),
+        sub_total = float(invoice.sub_total or 0) if invoice else 0
+        vat_amount = float(invoice.vat_amount or 0) if invoice else 0
+        grand_total = float(invoice.grand_total or 0) if invoice else 0
+        discount_total = float(getattr(invoice, 'discount_total', 0) or 0) if invoice else 0
 
-        "customer_json": customer_json,
-        "all_customers_json": all_customers_json,
+        # ----- בסיס והחזרה -----
+        ctx = base_invoice_context()
+        ctx.update({
+            "invoice": invoice,
+            "invoice_id": invoice.id if invoice else None,
+            "invoice_number": invoice.invoice_number if invoice else get_next_invoice_number(),
+            "invoice_date": invoice.invoice_date.strftime('%d-%m-%Y') if invoice else datetime.today().strftime('%d-%m-%Y'),
+            "customer_json": customer_json,
+            "all_customers_json": all_customers_json,
+            "items": items_json,
+            "products": products_json,
+            "loadedPayments": payments_json,
+            "sub_total": sub_total,
+            "vat_rate": 17,
+            "vat_amount": vat_amount,
+            "grand_total": grand_total,
+            "discount_total": discount_total,
+            "invoice_status": invoice.status if invoice else "active"
+        })
+        return ctx
 
-        "items": items_json,
-        "products": products,
-
-        "loadedPayments": payments_json,
-
-        "sub_total": sub_total,
-        "vat_rate": 17,
-        "vat_amount": vat_amount,
-        "grand_total": grand_total,
-        "discount_total": discount_total,
-
-        "invoice_status": invoice_status,
-        "allocation_number": invoice.allocation_number if invoice and invoice.allocation_number else None
-    })
-
-    return ctx
+    except Exception as e:
+        print(f"CRITICAL ERROR in invoice_context: {e}")
+        # החזרת קונטקסט מינימלי כדי שהדף לא יקרוס לגמרי
+        return {"error": str(e), "invoice": None, "all_customers_json": [], "products": []}
 
 # --------------------
 #  Invoice View Empty Form Save Data
@@ -2081,7 +2071,7 @@ def customer():
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
             formatted_date = date_obj.strftime('%d/%m/%Y')
         except ValueError:
-            formatted_date = date_str # ליתר ביטחון
+            formatted_date = date_str 
 
         customer_id = request.form.get('customer_id')
         id_number = request.form.get('id_number')
@@ -2103,7 +2093,7 @@ def customer():
                 
                 db.session.commit()
                 
-                # הפעלת תרגום ברקע
+                # תרגום ברקע
                 t = threading.Thread(
                     target=translate_in_background,
                     args=(customer_obj.id, customer_obj.customer_name, customer_obj.address, customer_obj.city, customer_obj.message or "")
@@ -2111,13 +2101,18 @@ def customer():
                 t.daemon = True
                 t.start()
                 
-                flash('הנתונים עודכנו בהצלחה! התרגום מתבצע ברקע.', 'success')
+                flash('הנתונים עודכנו בהצלחה!', 'success')
         
         else:
             # --- Check if ID number exists (New customer only) ---
             if Customer.query.filter_by(id_number=id_number).first():
                 flash("קיים כבר לקוח עם מספר זהות זה", "error")
                 return redirect(url_for('customer'))
+
+            # --- FIX FOR USER_ID 0 ---
+            # אם המערכת מזהה 0, אנחנו נותנים את ה-ID של המשתמש המחובר, 
+            # ואם גם הוא לא תקין, ברירת מחדל ל-1 (המשתמש הראשון במערכת)
+            safe_user_id = current_user.id if (current_user.is_authenticated and current_user.id != 0) else 1
 
             # --- ADD NEW CUSTOMER ---
             new_customer = Customer(
@@ -2133,13 +2128,13 @@ def customer():
                 message=request.form.get('message'),
                 role='customer',
                 is_active=True,
-                user_id=current_user.id # כאן ה-ID נשמר ב-DB
+                user_id=safe_user_id  # <--- השתמשנו ב-ID המאובטח
             )
 
             db.session.add(new_customer)
-            db.session.commit() # שומרים כדי לקבל ID מה-DB
+            db.session.commit()
 
-            # שליחה לתרגום ברקע (מעבירים ערכים ולא אובייקטים)
+            # שליחה לתרגום ברקע
             t = threading.Thread(
                 target=translate_in_background,
                 args=(new_customer.id, new_customer.customer_name, new_customer.address, new_customer.city, new_customer.message or "")
@@ -2147,7 +2142,7 @@ def customer():
             t.daemon = True
             t.start()
 
-            flash('הלקוח נוסף בהצלחה! התרגומים מתעדכנים.', 'success')
+            flash('הלקוח נוסף בהצלחה!', 'success')
 
         return redirect(url_for('customer'))
 
@@ -2179,25 +2174,45 @@ def customer():
 @app.route('/api/customer/<int:customer_id>')
 @login_required
 def api_get_customer(customer_id):
-    language = get_lang()
-    c = Customer.query.get_or_404(customer_id)
+    try:
+        language = get_lang()
+        # שימוש ב-get במקום get_or_404 כדי לשלוט בתגובה
+        c = Customer.query.get(customer_id)
+        
+        if not c:
+            return jsonify({"error": "Customer not found"}), 404
 
-    translated = load_customer_translated(c, language)
+        # טעינת התרגום
+        translated = load_customer_translated(c, language)
 
-    return {
-        "customer_name": translated["name"],
-        "address": translated["address"],
-        "city": translated["city"],
-        "postal_code": c.postal_code,
-        "id_number": c.id_number,
-        "phone": c.phone,
-        "email": c.email,
-        "contract_status": c.contract_status,
-        "message": translated["message"],
-        "date": c.date,
-        "is_active": c.is_active,
-        "role": c.role
-    }
+        # הגנה למקרה שהתרגום מחזיר None או ריק
+        if not translated:
+            translated = {
+                "name": c.customer_name,
+                "address": c.address,
+                "city": c.city,
+                "message": c.message
+            }
+
+        # החזרת JSON מסודר
+        return jsonify({
+            "customer_name": translated.get("name", c.customer_name),
+            "address": translated.get("address", c.address),
+            "city": translated.get("city", c.city),
+            "postal_code": c.postal_code or "",
+            "id_number": c.id_number or "",
+            "phone": c.phone or "",
+            "email": c.email or "",
+            "contract_status": c.contract_status or "",
+            "message": translated.get("message", c.message or ""),
+            "date": c.date,
+            "is_active": c.is_active,
+            "role": c.role
+        })
+
+    except Exception as e:
+        print(f"API Error: {e}")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 
 @app.route('/customer_data', methods=['GET'])
