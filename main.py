@@ -355,10 +355,10 @@ os.makedirs(ITEMS_DIR, exist_ok=True)
 
 
 # -----------------------------
-# CUSTOMERS TRANSLATION FOLDER
+# CUSTOMERS TRANSLATION FOLDER - FIXED FOR RENDER
 # -----------------------------
 if os.environ.get("RENDER"):
-    CUSTOMERS_DIR = "/opt/render/project/src/customers"
+    CUSTOMERS_DIR = "/tmp/customers"
 else:
     CUSTOMERS_DIR = os.path.join(os.getcwd(), "customers")
 
@@ -922,7 +922,6 @@ def load_company_data():
 # -----------------------------
 #  Translations Add Great Save Customer Json File
 # -----------------------------
-
 
 def translate_in_background(customer_id, name, address, city, message):
     name_trans = generate_translations(name or "")
@@ -2072,60 +2071,59 @@ def delete_selected_products():
 @login_required
 def customer():
     if request.method == 'POST':
-
         # --- Validate date ---
         date_str = request.form.get('date')
         if not date_str:
             flash('תאריך הוא שדה חובה', 'error')
             return redirect(url_for('customer'))
 
-        # Convert date format
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-        formatted_date = date_obj.strftime('%d/%m/%Y')
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%d/%m/%Y')
+        except ValueError:
+            formatted_date = date_str # ליתר ביטחון
 
         customer_id = request.form.get('customer_id')
-
-        # --- Check if ID number already exists (for NEW customers only) ---
         id_number = request.form.get('id_number')
-        existing_customer = Customer.query.filter_by(id_number=id_number).first()
-
-        if existing_customer and not customer_id:
-            flash("קיים כבר לקוח עם מספר זהות זה", "error")
-            return redirect(url_for('customer'))
 
         # --- UPDATE EXISTING CUSTOMER ---
         if customer_id:
-            customer = Customer.query.get(customer_id)
-
-            customer.date = formatted_date
-            customer.customer_name = request.form.get('customer_name')
-            customer.id_number = request.form.get('id_number')
-            customer.address = request.form.get('address')
-            customer.city = request.form.get('city')
-            customer.postal_code = request.form.get('postal_code')
-            customer.phone = request.form.get('phone')
-            customer.email = request.form.get('email')
-            customer.contract_status = request.form.get('contract_status')
-            customer.message = request.form.get('message')
-
-            db.session.commit()
-
-            # --- TRANSLATE & SAVE JSON ---
-            name_trans = generate_translations(customer.customer_name)
-            address_trans = generate_translations(customer.address)
-            city_trans = generate_translations(customer.city)
-            message_trans = generate_translations(customer.message or "")
-
-            save_customer_file(customer.id, name_trans, address_trans, city_trans, message_trans)
-
-            flash('הנתונים עודכנו בהצלחה!', 'success')
-
+            customer_obj = Customer.query.get(customer_id)
+            if customer_obj:
+                customer_obj.date = formatted_date
+                customer_obj.customer_name = request.form.get('customer_name')
+                customer_obj.id_number = id_number
+                customer_obj.address = request.form.get('address')
+                customer_obj.city = request.form.get('city')
+                customer_obj.postal_code = request.form.get('postal_code')
+                customer_obj.phone = request.form.get('phone')
+                customer_obj.email = request.form.get('email')
+                customer_obj.contract_status = request.form.get('contract_status')
+                customer_obj.message = request.form.get('message')
+                
+                db.session.commit()
+                
+                # הפעלת תרגום ברקע
+                t = threading.Thread(
+                    target=translate_in_background,
+                    args=(customer_obj.id, customer_obj.customer_name, customer_obj.address, customer_obj.city, customer_obj.message or "")
+                )
+                t.daemon = True
+                t.start()
+                
+                flash('הנתונים עודכנו בהצלחה! התרגום מתבצע ברקע.', 'success')
+        
         else:
+            # --- Check if ID number exists (New customer only) ---
+            if Customer.query.filter_by(id_number=id_number).first():
+                flash("קיים כבר לקוח עם מספר זהות זה", "error")
+                return redirect(url_for('customer'))
+
             # --- ADD NEW CUSTOMER ---
             new_customer = Customer(
                 date=formatted_date,
                 customer_name=request.form.get('customer_name'),
-                id_number=request.form.get('id_number'),
+                id_number=id_number,
                 address=request.form.get('address'),
                 city=request.form.get('city'),
                 postal_code=request.form.get('postal_code'),
@@ -2135,33 +2133,31 @@ def customer():
                 message=request.form.get('message'),
                 role='customer',
                 is_active=True,
-                user_id=current_user.id
+                user_id=current_user.id # כאן ה-ID נשמר ב-DB
             )
 
             db.session.add(new_customer)
-            db.session.commit()
+            db.session.commit() # שומרים כדי לקבל ID מה-DB
 
-            # --- TRANSLATE & SAVE JSON ---
-            name_trans = generate_translations(new_customer.customer_name)
-            address_trans = generate_translations(new_customer.address)
-            city_trans = generate_translations(new_customer.city)
-            message_trans = generate_translations(new_customer.message or "")
+            # שליחה לתרגום ברקע (מעבירים ערכים ולא אובייקטים)
+            t = threading.Thread(
+                target=translate_in_background,
+                args=(new_customer.id, new_customer.customer_name, new_customer.address, new_customer.city, new_customer.message or "")
+            )
+            t.daemon = True
+            t.start()
 
-            save_customer_file(new_customer.id, name_trans, address_trans, city_trans, message_trans)
-
-            flash('הנתונים נשמרו בהצלחה!', 'success')
+            flash('הלקוח נוסף בהצלחה! התרגומים מתעדכנים.', 'success')
 
         return redirect(url_for('customer'))
 
-    # GET request
+    # --- GET REQUEST ---
     customer_id = request.args.get('customer_id')
-    customer = Customer.query.get(customer_id) if customer_id else None
+    selected_customer = Customer.query.get(customer_id) if customer_id else None
 
-    # --- LOAD I18N FOR CURRENT CUSTOMER ---
     language = get_lang()
-    customer_i18n = load_customer_translated(customer, language) if customer else {}
+    customer_i18n = load_customer_translated(selected_customer, language) if selected_customer else {}
 
-    # --- LOAD I18N FOR ALL CUSTOMERS (FOR COMBO BOX) ---
     all_customers = Customer.query.all()
     customer_i18n_list = {
         c.id: load_customer_translated(c, language)
@@ -2170,7 +2166,7 @@ def customer():
 
     return render_template(
         'customer.html',
-        customer=customer,
+        customer=selected_customer,
         all_customers=all_customers,
         customer_i18n=customer_i18n,
         customer_i18n_list=customer_i18n_list
@@ -2210,62 +2206,6 @@ def customer_data():
     customers = Customer.query.all()
     return render_template('customer_data.html', customers=customers)
 
-# ----------------------
-#   Update All Customer Form
-# ----------------------
-
-@app.route('/update_customer/<int:customer_id>', methods=['GET', 'POST'])
-@login_required
-def update_customer(customer_id):
-    customer = Customer.query.get(customer_id)
-
-    if request.method == 'POST':
-
-        # --- Validate date ---
-        date_str = request.form.get('date')
-        if not date_str:
-            flash('תאריך הוא שדה חובה', 'error')
-            return redirect(url_for('update_customer', customer_id=customer_id))
-
-        # Convert date format
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-        formatted_date = date_obj.strftime('%d/%m/%Y')
-
-        # --- Check if ID number belongs to another customer ---
-        new_id_number = request.form.get('id_number')
-
-        existing_customer = Customer.query.filter_by(id_number=new_id_number).first()
-
-        if existing_customer and existing_customer.id != customer_id:
-            flash("קיים כבר לקוח אחר עם מספר זהות זה", "error")
-            return redirect(url_for('update_customer', customer_id=customer_id))
-
-        # --- Update fields ---
-        customer.date = formatted_date
-        customer.customer_name = request.form.get('customer_name')
-        customer.id_number = new_id_number
-        customer.address = request.form.get('address')
-        customer.city = request.form.get('city')
-        customer.postal_code = request.form.get('postal_code')
-        customer.phone = request.form.get('phone')
-        customer.email = request.form.get('email')
-        customer.contract_status = request.form.get('contract_status')
-        customer.message = request.form.get('message')
-
-        db.session.commit()
-
-        # --- TRANSLATE & SAVE JSON ---
-        name_trans = generate_translations(customer.customer_name)
-        address_trans = generate_translations(customer.address)
-        city_trans = generate_translations(customer.city)
-        message_trans = generate_translations(customer.message or "")
-
-        save_customer_file(customer.id, name_trans, address_trans, city_trans, message_trans)
-
-        flash('הנתונים עודכנו בהצלחה!', 'success')
-        return redirect(url_for('customer'))
-
-    return render_template('update_customer.html', customer=customer)
 
 # ----------------------
 #   Search And Clear Customer Form
