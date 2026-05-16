@@ -444,15 +444,12 @@ def generate_translations(text):
 
     def translate_single(lang):
         try:
-            # Skip translation if it's already Hebrew
             if lang == "he": return lang, text
-            # Stable translator from deep_translator
             translated = GoogleTranslator(source='auto', target=lang).translate(text)
             return lang, (translated if translated else text)
         except:
             return lang, text
 
-    # FIX: Use max_workers=10 (Google sometimes blocks you if you hit them with 15 at once)
     with ThreadPoolExecutor(max_workers=10) as executor:
         translations = list(executor.map(translate_single, languages))
 
@@ -1513,7 +1510,6 @@ def save_category_file(cat_id, name_trans):
 
 
 def load_category_file(cat_id):
-    """טוען קטגוריה ספציפית"""
     file_path = os.path.join(CATEGORIES_DIR, str(cat_id), f"{cat_id}.json")
     if not os.path.exists(file_path):
         return None
@@ -1526,17 +1522,14 @@ def load_category_file(cat_id):
 
 
 def get_all_categories_dict(lang_code='he'):
-    """שולף את כל הקטגוריות למילון שטוח של מחרוזות עבור ה-HTML"""
     categories_dict = {}
     if not os.path.exists(CATEGORIES_DIR):
         return categories_dict
 
     try:
-        # עובר על כל התיקיות (כל תיקייה היא קטגוריה)
         for cat_id in os.listdir(CATEGORIES_DIR):
             data = load_category_file(cat_id)
             if data and "name" in data:
-                #  FIX: Enforce uniform data contract by unpacking nested structures to string primitives
                 names_dict = data.get("name", {})
                 if isinstance(names_dict, dict):
                     name = names_dict.get(lang_code) or names_dict.get("he") or f"Category {cat_id}"
@@ -1582,7 +1575,6 @@ def company():
             "logo": request.form.get('logo', '')
         }
 
-        #  Save to ROOT (Keeps your exact structural behavior intact)
         root_path = os.path.join(BASE_DIR, "company.json")
         try:
             with open(root_path, "w", encoding="utf-8") as f:
@@ -1591,10 +1583,8 @@ def company():
             flash(f"Error saving base company configuration: {e}", "error")
             return redirect(url_for('company'))
 
-        #  GET CURRENT LANGUAGE from the hidden input we added to HTML
         current_lang = request.form.get('lang', 'he')
 
-        #  FIX: Trigger the robust Celery background task instead of opening a dangerous thread
         company_translation_task.delay()
 
         flash("Details saved! Translations updating in background.", "success")
@@ -1607,14 +1597,11 @@ def company():
 @app.route('/clear_company_results', methods=['POST'])
 @login_required
 def clear_company_results():
-    #  1. Purge all pending translation tasks from the Celery queue instantly
-    # This prevents workers from rebuilding files right after we delete them
     try:
         celery_app.control.purge()
     except Exception as e:
         print(f"⚠️ Warning: Could not purge Celery queue: {e}")
 
-    #  2. Execute your exact original file deletion sequence
     root_path = os.path.join(BASE_DIR, "company.json")
     dir_path = os.path.join(COMPANY_DIR, "company.json")
 
@@ -1637,16 +1624,13 @@ def base_invoice_context(customer_id=None):
     language = get_lang()  
     company = load_company_data()
 
-    #  FIX: Extract products and enforce clean, localized name strings for the JS engine
     products_db = Product.query.all()
     products_list_for_js = []
     
     for p in products_db:
-        # Load the external item file data dictionary
         item_file = load_item_file(p.id) or {}
         names_dict = item_file.get("name", {})
         
-        # Enforce strict translation rules: Active Lang -> Hebrew (Fallback) -> Database Default Name
         if isinstance(names_dict, dict):
             p_name = names_dict.get(language) or names_dict.get("he") or p.name
         else:
@@ -1654,7 +1638,6 @@ def base_invoice_context(customer_id=None):
             
         i_cat = item_file.get("income_category", getattr(p, 'income_category', 'service'))
         
-        # Build the exact dictionary structure expected by your frontend invoice script
         products_list_for_js.append({
             "id": p.id,
             "name": p_name,   # 🟢 RESTORED: Passed as a clean string directly to the interface loop
@@ -1796,7 +1779,6 @@ def invoice_context(invoice_id=None):
             item_file = load_item_file(p.id) or {}
             names_dict = item_file.get("name", {})
             
-            #  FIX: Enforce defensive evaluation sequence to secure localized product names as flat strings
             if isinstance(names_dict, dict):
                 p_name = names_dict.get(language) or names_dict.get("he") or p.name
             else:
@@ -1833,7 +1815,6 @@ def invoice_context(invoice_id=None):
         grand_total = float(invoice.grand_total or 0) if invoice else 0
         discount_total = float(getattr(invoice, 'discount_total', 0) or 0) if invoice else 0
         
-        # Safe Extraction of Saved database VAT rate as Float type
         vat_rate = float(invoice.vat_rate) if invoice and hasattr(invoice, 'vat_rate') and invoice.vat_rate is not None else 18.0
 
         ctx = base_invoice_context()
@@ -1876,7 +1857,7 @@ def invoice_context(invoice_id=None):
             "vat_amount": 0.0,
             "grand_total": 0.0,
             "discount_total": 0.0,
-            "vat_rate": 18.0,             # Standardized fallback to float typing matching try context
+            "vat_rate": 18.0,             
             "invoice_number": get_next_invoice_number(),
             "invoice_date": datetime.today().strftime('%d-%m-%Y'),
             "invoice_status": "active"
@@ -1892,33 +1873,26 @@ def clean_float(value):
     if value is None or value == "":
         return 0.0
     
-    # אם זה כבר מספר (float או int), פשוט תחזיר אותו
     if isinstance(value, (float, int)):
         return float(value)
 
     s = str(value).strip()
     
-    # 1. ניקוי סימני מטבע ורווחים
     s = re.sub(r'[^\d,.\-]', '', s)
     
     if not s:
         return 0.0
 
-    # 2. לוגיקה חכמה למניעת הריסת חשבוניות קיימות:
-    # אם יש גם פסיק וגם נקודה - נבדוק מי האחרון (כמו שעשינו)
     if ',' in s and '.' in s:
         if s.rfind(',') > s.rfind('.'): # פורמט אירופאי 1.500,50
             s = s.replace('.', '').replace(',', '.')
         else: # פורמט אנגלי 1,500.50
             s = s.replace(',', '')
     
-    # 3. אם יש רק פסיק אחד - וזה לא ב-3 הספרות האחרונות, כנראה שזה נקודה עשרונית
     elif ',' in s:
-        # אם הפסיק הוא בסוף (למשל 10,50) נהפוך לנקודה
         if len(s.split(',')[1]) <= 2:
             s = s.replace(',', '.')
         else:
-            # אם זה 1,500 - נוריד את הפסיק
             s = s.replace(',', '')
 
     try:
@@ -1928,11 +1902,7 @@ def clean_float(value):
 
 
 def generate_allocation_number():
-    """
-    יוצר מספר הקצאה ייחודי לפי מודל חשבוניות ישראל 2024.
-    מבוסס על timestamp + מספר רנדומלי.
-    """
-    timestamp = int(time.time())  # שניות מאז 1970
+    timestamp = int(time.time())  
     rand = random.randint(1000, 9999)
     return f"{timestamp}{rand}"
 
@@ -1956,7 +1926,6 @@ def save_invoice():
     vat_amount = clean_float(request.form.get('vat_amount'))
     grand_total = clean_float(request.form.get('grand_total'))
     
-    #  FIX: Extract dynamic tax rates as Float types to satisfy PostgreSQL strict typing schemas
     vat_rate = clean_float(request.form.get('vat_rate_select')) or 18.0
 
     total_invoice_cost = 0.0 
@@ -1968,20 +1937,17 @@ def save_invoice():
             flash("החשבונית המבוקשת לעריכה אינה קיימת במערכת", "error")
             return redirect(url_for('invoice'))
 
-        # Return stock allocation balances to previous state (only for physical products)
         old_items = InvoiceItem.query.filter_by(invoice_id=invoice.id).all()
         for old_item in old_items:
             prod = Product.query.get(old_item.product_id)
             i_cat_old = getattr(prod, 'income_category', 'service')
             
-            # Cross-reference tracking with external JSON file schemas to determine historical state completely
             item_file_old = load_item_file(old_item.product_id) if old_item.product_id else None
             if item_file_old:
                 i_cat_old = item_file_old.get("income_category", i_cat_old)
 
             if prod and i_cat_old == 'product':
                 prod.quantity += old_item.quantity 
-                #  FIX: Synchronize the stock recovery process directly into external JSON storage files to prevent catalog data drift
                 if item_file_old:
                     save_item_file(
                         product_id=prod.id, name_trans=item_file_old.get("name", {}), desc_trans=item_file_old.get("description", {}),
@@ -2000,7 +1966,6 @@ def save_invoice():
         if not invoice.allocation_number:
             invoice.allocation_number = generate_allocation_number()
 
-        # Evict stale line items and payment blocks securely to prevent relational schema dangling
         InvoiceItem.query.filter_by(invoice_id=invoice.id).delete()
         Payment.query.filter_by(invoice_id=invoice.id).delete()
 
@@ -2009,12 +1974,11 @@ def save_invoice():
             try:
                 item_data = json.loads(item_json)
             except Exception:
-                continue # Skip corrupted rows defensively to guarantee 100% continuous runtime checkout processing
+                continue 
 
             prod = Product.query.get(item_data['product_id'])
             item_file = load_item_file(prod.id) if prod else None
             
-            # INTEGRATION: Dual-layer activity type tracking evaluation pass
             i_cat = getattr(prod, 'income_category', 'service') if prod else 'service'
             if item_file:
                 i_cat = item_file.get("income_category", i_cat)
@@ -2022,12 +1986,10 @@ def save_invoice():
             c_price = prod.cost_price if (prod and i_cat == 'product') else 0.0
             qty = clean_float(item_data.get('quantity'))
             
-            # Execute physical stock reductions strictly for inventory classification sets
             if prod and i_cat == 'product':
                 prod.quantity -= qty
                 db.session.flush() # Forces synchronization state before calculation tracking runs
                 
-                #  FIX: Sync structural sales reductions directly to external catalog disk layers
                 if item_file:
                     actual_out_calc = int(db.session.query(func.sum(InvoiceItem.quantity)).filter(InvoiceItem.product_id == prod.id).scalar() or 0) + int(qty)
                     save_item_file(
@@ -2049,7 +2011,6 @@ def save_invoice():
                 income_category=i_cat 
             ))
 
-        # Payments processing segment
         amounts = request.form.getlist('payment_amount[]')
         payment_dates = request.form.getlist('payment_date[]')
         methods = request.form.getlist('payment_method[]')
@@ -2063,7 +2024,6 @@ def save_invoice():
                 branch=request.form.getlist('branch[]')[i], account_number=request.form.getlist('account_number[]')[i]
             ))
 
-        # Clear old trace ledger entries and bind clean net-performance records to the dashboard engine
         Transaction.query.filter_by(invoice_id=invoice.id).delete()
         db.session.add(Transaction(
             date=invoice.invoice_date, 
@@ -2106,7 +2066,6 @@ def save_invoice():
         prod = Product.query.get(item_data['product_id'])
         item_file = load_item_file(prod.id) if prod else None
         
-        # INTEGRATION: Dual-layer activity type tracking evaluation pass
         i_cat = getattr(prod, 'income_category', 'service') if prod else 'service'
         if item_file:
             i_cat = item_file.get("income_category", i_cat)
@@ -2114,12 +2073,10 @@ def save_invoice():
         c_price = prod.cost_price if (prod and i_cat == 'product') else 0.0
         qty = clean_float(item_data.get('quantity'))
         
-        # Deduct from warehousing quantity rows ONLY if registered as an explicit physical product
         if prod and i_cat == 'product':
             prod.quantity -= qty
             db.session.flush()
             
-            #  FIX: Sync structural sales reductions directly to external catalog disk files to prevent data drift
             if item_file:
                 actual_out_calc = int(db.session.query(func.sum(InvoiceItem.quantity)).filter(InvoiceItem.product_id == prod.id).scalar() or 0) + int(qty)
                 save_item_file(
@@ -2141,7 +2098,6 @@ def save_invoice():
             income_category=i_cat 
         ))
 
-    # Payments processing loop for new document context
     amounts = request.form.getlist('payment_amount[]')
     payment_dates = request.form.getlist('payment_date[]')
     methods = request.form.getlist('payment_method[]')
@@ -2155,7 +2111,6 @@ def save_invoice():
             branch=request.form.getlist('branch[]')[i], account_number=request.form.getlist('account_number[]')[i]
         ))
 
-    # Compile and bind clean net performance records to the transaction ledger engine
     new_trans = Transaction(
         date=new_invoice.invoice_date, 
         description=f"חשבונית #{new_invoice.invoice_number}",
@@ -2192,7 +2147,6 @@ def invoice():
 def invoice_view(invoice_id):
     ctx = invoice_context(invoice_id)
     
-    # Ensure corporate translation records are always present on screen
     if "company" not in ctx or not ctx["company"]:
         ctx["company"] = load_company_data()
         
@@ -2209,10 +2163,6 @@ def invoice_view(invoice_id):
 @app.route("/invoice/new", methods=["GET", "POST"])
 @login_required
 def new_invoice():
-    """
-    Safely resets state parameters and redirects clean to the create workspace.
-    Supports GET methods to prevent 405 Method Not Allowed compilation errors.
-    """
     return redirect(url_for('invoice'))
 
 # --------------------
@@ -2224,26 +2174,21 @@ def new_invoice():
 def cancel_invoice(invoice_id):
     invoice = Invoice.query.get(invoice_id)
 
-    #  FIX: Prevent structural endpoint redirection crashes if the document object is missing
     if not invoice:
         flash("המסמך המבוקש אינו קיים במערכת", "error")
         return redirect(url_for('invoice_data'))
 
-    # Stop execution path if document is already voided
     if invoice.status in ["canceled", "מבוטלת"]:
         return redirect(url_for('invoice_view', invoice_id=invoice_id))
 
-    # Return physical inventory allocations back to warehousing records (Physical products only)
     items = InvoiceItem.query.filter_by(invoice_id=invoice.id).all()
     for item in items:
         prod = Product.query.get(item.product_id)
         if prod and getattr(prod, 'income_category', 'service') == 'product':
             prod.quantity += item.quantity 
 
-    # Remove accounting record completely from general ledgers to secure true net performance values
     Transaction.query.filter_by(invoice_id=invoice.id).delete()
 
-    # Mark document as voided
     invoice.status = "canceled"
     
     db.session.commit()
@@ -2264,13 +2209,11 @@ def invoice_data():
     selected_year = request.args.get("year", "")
     selected_status = request.args.get("status", "all")
 
-    # וידוא ערכי ברירת מחדל לתאריכים על מנת למנוע קריסות ברינדור
     if not selected_year:
         selected_year = str(datetime.today().year)
     if not selected_month:
         selected_month = datetime.today().strftime('%m')
 
-    # joinedload מונע את בעיית N+1 ומאיץ את שליפת הנתונים מה-DB
     invoices = Invoice.query.options(
         db.joinedload(Invoice.customer),
         db.joinedload(Invoice.transactions)
@@ -2282,20 +2225,16 @@ def invoice_data():
     is_numeric_search = search.isdigit()
 
     for inv in invoices:
-        # 1. אינטגרציה: טעינת נתוני לקוח מתורגמים לצורך מנגנון החיפוש
         trans_name = ""
         if inv.customer:
             cid = inv.customer.id
             if cid not in customer_i18n_list:
                 customer_i18n_list[cid] = load_customer_translated(inv.customer, language)
             
-            # חילוץ השם המתורגם לצורך השוואה בחיפוש
             trans_name = (customer_i18n_list[cid].get('name', '') or "").lower()
 
-        # 2. סינון לפי סטטוס חשבונית
         match_status = (selected_status == "all" or inv.status == selected_status)
 
-        # 3. מנגנון חיפוש חכם ומאובטח
         if not search:
             match_search = True
         else:
@@ -2310,35 +2249,26 @@ def invoice_data():
                                 search in trans_name or 
                                 search in str(inv.invoice_date))
 
-        # 4. סינון כרונולוגי לפי חודש ושנה
         inv_year = str(inv.invoice_date.year)
         inv_month = inv.invoice_date.strftime('%m')
         match_month = not selected_month or inv_month == selected_month
         match_year = not selected_year or inv_year == selected_year
 
-        # בדיקת שילוב כל המסננים
         if match_status and match_search and match_month and match_year:
-            # 5. חישוב עלות המכר והרווח (COGS INTEGRATION)
-            # מציאת תנועת ההכנסה המשויכת לחשבונית הנוכחית
             inv_trans = next((t for t in inv.transactions if t.type == 'income'), None)
             row_profit = 0.0
             
             if inv_trans:
-                # המרה בטוחה ל-Float למניעת שגיאות חישוב במקרה של ערכי Null
                 cost = float(inv_trans.cost_price_at_time or 0.0)
                 row_profit = float(inv.sub_total or 0.0) - cost
                 
-                # צבירת סך הכל רווח גלובלי רק מחשבוניות פעילות (לא מבוטלות)
                 if inv.status != "canceled":
                     total_profit += row_profit
             
-            # 🟢 התיקון האוטומטי: הזרקת ערך הרווח ישירות לתוך משתנה דינמי על אובייקט ה-Invoice
-            # זה פותר את השגיאה של ה-HTML מבלי שתצטרך לחפש או לשנות אף שורה בקובץ ה-html!
             inv.profit = row_profit
             
             filtered_invoices.append(inv)
 
-    # חישוב סיכומים כלליים עבור חשבוניות פעילות בלבד
     active_invoices = [inv for inv in filtered_invoices if inv.status != "canceled"]
     total_amount = sum(float(inv.grand_total or 0.0) for inv in active_invoices)
     total_count = len(active_invoices)
@@ -2373,12 +2303,10 @@ def send_invoice_email(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
     customer = invoice.customer
 
-    #  FIX: Pre-validate parameters synchronously to shield background workers from invalid data states
     if not customer or not customer.email:
         flash("ללקוח לא מוגדר אימייל! אנא עדכן את כרטיס הלקוח תחילה.", "danger")
         return redirect(url_for('invoice_view', invoice_id=invoice_id))
 
-    #  FIX: Offload browser compilation and mail delivery tasks completely to the background queue
     email_invoice_pdf_task.delay(invoice_id)
 
     flash("בקשת השליחה התקבלה! החשבונית מופקת ונשלחת ללקוח ברקע.", "success")
@@ -2388,11 +2316,6 @@ def send_invoice_email(invoice_id):
 
 @celery_app.task(name="app.email_invoice_pdf_task", bind=True, max_retries=3)
 def email_invoice_pdf_task(self, invoice_id):
-    """
-    Isolated background worker task to initialize a headless browser, 
-    compile an HTML invoice string directly into a professional PDF document layout, 
-    and dispatch an SMTP mail payload asynchronously.
-    """
     try:
         from playwright.sync_api import sync_playwright
         from flask_mail import Message
@@ -2405,23 +2328,17 @@ def email_invoice_pdf_task(self, invoice_id):
             company_data = load_company_data()
             customer = invoice.customer
 
-            # 1. Initialize contextual parameter bindings for the layout engine
             ctx = invoice_context(invoice_id)
             ctx["company"] = company_data
             
-            # Enforce template boolean filters to isolate and strip structural UI buttons from the PDF layout
             html_content = render_template("invoice.html", **ctx, is_pdf=True)
 
-            # 2. Compile PDF dynamically via headless browser layer
             with sync_playwright() as p:
-                #  FIX: Inject mandatory Linux system configuration flags to secure headless execution inside Render cloud containers
                 browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"])
                 page = browser.new_page()
                 
-                # Load structural template content and wait for asset loading layers to clear safely
                 page.set_content(html_content, wait_until="networkidle")
                 
-                # Execute physical layout render matrix computations
                 pdf_data = page.pdf(
                     format="A4",
                     print_background=True,
@@ -2430,7 +2347,6 @@ def email_invoice_pdf_task(self, invoice_id):
                 )
                 browser.close()
 
-            # 3. Assemble structural messaging bodies
             email_body = f"""
 שלום {customer.customer_name}
 
@@ -2440,27 +2356,23 @@ def email_invoice_pdf_task(self, invoice_id):
 תודה לשירותך תמיד
 """
 
-            # 4. Generate email message envelope properties
             msg = Message(
                 subject=f"חשבונית מס {invoice.invoice_number} - {customer.customer_name}",
                 recipients=[customer.email],
                 body=email_body
             )
 
-            # 5. Bind compiled browser binary payload data as a secure attachment stream
             msg.attach(
                 filename=f"invoice_{invoice.invoice_number}.pdf",
                 content_type="application/pdf",
                 data=pdf_data
             )
 
-            # 6. Execute server outbound mail dispatch operations
             mail.send(msg)
             return f"✅ Success: Email dispatched securely for Invoice #{invoice.invoice_number}"
 
     except Exception as exc:
         print(f"⚠️ Warning: Automated document email dispatch task failed, retrying... Error: {exc}")
-        # Automatic exponential fallback retry matrix window to insulate against network drops or SMTP drops
         raise self.retry(exc=exc, countdown=15)
 
 
@@ -2474,13 +2386,10 @@ def create_payment():
     data = request.get_json()
     allocation_number = data.get('allocation_number')
 
-    # 1) שליפת החשבונית לפי מספר הקצאה
     invoice = Invoice.query.filter_by(allocation_number=allocation_number).first_or_404()
 
-    # 2) שליפת הלקוח מה-DB
     customer = Customer.query.get(invoice.customer_id)
 
-    # 3) בניית בקשה לספק הסליקה
     payment_request = {
         "merchant_id": "YOUR_MERCHANT_ID",
 
@@ -2488,18 +2397,15 @@ def create_payment():
 
         "description": f"תשלום עבור חשבונית מס {invoice.allocation_number}",
 
-        # פרטי לקוח
         "customer_name": customer.customer_name,
         "customer_phone": customer.phone,
         "customer_address": f"{customer.address}, {customer.city}",
         "customer_id_number": customer.id_number,
 
-        # מזהים פנימיים
         "internal_customer_id": customer.id,
         "internal_invoice_id": invoice.id
     }
 
-    # לינק דמה
     payment_url = "https://gateway.com/pay/EXAMPLE123"
 
     return jsonify({"payment_url": payment_url})
@@ -2542,13 +2448,11 @@ def payment_callback():
 def manage_products():
     language = get_lang()
 
-    # POST — CREATE / UPDATE
     if request.method == 'POST':
         product_id = (request.form.get("id") or "").strip()
         name = (request.form.get('name') or '').strip()
         description = (request.form.get('description') or '').strip()
         
-        # --- DATE LOGIC (SAME AS CUSTOMER) ---
         received_date_raw = request.form.get('received_date')
         if not received_date_raw:
             flash('תאריך הוא שדה חובה', 'error')
@@ -2577,7 +2481,6 @@ def manage_products():
         stock_in = to_int(request.form.get('stock_in', 0))
         supplier_id = (request.form.get('supplier_id') or '').strip()
 
-        # חישוב יציאת מלאי אוטומטית
         total_sold = 0
         if product_id:
             total_sold = db.session.query(func.sum(InvoiceItem.quantity))\
@@ -2587,7 +2490,6 @@ def manage_products():
         stock_out = int(total_sold)
         current_stock = stock_in - stock_out
 
-        # שמירה ל-DATABASE
         if product_id:
             product = Product.query.get(product_id)
             if product:
@@ -2613,7 +2515,6 @@ def manage_products():
             db.session.commit()
             product_id = product.id
 
-        # שמירת רכישה מספק
         if supplier_id and stock_in > 0:
             try:
                 sp = SupplierPurchase(
@@ -2631,7 +2532,6 @@ def manage_products():
             except Exception:
                 db.session.rollback()
 
-        #  FIX: Offload heavy translation compilation tasks completely to Celery background workers
         product_translation_task.delay(
             product_id=product_id,
             name=name,
@@ -2648,7 +2548,6 @@ def manage_products():
         flash('הנתונים עודכנו בהצלחה ותהליך התרגום רץ ברקע!', 'success')
         return redirect(url_for('manage_products'))
 
-    # GET — SEARCH + LIST
     search = (request.args.get("q") or "").strip().lower()
     today_str = datetime.today().strftime('%Y-%m-%d') 
     all_products = Product.query.order_by(Product.id.desc()).all()
@@ -2675,7 +2574,6 @@ def manage_products():
                                .filter(InvoiceItem.product_id == p.id)\
                                .scalar() or 0
 
-        # המרת תאריך מ-DB (DD/MM/YYYY) ל-HTML (YYYY-MM-DD) עבור ה-JS
         current_date_val = p.received_date
         if current_date_val and "/" in current_date_val:
             try:
@@ -2714,15 +2612,12 @@ def manage_products():
                 "received_date": current_date_val
             }
 
-    # מילוי אוטומטי אם יש תוצאה אחת
     item_i18n = item_i18n_list[filtered_objects[0].id] if (search and len(filtered_objects) == 1) else None
 
-    # יצירת ה-JSON עבור ה-JS
     products_json = []
     for p in filtered_objects:
         item_file = load_item_file(p.id)
         
-        # המרה לפורמט HTML עבור ה-fillForm בסקריפט
         p_date = p.received_date
         if p_date and "/" in p_date:
             try:
@@ -2740,7 +2635,6 @@ def manage_products():
             "stock_in": item_file.get("stock_in", 0) if item_file else 0
         })
 
-    #  FIX: Process supplier translations securely matching your unified structural layout template expectations
     all_suppliers = Supplier.query.order_by(Supplier.supplier_name).all()
     suppliers_translated = []
     
@@ -2751,7 +2645,6 @@ def manage_products():
             "supplier_name": s_trans.get("name", s.supplier_name)
         })
 
-    #  ALIGNED: Returns using your exact variable mappings to secure complete cross-page layout safety
     return render_template(
         'products_manage.html',
         products=filtered_objects,
@@ -2772,11 +2665,6 @@ def manage_products():
 @app.get("/api/products_list")
 @login_required
 def products_list():
-    """
-    Asynchronous JSON catalog endpoint utilized by the invoice generation script.
-    Enforces strict translation rules to serve item name fields as flat, clean strings 
-    matching the active interface locale context.
-    """
     language = get_lang()
     products = Product.query.order_by(Product.id.asc()).all()
     result = []
@@ -2784,17 +2672,14 @@ def products_list():
     for p in products:
         item_file = load_item_file(p.id)
 
-        # חישוב מלאי שנמכר בפועל מהחשבוניות
         total_sold = db.session.query(func.sum(InvoiceItem.quantity))\
                                .filter(InvoiceItem.product_id == p.id)\
                                .scalar() or 0
 
-        # טעינת נתונים מה-JSON (כולל סוג פעילות ומלאי נכנס)
         stock_in = 0
         supplier_id = None
         income_category = getattr(p, 'income_category', 'service') 
         
-        # --- DATE LOGIC ---
         received_date = getattr(p, 'received_date', None) 
 
         if item_file:
@@ -2803,10 +2688,8 @@ def products_list():
             income_category = item_file.get("income_category", income_category)
             received_date = item_file.get("received_date", received_date)
 
-        # חישוב יתרה אמיתית
         actual_quantity = int(stock_in) - int(total_sold)
 
-        # שמות ותיאורים (Hebrew fallback setup)
         name_he = p.name or ""
         desc_he = p.description or ""
         
@@ -2817,7 +2700,6 @@ def products_list():
             names_dict = {"he": name_he}
             descs_dict = {"he": desc_he}
 
-        #  FIX: Flatten multilingual structures into clean strings matching active language context
         if isinstance(names_dict, dict):
             p_name = names_dict.get(language) or names_dict.get("he") or name_he
         else:
@@ -2828,12 +2710,10 @@ def products_list():
         else:
             p_desc = desc_he
 
-        # שליפת שם ספק אם קיים (מתורגם לפי שפת המערכת)
         supplier_name = None
         if supplier_id:
             supplier = Supplier.query.get(supplier_id)
             if supplier:
-                #  FIX: Extract supplier name via your new load_supplier_translated helper
                 s_trans = load_supplier_translated(supplier, language)
                 supplier_name = s_trans.get("name", supplier.supplier_name)
 
@@ -2841,8 +2721,8 @@ def products_list():
 
         result.append({
             "id": p.id,
-            "name": p_name,          #  Restored: Flat localized text string for invoice row injection
-            "description": p_desc,   #  Restored: Flat localized text string for invoice description columns
+            "name": p_name,          
+            "description": p_desc,   
             "price": float(p.price or 0),
             "cost_price": float(p.cost_price or 0),
             "quantity": actual_quantity,
@@ -2879,14 +2759,11 @@ def delete_selected_products():
         return redirect(url_for('manage_products'))
 
     try:
-        # המרה למספרים שלמים
         product_ids_int = [int(p_id) for p_id in selected_product_ids]
 
-        # מחיקת מוצרים מה־DB
         Product.query.filter(Product.id.in_(product_ids_int)).delete(synchronize_session=False)
         db.session.commit()
 
-        # מחיקת תיקיות JSON לכל מוצר מסונכרן מהנפח המקומי
         for pid in product_ids_int:
             delete_product_folder(pid)
 
@@ -2907,13 +2784,21 @@ def delete_selected_products():
 @app.route('/customer', methods=['GET', 'POST'])
 @login_required
 def customer():
+    current_uid = None
+    try:
+        if current_user.is_authenticated:
+            uid = str(current_user.id)
+            if uid != "0":
+                current_uid = int(uid)
+    except:
+        current_uid = None
+
     if request.method == 'POST':
         date_str = request.form.get('date')
         if not date_str:
             flash('תאריך הוא שדה חובה', 'error')
             return redirect(url_for('customer'))
 
-        # Convert date to DD/MM/YYYY
         try:
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
             formatted_date = date_obj.strftime('%d/%m/%Y')
@@ -2923,9 +2808,8 @@ def customer():
         customer_id = request.form.get('customer_id')
         id_number = request.form.get('id_number')
 
-        # UPDATE EXISTING CUSTOMER
         if customer_id:
-            customer_obj = Customer.query.get(customer_id)
+            customer_obj = Customer.query.filter_by(id=customer_id, user_id=current_uid).first()
             if customer_obj:
                 customer_obj.date = formatted_date
                 customer_obj.customer_name = request.form.get('customer_name')
@@ -2940,7 +2824,6 @@ def customer():
 
                 db.session.commit()
 
-                #  FIX: Offload translation processing safely to Celery asynchronous queue
                 customer_translation_task.delay(
                     customer_obj.id,
                     customer_obj.customer_name,
@@ -2950,23 +2833,10 @@ def customer():
                 )
 
                 flash('הנתונים עודכנו בהצלחה!', 'success')
-
-        # CREATE NEW CUSTOMER
         else:
-            # Check duplicate ID number
-            if id_number and Customer.query.filter_by(id_number=id_number).first():
+            if id_number and Customer.query.filter_by(id_number=id_number, user_id=current_uid).first():
                 flash("קיים כבר לקוח עם מספר זהות זה", "error")
                 return redirect(url_for('customer'))
-
-            # Extract active user session context safety parameters
-            actual_user_id = None
-            try:
-                if current_user.is_authenticated:
-                    uid = str(current_user.id)
-                    if uid != "0":
-                        actual_user_id = int(uid)
-            except:
-                actual_user_id = None
 
             new_customer = Customer(
                 date=formatted_date,
@@ -2981,13 +2851,12 @@ def customer():
                 message=request.form.get('message'),
                 role='customer',
                 is_active=True,
-                user_id=actual_user_id
+                user_id=current_uid
             )
 
             db.session.add(new_customer)
             db.session.commit()
 
-            #  FIX: Trigger background worker translation task pipeline on record injection
             customer_translation_task.delay(
                 new_customer.id,
                 new_customer.customer_name,
@@ -3000,44 +2869,40 @@ def customer():
 
         return redirect(url_for('customer'))
 
-    # GET PART
     language = get_lang()
     today_str = datetime.today().strftime('%Y-%m-%d')
 
-    all_customers = Customer.query.order_by(Customer.customer_name).all()
+    all_customers = Customer.query.filter_by(user_id=current_uid).order_by(Customer.customer_name).all()
     customer_id = request.args.get('customer_id')
 
     selected_customer = None
     customer_i18n = {}
 
     if customer_id:
-        c_obj = Customer.query.get(customer_id)
+        c_obj = Customer.query.filter_by(id=customer_id, user_id=current_uid).first()
         if c_obj:
-            # Load translated values
-            trans = load_customer_translated(c_obj, language)
-
-            # Replace DB values with translated values
-            c_obj.customer_name = trans["name"]
-            c_obj.address = trans["address"]
-            c_obj.city = trans["city"]
-            c_obj.message = trans["message"]
-
             selected_customer = c_obj
+            try:
+                customer_i18n = load_customer_translated(c_obj, language) or {}
+            except:
+                customer_i18n = {}
 
-    # Convert date to YYYY-MM-DD for input
+    input_date_val = today_str
     if selected_customer and selected_customer.date:
-        try:
-            if "/" in selected_customer.date:
-                d_obj = datetime.strptime(selected_customer.date, '%d/%m/%Y')
-                selected_customer.date = d_obj.strftime('%Y-%m-%d')
-        except:
-            pass
+        input_date_val = selected_customer.date
+        if "/" in input_date_val:
+            try:
+                d_obj = datetime.strptime(input_date_val, '%d/%m/%Y')
+                input_date_val = d_obj.strftime('%Y-%m-%d')
+            except:
+                pass
 
-    # Build comprehensive map dictionary of customer rows translated for the selection lists
-    customer_i18n_list = {
-        c.id: load_customer_translated(c, language)
-        for c in all_customers
-    }
+    customer_i18n_list = {}
+    for c in all_customers:
+        try:
+            customer_i18n_list[c.id] = load_customer_translated(c, language) or {}
+        except:
+            customer_i18n_list[c.id] = {}
 
     return render_template(
         'customer.html',
@@ -3057,13 +2922,22 @@ def customer():
 @app.route('/api/customer/<int:customer_id>')
 @login_required
 def api_get_customer(customer_id):
+    current_uid = None
+    try:
+        if current_user.is_authenticated:
+            uid = str(current_user.id)
+            if uid != "0":
+                current_uid = int(uid)
+    except:
+        current_uid = None
+
     language = get_lang()
-    c = Customer.query.get(customer_id)
+    
+    c = Customer.query.filter_by(id=customer_id, user_id=current_uid).first()
 
     if not c:
         return jsonify({"error": "Customer not found"}), 404
 
-    # DATE FORMAT MAPPING
     formatted_date_for_picker = ""
     if c.date:
         try:
@@ -3072,8 +2946,10 @@ def api_get_customer(customer_id):
         except Exception:
             formatted_date_for_picker = c.date
 
-    # LOAD TRANSLATION LAYER
-    trans = load_customer_translated(c, language)
+    try:
+        trans = load_customer_translated(c, language) or {}
+    except:
+        trans = {}
 
     return jsonify({
         "customer_name": trans.get("name", c.customer_name or ""),
@@ -3094,16 +2970,28 @@ def api_get_customer(customer_id):
 @app.route('/customer_data', methods=['GET'])
 @login_required
 def customer_data():
+    current_uid = None
+    try:
+        if current_user.is_authenticated:
+            uid = str(current_user.id)
+            if uid != "0":
+                current_uid = int(uid)
+    except:
+        current_uid = None
+
     language = get_lang()
-    raw_customers = Customer.query.all()
+    
+    raw_customers = Customer.query.filter_by(user_id=current_uid).all()
 
     customers_list = []
     customer_i18n_list = {}
 
     for c in raw_customers:
-        trans = load_customer_translated(c, language)
+        try:
+            trans = load_customer_translated(c, language) or {}
+        except:
+            trans = {}
 
-        # 1. Build a clean, normalized payload matching your standard data grids
         customers_list.append({
             "id": c.id,
             "date": c.date or "",
@@ -3118,10 +3006,8 @@ def customer_data():
             "message": trans.get("message", c.message or "")
         })
 
-        # 2. Re-populate your structural i18n map dictionary to prevent template loop failures
         customer_i18n_list[c.id] = trans
 
-    #  RESTORED & ALIGNED: Passes both uniform layout payload structures to satisfy the HTML loops
     return render_template(
         'customer_data.html', 
         customers=customers_list, 
@@ -3136,23 +3022,30 @@ def customer_data():
 @app.route('/search_customer', methods=['GET', 'POST'])
 @login_required
 def search_customer():
+    current_uid = None
+    try:
+        if current_user.is_authenticated:
+            uid = str(current_user.id)
+            if uid != "0":
+                current_uid = int(uid)
+    except:
+        current_uid = None
+
     language = get_lang()
 
-    # Capture the search payload string securely from both POST and GET channels
     search_name = request.form.get('search_name') if request.method == 'POST' else request.args.get('search_name')
 
     search_results = []
     customer = None
     
-    # Baseline fallback template initialization variables
     today_str = datetime.today().strftime('%Y-%m-%d')
     input_date_val = today_str
 
     if search_name:
         search_name = search_name.strip()
 
-        # Perform optimized pattern search on primary naming values
         search_results = Customer.query.filter(
+            Customer.user_id == current_uid,
             Customer.customer_name.ilike(f'%{search_name}%')
         ).all()
 
@@ -3160,7 +3053,6 @@ def search_customer():
             # Anchor to the first matching customer row entry found
             customer = search_results[0]
 
-            #  FIX: Extract date translation into an isolated variable to safeguard master database schemas
             if customer.date:
                 input_date_val = customer.date
                 try:
@@ -3174,51 +3066,67 @@ def search_customer():
                 except Exception:
                     input_date_val = today_str # Clean validation fallback
 
-    all_customers = Customer.query.order_by(Customer.customer_name).all()
+    all_customers = Customer.query.filter_by(user_id=current_uid).order_by(Customer.customer_name).all()
 
-    # Load multi-lingual localization translation assets
-    customer_i18n = load_customer_translated(customer, language) if customer else {}
-    customer_i18n_list = {
-        c.id: load_customer_translated(c, language)
-        for c in all_customers
-    }
+    customer_i18n = {}
+    if customer:
+        try:
+            customer_i18n = load_customer_translated(customer, language) or {}
+        except:
+            customer_i18n = {}
 
-    #  ALIGNED: Passes identical layout variable properties matching the core dashboard loops
+    customer_i18n_list = {}
+    for c in all_customers:
+        try:
+            customer_i18n_list[c.id] = load_customer_translated(c, language) or {}
+        except:
+            customer_i18n_list[c.id] = {}
+
     return render_template(
         'customer.html',
-        customers=search_results,         # Passes the targeted query results matrix array
-        all_customers=all_customers,     # Keeps global client dropdown options intact
-        customer=customer,               # Passes the resolved customer entry model
-        customer_i18n=customer_i18n,     # Serves localized values for form edit field bindings
+        customers=search_results,         
+        all_customers=all_customers,     
+        customer=customer,               
+        customer_i18n=customer_i18n,     
         customer_i18n_list=customer_i18n_list,
         today=today_str,
-        input_date_val=input_date_val     # Feeds clean date string to the HTML front picker
+        input_date_val=input_date_val     
     )
 
 
 @app.route('/clear_search_results_customer', methods=['POST'])
 @login_required
 def clear_search_results_customer():
+    current_uid = None
+    try:
+        if current_user.is_authenticated:
+            uid = str(current_user.id)
+            if uid != "0":
+                current_uid = int(uid)
+    except:
+        current_uid = None
+
     language = get_lang()
     today_str = datetime.today().strftime('%Y-%m-%d')
 
-    all_customers = Customer.query.order_by(Customer.customer_name).all()
+    all_customers = Customer.query.filter_by(user_id=current_uid).order_by(Customer.customer_name).all()
 
-    # Reload localization translation maps to ensure interface uniformity on view clearing
-    customer_i18n_list = {
-        c.id: load_customer_translated(c, language)
-        for c in all_customers
-    }
+    customer_i18n_list = {}
+    for c in all_customers:
+        try:
+            customer_i18n_list[c.id] = load_customer_translated(c, language) or {}
+        except:
+            customer_i18n_list[c.id] = {}
 
     return render_template(
         'customer.html',
-        customers=[],                    # Resets search data arrays
+        customers=[],                    
         all_customers=all_customers,
         customer=None,
         customer_i18n={},
         customer_i18n_list=customer_i18n_list,
         today=today_str,
-        input_date_val=today_str         # Returns date selector element back to system baseline default
+        input_date_val=today_str         
     )
 
 
@@ -3263,7 +3171,7 @@ def supplier():
 
                 db.session.commit()
 
-                #  FIX: Offload translation processing safely to Celery asynchronous queue task
+                #   Offload translation processing safely to Celery asynchronous queue task
                 supplier_translation_task.delay(
                     supplier_obj.id,
                     supplier_obj.supplier_name,
@@ -3311,7 +3219,7 @@ def supplier():
             db.session.add(new_supplier)
             db.session.commit()
 
-            #  FIX: Trigger background worker translation task pipeline on record injection
+            #   Trigger background worker translation task pipeline on record injection
             supplier_translation_task.delay(
                 new_supplier.id,
                 new_supplier.supplier_name,
@@ -3339,7 +3247,7 @@ def supplier():
         s_obj = Supplier.query.get(supplier_id)
         if s_obj:
             selected_supplier = s_obj
-            #  FIX: Extract translations into an isolated dictionary to protect core DB model properties
+            #   Extract translations into an isolated dictionary to protect core DB model properties
             supplier_i18n = load_supplier_translated(s_obj, language)
 
     # Convert object date to YYYY-MM-DD input format safely without mutating database records
@@ -3493,7 +3401,7 @@ def search_supplier():
             # Anchor to the first matching supplier row entry found
             supplier = search_results[0]
 
-            #  FIX: Extract date translation into an isolated variable to safeguard master database schemas
+            #   Extract date translation into an isolated variable to safeguard master database schemas
             if supplier.date:
                 input_date_val = supplier.date
                 try:
@@ -3817,7 +3725,7 @@ def transactions():
 @login_required
 def add_transaction():
     try:
-        import time # 🔴 FIX: Explicitly import time dependency locally to prevent server NameError crashes on receipt upload operations
+         Explicitly import time dependency locally to prevent server NameError crashes on receipt upload operations
         
         date_str = request.form.get('date')
         trans_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.today().date()
@@ -3863,7 +3771,7 @@ def add_transaction():
         db.session.add(new_trans)
         db.session.commit()
 
-        #  FIX: Send translation computation directly to the Celery asynchronous task queue
+        #   Send translation computation directly to the Celery asynchronous task queue
         # Extracts currency context parameter tracking values dynamically before queueing
         current_curr = get_currency() if 'get_currency' in globals() else 'ILS'
         
@@ -3941,15 +3849,9 @@ def delete_transaction(id):
 @app.get("/api/transactions_list")
 @login_required
 def transactions_list():
-    """
-    Asynchronous ledger catalog feed endpoint. 
-    Flattens localized parameters into clean text arrays to secure 
-    full compatibility with your frontend data table loops.
-    """
     language = get_lang()
     transactions = Transaction.query.order_by(Transaction.date.desc()).all()
     
-    # 1. Build classification translation lookups cleanly from config directories
     cat_map = {}
     cat_dir = app.config.get('CATEGORIES_DIR')
     if cat_dir and os.path.exists(cat_dir):
@@ -3961,7 +3863,6 @@ def transactions_list():
 
     result = []
     for t in transactions:
-        # 2. Extract and extract the active language string token defensively
         trans_file = load_transaction_file(t.id)
         
         if trans_file and "description" in trans_file:
@@ -3969,29 +3870,25 @@ def transactions_list():
         else:
             desc_dict = {"he": t.description or ""}
         
-        #  FIX: Enforce uniform data contract by converting language maps into clean flat strings
         if isinstance(desc_dict, dict):
             p_desc = desc_dict.get(language) or desc_dict.get("he") or t.description or ""
         else:
             p_desc = t.description or ""
         
-        # 3. Process category name resolution safely without model mapping dependencies
         cat_id_str = str(t.category_id) if t.category_id else None
         
         if cat_id_str and cat_id_str in cat_map:
             translated_cat = cat_map[cat_id_str]
         else:
-            #  FIX: Fallback safely using getattr checking to safeguard against model attribute execution errors
             translated_cat = getattr(t, 'category', 'General') or 'General'
         
-        # 4. Assemble the flat payload response array
         result.append({
             "id": t.id,
             "date": t.date.strftime('%Y-%m-%d') if t.date else "",
-            "description": p_desc,            #  Restored: Flat text string matching your interface loops
+            "description": p_desc,            
             "amount": float(t.amount or 0.0),
-            "type": t.type,                   # 'income' or 'expense'
-            "category_id": t.category_id,
+            "type": t.type,                  
+                      "category_id": t.category_id,
             "category_display": translated_cat, 
             "attachment": t.attachment_path or "",
             "invoice_id": t.invoice_id,
@@ -4011,7 +3908,6 @@ def categories():
     try:
         language = get_lang()
         
-        #  FIX: Query your master database table first to insulate UI renders against disk storage syncing delays
         db_categories = Category.query.all()
         all_categories = []
         
@@ -4019,7 +3915,6 @@ def categories():
             data = load_category_file(cat.id)
             if data and "name" in data:
                 names_dict = data.get("name", {})
-                # Extract localized string token: Active Lang -> Hebrew -> Database Base Name String
                 translated_name = names_dict.get(language) or names_dict.get('he') or cat.name or "Unknown"
             else:
                 translated_name = cat.name or "Unknown"
@@ -4029,7 +3924,6 @@ def categories():
                 "name": translated_name
             })
 
-        # Sort dynamically by the localized string to secure organized alpha sorting on the UI layout
         all_categories.sort(key=lambda x: x['name'])
 
         return render_template('categories.html', 
@@ -4047,12 +3941,10 @@ def add_custom_category():
     if not category_name:
         return redirect(url_for('categories'))
 
-    # 1. Commit baseline row tracking directly to your master SQL server engine instance
     new_cat = Category(name=category_name)
     db.session.add(new_cat)
     db.session.commit()
 
-    #  FIX: Send translation operations safely to your asynchronous Celery worker pool
     category_translation_task.delay(cat_id=new_cat.id, raw_name_text=category_name)
 
     flash('הקטגוריה נוספה בהצלחה! תהליך התרגום רץ ברקע.', 'success')
@@ -4063,13 +3955,11 @@ def add_custom_category():
 @login_required
 def delete_custom_category(cat_id):
     try:
-        # 1. Evict structural entry safely from your live relational database context
         cat = Category.query.get(cat_id)
         if cat:
             db.session.delete(cat)
             db.session.commit()
 
-        # 2. Clear external background multi-lingual document partitions from the volume disk mount
         import shutil
         cat_path = os.path.join(app.config.get('CATEGORIES_DIR'), str(cat_id))
         if os.path.exists(cat_path):
@@ -4094,13 +3984,8 @@ def delete_custom_category(cat_id):
 @app.route('/api/categories_list')
 @login_required
 def categories_list():
-    """
-    Asynchronous classification feed endpoint utilized by dynamic form selectors.
-    Enforces strict relational lookup to provide unified localized option keys.
-    """
     lang = get_lang()
     
-    #  FIX: Base loop off database models to secure complete interface data consistency
     db_categories = Category.query.all()
     result = []
     
