@@ -1,0 +1,559 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="payment.title">דף תשלום מרכזי</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --secondary: #6c757d;
+            --bg: #f5f5f5;
+            --card-bg: #ffffff;
+            --text: #222;
+            --border: #ddd;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 20px auto;
+            background: var(--card-bg);
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+
+        /* --- שליטה בגובה רכיבי החיפוש --- */
+        .btn-home {
+            height: 25px !important; /* <--- גובה סרגל עליון */
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0 12px !important; font-size: 13px !important;
+            border-radius: 4px; box-sizing: border-box; vertical-align: middle;
+        }
+
+        .btn-home { background: #0056b3; color: white; text-decoration: none; font-weight: bold; }
+        
+        section {
+            border-bottom: 1px solid var(--border);
+            padding: 15px 0;
+            margin-bottom: 10px;
+        }
+
+        section:last-of-type {
+            border-bottom: none;
+        }
+
+        label {
+            display: block;
+            margin: 6px 0 2px;
+            font-weight: bold;
+        }
+
+        input, select, button {
+            padding: 6px 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 260px;
+            max-width: 100%;
+    border: 1px solid var(--border);
+        }
+
+        .supplier-select {
+            width: 282px;
+            height: 32px;
+            padding: 5px 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            cursor: pointer;
+            margin-inline-start: 5px;
+            margin-top: 4px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+        }
+
+        .col {
+            flex: 1 1 320px;
+            min-width: 280px;
+        }
+
+        .small {
+            font-size: 12px;
+            color: #666;
+        }
+
+        #vatInfo {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #f0f0f0;
+        }
+
+        .status-paid {
+            color: green;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            color: #c77f00;
+            font-weight: bold;
+        }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="Top-btn">
+        <a href="{{ url_for('invoice') }}" class="btn-home btn-invoice" data-i18n="invoice.main_page">דף ראשי</a>
+    </a>
+
+     <!-- Clear Data -->
+      <button type="button" onclick="clearData()" style="background:#d9534f; color:white; border:none; padding:5px 18px; border-radius:6px; cursor:pointer;"
+          data-i18n="customers.clear_data">
+                    נקה מידע
+                </button>
+            </div>
+
+    <h1 data-i18n="page.header">דף תשלום מרכזי</h1>
+
+    <!-- תשלום לספק -->
+    <section id="supplier-payment">
+        <h2 data-i18n="supplier.section_title">תשלום לספק</h2>
+
+        <label data-i18n="supplier.select_label">בחר ספק:</label>
+        <select id="supplierSelect" class="supplier-select" data-bind="supplier.selected">
+            <option value="" disabled selected hidden data-i18n="supplier.placeholder">בחר ספק...</option>
+                {% for s in all_suppliers %}
+                     <option value="{{ s.id }}"
+                data-number="{{ s.supplier_number }}">
+                          {{ s.supplier_name }}
+                         </option>
+                {% endfor %}
+        </select>
+
+        <label data-i18n="supplier.number">מספר ספק:</label>
+        <input type="text" id="supplier_number" data-bind="supplier.number">
+
+        <label data-i18n="supplier.amount_label">סכום לתשלום:</label>
+        <input type="number" id="supplierAmount" data-bind="supplier.amount" step="0.01" min="0">
+
+        <label data-i18n="supplier.desc_label">תיאור:</label>
+        <input type="text" id="supplierDescription" data-bind="supplier.description">
+
+        <label data-i18n="supplier.ref_label">אסמכתא:</label>
+        <input type="text" id="supplierRef" data-bind="supplier.reference">
+
+        <button class="btn-primary" data-i18n="supplier.create_link" onclick="createSupplierPaymentLink()">צור קישור תשלום</button>
+        <button class="btn-secondary" data-i18n="supplier.send_whatsapp" onclick="sendSupplierLinkWhatsApp()">שלח בוואטסאפ</button>
+        <button class="btn-secondary" data-i18n="supplier.send_facebook" onclick="sendSupplierLinkFacebook()">שלח בפייסבוק</button>
+    </section>
+
+    <!-- תשלום חשבונית -->
+    <section id="invoice-payment">
+        <h2 data-i18n="invoice.section_title">תשלום עבור חשבונית מס</h2>
+
+        <label data-i18n="invoice.number_label">מספר חשבונית:</label>
+        <input type="text" id="invoiceNumber" data-bind="invoice.number">
+
+        <label data-i18n="invoice.customer_label">שם לקוח:</label>
+        <input type="text" id="invoiceCustomerName" data-bind="invoice.customer">
+
+        <label data-i18n="invoice.amount_label">סכום לתשלום:</label>
+        <input type="number" id="invoiceAmount" data-bind="invoice.amount" step="0.01" min="0">
+
+        <label data-i18n="invoice.desc_label">תיאור:</label>
+        <input type="text" id="invoiceDescription" data-bind="invoice.description">
+
+        <button class="btn-primary" data-i18n="invoice.pay_now" onclick="payInvoiceNow()">בצע תשלום עכשיו</button>
+        <button class="btn-secondary" data-i18n="invoice.create_link" onclick="createInvoicePaymentLink()">צור קישור תשלום</button>
+        <button class="btn-secondary" data-i18n="invoice.send_whatsapp" onclick="sendInvoiceLinkWhatsApp()">שלח בוואטסאפ</button>
+        <button class="btn-secondary" data-i18n="invoice.send_facebook" onclick="sendInvoiceLinkFacebook()">שלח בפייסבוק</button>
+    </section>
+
+    <!-- תשלום לרשויות -->
+    <section id="authorities-payment">
+        <h2 data-i18n="authorities.section_title">תשלום לרשויות</h2>
+
+        <div class="row">
+            <div class="col">
+                <h3 data-i18n="authorities.tax">מס הכנסה</h3>
+                <button class="btn-primary" onclick="goToIncomeTax()" data-i18n="authorities.go_tax">מעבר לתשלום מס הכנסה</button>
+            </div>
+
+            <div class="col">
+                <h3 data-i18n="authorities.btl">ביטוח לאומי</h3>
+                <button class="btn-primary" onclick="goToBituachLeumi()" data-i18n="authorities.go_btl">מעבר לתשלום ביטוח לאומי</button>
+            </div>
+
+            <div class="col">
+                <h3 data-i18n="authorities.vat">מע"מ</h3>
+                <button class="btn-primary" onclick="goToVAT()" data-i18n="authorities.go_vat">מעבר לתשלום מע"מ</button>
+
+                <label data-i18n="authorities.vat_status">סטטוס מע"מ:</label>
+                <select id="vatBusinessType" data-bind="vat.status" onchange="onVatStatusChange()">
+                    <option value="REGULAR" data-i18n="vat.regular">חייב במע"מ</option>
+                    <option value="PTOR" data-i18n="vat.ptor">עוסק פטור</option>
+                    <option value="EILAT" data-i18n="vat.eilat">אילת (פטור אזורי)</option>
+                </select>
+
+                <div id="vatInfo" data-bind="vat.info"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- סיכום תשלומים -->
+    <section id="payments-summary">
+        <h2 data-i18n="summary.section_title">סיכום תשלומים</h2>
+        <p class="small" data-i18n="summary.desc">
+            כאן תוצג רשימת תשלומים אחרונים – לספקים, חשבוניות ורשויות – כולל סטטוס ואישורי תשלום.
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th data-i18n="summary.date">תאריך</th>
+                    <th data-i18n="summary.type">סוג תשלום</th>
+                    <th data-i18n="summary.target">יעד</th>
+                    <th data-i18n="summary.amount">סכום (₪)</th>
+                    <th data-i18n="summary.status">סטטוס</th>
+                    <th data-i18n="summary.ref">מספר אישור</th>
+                </tr>
+            </thead>
+            <tbody id="paymentsTableBody">
+                <!-- דוגמה סטטית -->
+                <tr>
+                    <td>2026-05-06</td>
+                    <td data-i18n="summary.type_invoice">חשבונית מס</td>
+                    <td>לקוח: ישראל ישראלי</td>
+                    <td>850.00</td>
+                    <td class="status-paid" data-i18n="summary.paid">שולם</td>
+                    <td>AUTH123456</td>
+                </tr>
+                <tr>
+                    <td>2026-05-05</td>
+                    <td data-i18n="summary.type_supplier">ספק</td>
+                    <td>XYZ</td>
+                    <td>1,250.00</td>
+                    <td class="status-pending" data-i18n="summary.pending">ממתין</td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+</div>
+
+<script>
+/* == DATA MODEL + BINDING == */
+const DATA = {
+    supplier: {
+        selected: "",
+        name: "",
+        number: "",
+        amount: "",
+        description: "",
+        reference: ""
+    },
+    invoice: {
+        number: "",
+        customer: "",
+        amount: "",
+        description: ""
+    },
+    vat: {
+        status: "REGULAR",
+        info: ""
+    }
+};
+
+document.querySelectorAll("[data-bind]").forEach(el => {
+    const path = el.getAttribute("data-bind");
+    el.addEventListener("input", () => setData(path, el.value));
+});
+
+function setData(path, value) {
+    const parts = path.split(".");
+    let obj = DATA;
+    while (parts.length > 1) obj = obj[parts.shift()];
+    obj[parts[0]] = value;
+
+    if (path === "vat.status") updateVatInfo();
+}
+
+/* == VAT INFO == */
+    function updateVatInfo() {
+        const status = DATA.vat.status;
+        const infoEl = document.getElementById("vatInfo");
+        if (status === "REGULAR") {
+            infoEl.textContent = (I18N[currentLang]["vat.regular.info"] ||
+                (currentLang === 'he'
+                    ? "העסק חייב במע\"מ – יש לכלול מע\"מ בחשבוניות ולדווח בהתאם."
+                    : "Business is VAT registered – VAT must be added to invoices and reported."));
+        } else if (status === "PTOR") {
+            infoEl.textContent = (I18N[currentLang]["vat.ptor.info"] ||
+                (currentLang === 'he'
+                    ? "העסק עוסק פטור – אין לגבות מע\"מ בחשבוניות, אך עדיין יש לדווח לפי החוק."
+                    : "Business is VAT exempt – do not charge VAT on invoices, but still report as required."));
+        } else if (status === "EILAT") {
+            infoEl.textContent = (I18N[currentLang]["vat.eilat.info"] ||
+                (currentLang === 'he'
+                    ? "העסק באילת – פטור ממע\"מ על עסקאות באילת בהתאם לחוק."
+                    : "Business in Eilat – VAT exempt on Eilat transactions according to law."));
+        } else {
+            infoEl.textContent = "";
+        }
+    }
+
+function onVatStatusChange() {
+    const sel = document.getElementById("vatBusinessType");
+    setData("vat.status", sel.value);
+}
+
+/* == PAYMENT LOGIC == */
+let supplierPaymentLink = "";
+let invoicePaymentLink = "";
+
+function createSupplierPaymentLink() {
+    const supplier = DATA.supplier.selected || document.getElementById('supplierSelect').value;
+    const supplierName = DATA.supplier.name;
+    const amount = DATA.supplier.amount || document.getElementById('supplierAmount').value;
+    const desc = DATA.supplier.description || document.getElementById('supplierDescription').value || 'תשלום לספק';
+    const ref = DATA.supplier.reference || document.getElementById('supplierRef').value;
+
+    if (!amount || amount <= 0) {
+        alert(currentLang === 'he' ? 'אנא הזן סכום תקין לתשלום לספק.' : 'Please enter a valid amount for supplier payment.');
+        return;
+    }
+
+    supplierPaymentLink =
+        "https://pay.example.com/supplier?amount=" + encodeURIComponent(amount) +
+        "&supplier=" + encodeURIComponent(supplierName || supplier) +
+        "&ref=" + encodeURIComponent(ref) +
+        "&desc=" + encodeURIComponent(desc);
+
+    alert((currentLang === 'he' ? 'קישור תשלום לספק נוצר:\n' : 'Supplier payment link created:\n') + supplierPaymentLink);
+}
+
+function sendSupplierLinkWhatsApp() {
+    if (!supplierPaymentLink) {
+        alert(currentLang === 'he' ? 'קודם צור קישור תשלום לספק.' : 'Create supplier payment link first.');
+        return;
+    }
+    const text = encodeURIComponent(
+        (currentLang === 'he' ? "שלום, הנה קישור לתשלום לספק:\n" : "Hi, here is a payment link for supplier:\n") +
+        supplierPaymentLink
+    );
+    window.open("https://wa.me/?text=" + text, "_blank");
+}
+
+function sendSupplierLinkFacebook() {
+    if (!supplierPaymentLink) {
+        alert(currentLang === 'he' ? 'קודם צור קישור תשלום לספק.' : 'Create supplier payment link first.');
+        return;
+    }
+    const url = encodeURIComponent(supplierPaymentLink);
+    window.open("https://www.facebook.com/sharer/sharer.php?u=" + url, "_blank");
+}
+
+function createInvoicePaymentLink() {
+    const invoiceNumber = DATA.invoice.number || document.getElementById('invoiceNumber').value;
+    const customerName = DATA.invoice.customer || document.getElementById('invoiceCustomerName').value;
+    const amount = DATA.invoice.amount || document.getElementById('invoiceAmount').value;
+
+    if (!invoiceNumber || !amount || amount <= 0) {
+        alert(currentLang === 'he'
+            ? 'אנא הזן מספר חשבונית וסכום תקין.'
+            : 'Please enter invoice number and valid amount.');
+        return;
+    }
+
+    invoicePaymentLink =
+        "https://pay.example.com/invoice?inv=" + encodeURIComponent(invoiceNumber) +
+        "&amount=" + encodeURIComponent(amount) +
+        "&customer=" + encodeURIComponent(customerName || '');
+
+    alert((currentLang === 'he' ? 'קישור תשלום לחשבונית נוצר:\n' : 'Invoice payment link created:\n') + invoicePaymentLink);
+}
+
+function payInvoiceNow() {
+    if (!invoicePaymentLink) {
+        createInvoicePaymentLink();
+        if (!invoicePaymentLink) return;
+    }
+    window.open(invoicePaymentLink, "_blank");
+}
+
+function sendInvoiceLinkWhatsApp() {
+    if (!invoicePaymentLink) {
+        alert(currentLang === 'he' ? 'קודם צור קישור תשלום לחשבונית.' : 'Create invoice payment link first.');
+        return;
+    }
+    const text = encodeURIComponent(
+        (currentLang === 'he' ? "שלום, הנה קישור לתשלום עבור חשבונית:\n" : "Hi, here is a payment link for invoice:\n") +
+        invoicePaymentLink
+    );
+    window.open("https://wa.me/?text=" + text, "_blank");
+}
+
+function sendInvoiceLinkFacebook() {
+    if (!invoicePaymentLink) {
+        alert(currentLang === 'he' ? 'קודם צור קישור תשלום לחשבונית.' : 'Create invoice payment link first.');
+        return;
+    }
+    const url = encodeURIComponent(invoicePaymentLink);
+    window.open("https://www.facebook.com/sharer/sharer.php?u=" + url, "_blank");
+}
+
+function goToIncomeTax() {
+    window.open("https://taxinfo.example.gov.il/income-tax-payments", "_blank");
+}
+
+function goToBituachLeumi() {
+    window.open("https://www.btl.gov.il/Payments", "_blank");
+}
+
+function goToVAT() {
+    window.open("https://taxinfo.example.gov.il/vat-payments", "_blank");
+}
+
+/* == SUPPLIER AUTO-FILL == */
+document.getElementById("supplierSelect").addEventListener("change", function () {
+    const selected = this.options[this.selectedIndex];
+
+    const supplierId = selected.value;
+    const supplierName = selected.getAttribute("data-name");
+    const supplierNumber = selected.getAttribute("data-number");
+
+    document.getElementById("supplier_number").value = supplierNumber;
+
+    setData("supplier.selected", supplierId);
+    setData("supplier.name", supplierName);
+    setData("supplier.number", supplierNumber);
+});
+
+/* == SUBMIT PAYMENT PAGE == */
+function submitPaymentPage() {
+
+    const payload = {
+        supplier_payment: {
+            supplier_id: DATA.supplier.selected,
+            supplier_name: DATA.supplier.name,
+            supplier_number: DATA.supplier.number,
+            supplier_amount: DATA.supplier.amount,
+            supplier_description: DATA.supplier.description,
+            supplier_reference: DATA.supplier.reference
+        },
+        invoice_payment: {
+            invoice_number: DATA.invoice.number,
+            invoice_customer: DATA.invoice.customer,
+            invoice_amount: DATA.invoice.amount,
+            invoice_description: DATA.invoice.description
+        },
+        authority_payment: {
+            vat_status: DATA.vat.status
+        }
+    };
+
+    fetch("/api/payment_page_submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(res => {
+        alert("הנתונים נשמרו בהצלחה");
+    })
+    .catch(err => {
+        alert("שגיאה בשליחה");
+        console.error(err);
+    });
+}
+
+/* INIT */
+updateVatInfo();
+</script>
+
+<script>
+function clearData() {
+    window.location.href = "{{ url_for('payment') }}";
+}
+</script>
+
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+
+    function handleAdd(form) {
+        document.getElementById('loader').style.display = 'block';
+        const btn = form.querySelector('.btn-add');
+        btn.style.opacity = '0.5';
+        btn.disabled = true;
+
+        // שולח את הטופס בצורה רגילה אבל מוסיף המתנה לריענון
+        setTimeout(() => {
+            window.location.reload();
+        }, 5000); 
+        return true; 
+    }
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

@@ -1,0 +1,698 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול ספקים</title>
+    <script>
+        function clearData() {
+            fetch('/clear_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Refresh the page
+                } else {
+                    alert('Failed to clear data: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while clearing data');
+            });
+        }
+    </script>
+<style>
+/* Wrapper that adds 4cm spacing on both sides */
+.form-wrapper {
+    padding-left: 4cm;
+    padding-right: 4cm;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Container of all columns */
+.form-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Each column */
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 33%;
+}
+
+/* Each row inside a column */
+.form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Labels */
+.form-row label {
+    width: 35%;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Inputs */
+.form-row input,
+.form-row select {
+    width: 60%;
+    height: 0.6cm;
+    padding: 3px 6px;
+    font-size: 1em;
+    font-weight: bold;
+    border: 1px solid #999;
+    border-radius: 4px;
+    direction: rtl;
+}
+
+/* Full-width message row */
+.full-width-row {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.full-width-row label {
+    width: 2cm;
+    font-weight: bold;
+}
+
+.full-width-row input {
+    width: calc(100% - 2.5cm);
+    height: 0.9cm;
+    font-size: 1.1em;
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding-right: 8px;
+}
+
+/* Buttons */
+button {
+    cursor: pointer;
+    border: none;
+    background-color: #0078d4;
+    color: white;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #005fa3;
+}
+
+/* נטרול כל הכפתורים עד שהתרגום מסיים */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+
+    body {
+        direction: rtl !important;
+        text-align: right !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .form-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .form-container {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .form-column {
+        width: 100% !important;
+        display: block !important;
+        margin-bottom: 15px !important;
+    }
+
+    .form-row {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        margin-bottom: 12px !important;
+    }
+
+    .form-row label {
+        width: 100% !important;
+        font-size: 16px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .form-row input,
+    .form-row select {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        padding: 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .full-width-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+    }
+
+    .full-width-row label {
+        width: 100% !important;
+        margin-bottom: 4px !important;
+    }
+
+    .full-width-row input,
+    .full-width-row textarea {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    *[style*="width"],
+    *[style*="height"] {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    button,
+    a button {
+        width: 100% !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin-bottom: 10px !important;
+        border-radius: 6px !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    div[style*="display: flex"] {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* מסתיר את הכותרת במובייל */
+    form[action*="search_supplier"] label {
+        display: none !important;
+    }
+
+    /* מפרק את השורה של החיפוש */
+    form[action*="search_supplier"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* שדה החיפוש */
+    #search_name {
+        width: 100% !important;
+        margin-bottom: 12px !important;
+        font-size: 18px !important;
+    }
+
+    /* כפתור החיפוש */
+    form[action*="search_supplier"] button {
+        width: 100% !important;
+        height: 40px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    /* כותרת ראשית */
+    h1 {
+        width: 100% !important;
+        display: block !important;
+        text-align: center !important;
+        font-size: 26px !important;
+        margin: 0 0 15px 0 !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* מבטל FLEX מהטופס של נקה מידע */
+    form[action*="clear_search_results_supplier"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* הכפתור עצמו – 100% רוחב */
+    form[action*="clear_search_results_supplier"] button {
+        width: 100% !important;
+        height: 45px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin: 0 0 12px 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* חיסול מוחלט של כל רוחב קבוע ל‑SELECT */
+    select,
+    select#search_name,
+    form[action*="search_supplier"] select {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        display: block !important;
+    }
+
+
+    /* מבטל FLEX מהטופס עצמו */
+    form[action*="search_supplier"] {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* מסתיר את הלייבל במובייל */
+    form[action*="search_supplier"] label {
+        display: none !important;
+    }
+
+    /* ה‑SELECT */
+    form[action*="search_supplier"] select#search_name {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 0 12px 0 !important;
+        padding: 8px !important;
+        font-size: 18px !important;
+        box-sizing: border-box !important;
+        display: block !important;
+    }
+
+    /* הכפתור */
+    form[action*="search_supplier"] button {
+        width: 100% !important;
+        height: 45px !important;
+        font-size: 18px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+    }
+
+    /* מבטל FLEX מכל אלמנט פנימי */
+    form[action*="search_supplier"] *[style*="display:flex"] {
+        display: block !important;
+        width: 100% !important;
+    }
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="container">
+    <div class="column1"></div>
+    <div class="column2">
+
+        <!-- TITLE -->
+        <h1 data-i18n="supplier.add_or_update" style="text-align: center;">הוסף או עדכן ספק</h1>
+
+<!-- MAIN FORM -->
+<form action="{{ url_for('supplier') }}" method="POST" id="supplier">
+    <input type="hidden" id="supplier_id" name="supplier_id" value="{{ supplier.id if supplier else '' }}">
+
+    <div style="height: 0.1cm;"></div>
+
+<div class="form-wrapper">
+
+    <div class="form-container">
+
+        <!-- COLUMN 1 -->
+        <div class="form-column">
+
+            <div class="form-row">
+                <label data-i18n="supplier.date">תאריך פתיחת ספק</label>
+                <div style="position: relative; border: 0.5px solid #444; border-radius: 1px; width: 62%; height: 30px;">
+                    <input type="text" id="supplier_date_display" readonly
+                           style="width: 100%; height: 100%; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; background: #fff; box-sizing: border-box;">
+                    <input type="date" name="date" id="supplier_date_input" required value="{{ today }}"
+                           onchange="updatesupplierDateDisplay()"
+                           style="position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; opacity: 0 !important; cursor: pointer !important; z-index: 10 !important; border: none !important;">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="supplier_name" data-i18n="supplier.name">שם הספק:</label>
+                <input type="text" id="supplier_name" name="supplier_name"
+                       value="{{ supplier_i18n.name or supplier.supplier_name }}">
+            </div>
+
+            <div class="form-row">
+                <label for="supplier_number" data-i18n="supplier.number">מספר ספק:</label>
+                <input type="text" id="supplier_number" name="supplier_number"
+                       value="{{ supplier.supplier_number if supplier else '' }}">
+            </div>
+
+        </div>
+
+        <!-- COLUMN 2 -->
+        <div class="form-column">
+
+            <div class="form-row">
+                <label for="address" data-i18n="supplier.address">כתובת:</label>
+                <input type="text" id="address" name="address"
+                       value="{{ supplier_i18n.address or supplier.address }}">
+            </div>
+
+            <div class="form-row">
+                <label for="city" data-i18n="supplier.city">עיר:</label>
+                <input type="text" id="city" name="city"
+                       value="{{ supplier_i18n.city or supplier.city }}">
+            </div>
+
+            <div class="form-row">
+                <label for="postal_code" data-i18n="supplier.postal_code">מיקוד:</label>
+                <input type="text" id="postal_code" name="postal_code" value="{{ supplier.postal_code if supplier else '' }}">
+            </div>
+
+        </div>
+
+        <!-- COLUMN 3 -->
+        <div class="form-column">
+
+            <div class="form-row">
+                <label for="phone" data-i18n="supplier.phone">טלפון:</label>
+                <input type="text" id="phone" name="phone" value="{{ supplier.phone if supplier else '' }}">
+            </div>
+
+            <div class="form-row">
+                <label for="email" data-i18n="supplier.email">מייל:</label>
+                <input type="text" id="email" name="email" value="{{ supplier.email if supplier else '' }}">
+            </div>
+
+            <div class="form-row">
+          <label for="payment_terms" data-i18n="supplier.payment_terms">תנאי תשלום:</label>
+          <select id="payment_terms" name="payment_terms" style="width: 8.6cm; height: 0.8cm;">
+              <option value="cash" 
+                data-i18n="supplier.payment_terms.cash" 
+                {% if supplier.payment_terms == "cash" %}selected{% endif %}>
+            מזומן
+           </option>
+
+           <option value="net30" 
+                data-i18n="supplier.payment_terms.net30" 
+                {% if supplier.payment_terms == "net30" %}selected{% endif %}>
+            שוטף+30
+         </option>
+
+          <option value="net60" 
+                data-i18n="supplier.payment_terms.net60" 
+                {% if supplier.payment_terms == "net60" %}selected{% endif %}>
+            שוטף+60
+         </option>
+
+         <option value="net90" 
+                data-i18n="supplier.payment_terms.net90" 
+                {% if supplier.payment_terms == "net90" %}selected{% endif %}>
+            שוטף+90
+        </option>
+    </select>
+</div>
+
+  </div>
+</div>
+
+    <!-- FULL WIDTH MESSAGE -->
+    <div class="full-width-row">
+        <label for="notes" data-i18n="supplier.notes" style="font-size: 1em; font-weight: bold;">הערות:</label>
+        <textarea id="notes" name="notes" rows="5"
+                  style="width: 39.75cm; height: 1.5cm; font-size: 21px; font-weight: bold; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            {{ supplier_i18n.notes or supplier.notes }}
+        </textarea>
+    </div>
+
+    <div style="height: 4.1cm;"></div>
+
+    <!-- BUTTONS -->
+    <div style="display: flex; gap: 40.3px; margin-top: 1px; align-items: center;">
+
+        <button type="submit" data-i18n="supplier.save"
+                style="font-weight: bold; width: 3.9cm; height: 0.5cm; font-size: 17px;">
+            שמירת נתונים
+        </button>
+
+</form>
+
+        <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+            <button type="button" data-i18n="supplier.go_main"
+                    style="font-weight: bold; width: 5.8cm; height: 0.5cm; font-size: 17px;">
+                עבור לדף הראשי
+            </button>
+        </a>
+
+        <!-- SEARCH SUPPLIER -->
+        <form method="POST" action="{{ url_for('search_supplier') }}" style="display: flex; align-items: center;">
+            <label for="search_supplier" data-i18n="supplier.search_label"
+                   style="font-weight: bold; width: 5.7cm; height: 0.8cm; font-size: 19px; display: flex; align-items: center; margin-right: 9px;">
+                חיפוש ספק:
+            </label>
+            <select id="search_supplier" name="search_supplier" style="margin-right: 10px; width: 200px;">
+                <option value="" data-i18n="supplier.search_name">בחר ספק</option>
+                {% for s in all_suppliers %}
+                    <option value="{{ s.supplier_name }}">{{ supplier_i18n_list[s.id].name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" data-i18n="supplier.search_button"
+                    style="font-weight: bold; width: 2.4cm; height: 0.5cm; font-size: 17px;">
+                חיפוש
+            </button>
+        </form>
+
+        <!-- CLEAR -->
+        <form method="POST" action="{{ url_for('clear_search_results_supplier') }}">
+            <button type="submit" data-i18n="supplier.clear"
+                    style="font-weight: bold; width: 3.5cm; height: 0.5cm; font-size: 17px; margin-right: 10px;">
+                נקה מידע
+            </button>
+        </form>
+
+        <!-- SUPPLIER DATA PAGE -->
+        <a href="{{ url_for('supplier_data') }}" style="text-decoration: none;">
+            <button type="button" data-i18n="supplier.data"
+                    style="font-weight: bold; width: 4.7cm; height: 0.5cm; font-size: 17px;">
+                מידע ספקים
+            </button>
+        </a>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formBody = document.getElementById('supplier');
+    if (formBody) {
+        const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
+
+        formBody.addEventListener('keydown', function (event) {
+            const key = event.key;
+            const current = event.target;
+            const index = allFields.indexOf(current);
+
+            if (index === -1) return;
+
+            // אם השדה הוא select ונלחץ חץ למטה — נפתח את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowDown') {
+                current.size = current.options.length; // פותח את כל האפשרויות
+                event.preventDefault();
+                return;
+            }
+
+            // אם השדה הוא select ונלחץ חץ למעלה — סוגר את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowUp') {
+                current.size = 1;
+                event.preventDefault();
+                return;
+            }
+
+            // ניווט רגיל בין שדות
+            if (key === 'ArrowDown' && index < allFields.length - 1) {
+                allFields[index + 1].focus();
+                event.preventDefault();
+            }
+            if (key === 'ArrowUp' && index > 0) {
+                allFields[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+
+        // הדגשה כששדה נבחר
+        allFields.forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.backgroundColor = '#e6f7ff';
+                field.style.outline = '1px solid #007bff';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כברירת מחדל
+                }
+            });
+            field.addEventListener('blur', () => {
+                field.style.backgroundColor = '';
+                field.style.outline = '';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כשמאבדים פוקוס
+                }
+            });
+        });
+    }
+});
+</script>
+
+  <!-- פופאפ הודעה מבצע תרגום עד שמסיים -->
+<script>
+function lockUI() {
+    const lang = localStorage.getItem("lang") || "he";
+
+    const messages = {
+        "he": "⏳ מבצע תרגום... אנא המתן...",
+        "en": "⏳ Translating... Please wait...",
+        "fr": "⏳ Traduction en cours... Veuillez patienter...",
+        "es": "⏳ Traduciendo... Por favor espera...",
+        "de": "⏳ Übersetzung läuft... Bitte warten...",
+        "ru": "⏳ Выполняется перевод... Пожалуйста, подождите...",
+        "ar": "⏳ جارٍ الترجمة... يرجى الانتظار...",
+        "zh": "⏳ 正在翻译... 请稍候...",
+        "ja": "⏳ 翻訳中... お待ちください...",
+        "hi": "⏳ अनुवाद हो रहा है... कृपया प्रतीक्षा करें...",
+        "pt": "⏳ Traduzindo... Por favor, aguarde...",
+        "it": "⏳ Traduzione in corso... Attendere prego...",
+        "nl": "⏳ Vertalen... Even geduld aub...",
+        "sv": "⏳ Översätter... Vänta...",
+        "tr": "⏳ Çeviri yapılıyor... Lütfen bekleyin...",
+        "ko": "⏳ 번역 중... 잠시만 기다려주세요...",
+        "pl": "⏳ Tłumaczenie... Proszę czekać...",
+        "uk": "⏳ Виконується переклад... Зачекайте...",
+        "fa": "⏳ در حال ترجمه... لطفاً صبر کنید...",
+        "ro": "⏳ Se traduce... Vă rugăm așteptați...",
+        "cs": "⏳ Probíhá překlad... Počkejte prosím...",
+        "el": "⏳ Μετάφραση σε εξέλιξη... Παρακαλώ περιμένετε...",
+        "th": "⏳ กำลังแปล... กรุณารอสักครู่...",
+        "vi": "⏳ Đang dịch... Vui lòng chờ...",
+        "bn": "⏳ অনুবাদ হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন...",
+        "id": "⏳ Menerjemahkan... Harap tunggu...",
+        "ms": "⏳ Menterjemah... Sila tunggu...",
+        "tl": "⏳ Isinasalin... Mangyaring maghintay...",
+        "hu": "⏳ Fordítás folyamatban... Kérjük, várjon...",
+        "bg": "⏳ Превежда се... Моля, изчакайте..."
+    };
+
+    document.getElementById("loadingOverlay").innerText =
+        messages[lang] || messages["en"];
+
+    document.getElementById("loadingOverlay").style.display = "flex";
+}
+</script>
+
+<script>
+/**
+ * מעדכן את תצוגת התאריך בדף הלקוחות
+ */
+function updatesupplierDateDisplay() {
+    const dateInput = document.getElementById('supplier_date_input');
+    const displayInput = document.getElementById('supplier_date_display');
+    
+    if (!dateInput || !displayInput) return;
+
+    const currentLang = localStorage.getItem("lang") || "he";
+
+    try {
+        const val = dateInput.value;
+        if (!val) return;
+
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+            // תמיכה ב-30 שפות דרך Intl API
+            const formatter = new Intl.DateTimeFormat(currentLang, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+
+            // החלפת מפרידים למקף לאחידות
+            let formatted = formatter.format(d).replace(/[\/.]/g, '-');
+            displayInput.value = formatted;
+        }
+    } catch (e) {
+        displayInput.value = dateInput.value;
+    }
+}
+
+// 1. הפעלה בטעינת הדף
+document.addEventListener("DOMContentLoaded", () => {
+    updatesupplierDateDisplay();
+    
+    // מוודא שהשדה הוויזואלי לא חוסם את הקליק על השדה השקוף
+    const displayInput = document.getElementById('supplier_date_display');
+    if (displayInput) displayInput.style.pointerEvents = 'none';
+});
+
+// 2. עדכון שפה בזמן אמת
+const originalLoadLanguage = window.loadLanguage;
+window.loadLanguage = function(lang) {
+    if (typeof originalLoadLanguage === 'function') originalLoadLanguage(lang);
+    updatesupplierDateDisplay();
+};
+
+// 3. עדכון מטאבים אחרים
+window.addEventListener('storage', (e) => {
+    if (e.key === 'lang') updatesupplierDateDisplay();
+});
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
