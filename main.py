@@ -43,26 +43,22 @@ from concurrent.futures import ThreadPoolExecutor
 from database import db, PasswordResetToken, Customer, Payment, Invoice, InvoiceItem, Product, Category, Supplier, SupplierPurchase, Transaction, User, OwnerUser 
 
 # -----------------------------------------------------------
-#  1. Load Environment & Init Flask
+#   Load Environment & Init Flask
 # -----------------------------------------------------------
 load_dotenv()
 app = Flask(__name__, static_folder="static")
 
-# זיהוי סביבה - קריטי ל-Render ו-Celery
 IS_RENDER = "RENDER" in os.environ
 
-# הגדרת נתיב בסיס אבסולוטי
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # -----------------------------------------------------------
-#  2. הגדרת נתיבי תיקיות (Paths) - Local & Render Safe
+#  הגדרת נתיבי תיקיות (Paths) - Local & Render Safe
 # -----------------------------------------------------------
 
-# נתיבים קבועים
 COMPANY_DIR = os.path.join(BASE_DIR, "company")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 
-# נתיבי נתונים (JSON) - ב-Render עוברים ל-tmp כי static הוא Read-Only
 if IS_RENDER:
     CUSTOMERS_DIR = "/tmp/customers"
     SUPPLIERS_DIR = "/tmp/suppliers"          
@@ -76,7 +72,6 @@ else:
     TRANSACTIONS_DIR = os.path.join(BASE_DIR, "static", "transactions")
     CATEGORIES_DIR = os.path.join(BASE_DIR, "static", "categories")
 
-# ריכוז כל התיקיות ליצירה פיזית
 folders_to_create = [
     COMPANY_DIR,
     ITEMS_DIR,
@@ -95,16 +90,13 @@ for d in folders_to_create:
         print(f"⚠️ Warning: Could not create folder {d}: {e}")
 
 # -----------------------------------------------------------
-#   הגדרת ארכיטקטורת CELERY & REDIS - פתרון זיכרון סגור לווינדוס
+#   הגדרת ארכיטקטורת CELERY & REDIS 
 # -----------------------------------------------------------
 
 if IS_RENDER or os.environ.get('REDIS_URL'):
-    #  פרודקשן בענן (Render): שימוש בשרת Redis המאובטח
     CELERY_BROKER = os.environ.get('REDIS_URL')
     CELERY_BACKEND = os.environ.get('REDIS_URL')
 else:
-    #  לוקאל במחשב שלך (Localhost): מנוע זיכרון וירטואלי חסין שגיאות מערכת הפעלה
-    # מונע לחלוטין שגיאות של pywintypes או נעילת קבצים בווינדוס
     CELERY_BROKER = "memory://"
     CELERY_BACKEND = "cache+memory://"
 
@@ -114,7 +106,6 @@ celery_app = Celery(
     broker=CELERY_BROKER
 )
 
-# הגדרות אופטימיזציה גלובליות לשני המצבים
 celery_app.conf.update(
     task_serializer='json',
     accept_content=['json'],
@@ -125,24 +116,20 @@ celery_app.conf.update(
     worker_max_tasks_per_child=1000
 )
 
-#  תיקון קריטי ללוקאל: אם אנחנו על המחשב שלך, המערכת תריץ את המשימות 
-# באופן סינכרוני מיידי (נראה כמו רקע אבל בלי צורך בשרתים או טרמינלים נוספים!)
 if not (IS_RENDER or os.environ.get('REDIS_URL')):
     celery_app.conf.update(
-        task_always_eager=True,       # מריץ את המשימה מיד בלי לחכות ל-Worker חיצוני
-        task_eager_propagates=True    # זורק שגיאות לקונסול אם התרגום נכשל
+        task_always_eager=True,       
+        task_eager_propagates=True    
     )
 
 # -----------------------------------------------------------
-#  3. Security & Session Config
+#   Security & Session Config
 # -----------------------------------------------------------
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# מפתחות אבטחה מה-Environment
 app.secret_key = os.environ.get("SECRET_KEY") or "local_dev_key_only"
 jwt_key = os.environ.get("JWT_SECRET_KEY") or "local_jwt_key_only"
 
-# עדכון הגדרות פלאסק
 app.config.update(
     JWT_SECRET_KEY=jwt_key,
     SESSION_PERMANENT=True,
@@ -153,7 +140,6 @@ app.config.update(
     REMEMBER_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
 
-    # רישום נתיבים ב-Config לגישה מכל מקום ב-Routes
     COMPANY_DIR=COMPANY_DIR,
     ITEMS_DIR=ITEMS_DIR,
     TRANSACTIONS_DIR=TRANSACTIONS_DIR,
@@ -164,7 +150,7 @@ app.config.update(
 )
 
 # -----------------------------
-# 4. Database Config (Postgres Fix)
+#  Database Config (Postgres)
 # -----------------------------
 db_choice = os.getenv("DB_CHOICE", "sqlite").lower()
 
@@ -184,7 +170,7 @@ else:
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # -----------------------------
-# 5. Mail Configuration
+#  Mail Configuration
 # -----------------------------
 app.config.update(
     MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
@@ -196,7 +182,7 @@ app.config.update(
 )
 
 # -----------------------------
-# 6. Init Extensions
+#  Init Extensions
 # -----------------------------
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -210,10 +196,21 @@ login_manager.login_view = "login"
 babel = Babel(app)
 
 # -----------------------------
-# 7. Owner Credentials
+#  Owner Credentials
 # -----------------------------
 OWNER_USERNAME = os.getenv("OWNER_USERNAME")
 OWNER_PASSWORD = generate_password_hash(os.getenv("OWNER_PASSWORD"))
+
+# -----------------------------
+#  DB Create All
+# -----------------------------
+with app.app_context():
+    try:
+        from database import db, PasswordResetToken, Customer, Payment, Invoice, InvoiceItem, Product, Category, Supplier, SupplierPurchase, Transaction, User, OwnerUser   
+        db.create_all()
+        print("✅ Database tables created successfully inside app initialization!")
+    except Exception as e:
+        print(f"❌ Database startup error during init: {e}")
 
 # ----------------------
 # Getting Import Time GLOBAL LANGUAGE + COUNTRY Format All Processor
@@ -1031,7 +1028,7 @@ def customer_translation_task(self, customer_id, name, address, city, message):
     """
     try:
         with app.app_context():
-            # 🔴 Execute heavy multi-lingual machine translations (Deep Translator engine)
+            #  Execute heavy multi-lingual machine translations (Deep Translator engine)
             name_trans = generate_translations(name or "")
             address_trans = generate_translations(address or "")
             city_trans = generate_translations(city or "")
@@ -4240,19 +4237,9 @@ def suppliers_list():
 # -----------------------------------------------------------
 
 if __name__ == "__main__":
-    with app.app_context():
-        try:
-            from database import db, PasswordResetToken, Customer, Payment, Invoice, InvoiceItem, Product, Category, Supplier, SupplierPurchase, Transaction, User, OwnerUser   
-            
-            db.create_all()
-            print("✅ Database tables synced successfully")
-        except Exception as e:
-            print(f"❌ Database startup error: {e}")
-
     port = int(os.environ.get("PORT", 5000))
     app.run(
         host="0.0.0.0",
         port=port,
         debug=not IS_RENDER
     )
-
