@@ -4242,6 +4242,8 @@ def suppliers_list():
 if __name__ == "__main__":
     with app.app_context():
         try:
+            from database import db, PasswordResetToken, Customer, Payment, Invoice, InvoiceItem, Product, Category, Supplier, SupplierPurchase, Transaction, User, OwnerUser   
+            
             db.create_all()
             print("✅ Database tables synced successfully")
         except Exception as e:
