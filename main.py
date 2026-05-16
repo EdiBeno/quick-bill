@@ -3724,9 +3724,7 @@ def transactions():
 @app.route('/transaction/add', methods=['POST'])
 @login_required
 def add_transaction():
-    try:
-         Explicitly import time dependency locally to prevent server NameError crashes on receipt upload operations
-        
+    try:        
         date_str = request.form.get('date')
         trans_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.today().date()
         
