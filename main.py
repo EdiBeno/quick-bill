@@ -3016,20 +3016,25 @@ def customer():
     if customer_id:
         c_obj = Customer.query.get(customer_id)
         if c_obj:
-            selected_customer = c_obj
-            #  FIX: Extract translations into an isolated payload to protect master DB properties
-            customer_i18n = load_customer_translated(c_obj, language)
+            # Load translated values
+            trans = load_customer_translated(c_obj, language)
 
-    # Convert object date to YYYY-MM-DD input format safely without updating database records
-    input_date_val = today_str
+            # Replace DB values with translated values
+            c_obj.customer_name = trans["name"]
+            c_obj.address = trans["address"]
+            c_obj.city = trans["city"]
+            c_obj.message = trans["message"]
+
+            selected_customer = c_obj
+
+    # Convert date to YYYY-MM-DD for input
     if selected_customer and selected_customer.date:
-        input_date_val = selected_customer.date
-        if "/" in input_date_val:
-            try:
-                d_obj = datetime.strptime(input_date_val, '%d/%m/%Y')
-                input_date_val = d_obj.strftime('%Y-%m-%d')
-            except:
-                pass
+        try:
+            if "/" in selected_customer.date:
+                d_obj = datetime.strptime(selected_customer.date, '%d/%m/%Y')
+                selected_customer.date = d_obj.strftime('%Y-%m-%d')
+        except:
+            pass
 
     # Build comprehensive map dictionary of customer rows translated for the selection lists
     customer_i18n_list = {
@@ -3041,10 +3046,10 @@ def customer():
         'customer.html',
         customer=selected_customer,
         all_customers=all_customers,
-        customer_i18n=customer_i18n,          # Serves clean data fields for edit form context
-        customer_i18n_list=customer_i18n_list, # Serves translated rows for listing views
+        customer_i18n=customer_i18n,
+        customer_i18n_list=customer_i18n_list,
         today=today_str,
-        input_date_val=input_date_val          # Restored clean date format mapping variable
+        input_date_val=input_date_val          
     )
 
 
