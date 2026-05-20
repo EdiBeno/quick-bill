@@ -205,12 +205,7 @@ OWNER_PASSWORD = generate_password_hash(os.getenv("OWNER_PASSWORD"))
 #  DB Create All
 # -----------------------------
 with app.app_context():
-    try:
-        from database import db, PasswordResetToken, Customer, Payment, Invoice, InvoiceItem, Product, Category, Supplier, SupplierPurchase, Transaction, User, OwnerUser   
         db.create_all()
-        print("✅ Database tables created successfully inside app initialization!")
-    except Exception as e:
-        print(f"❌ Database startup error during init: {e}")
 
 # ----------------------
 # Getting Import Time GLOBAL LANGUAGE + COUNTRY Format All Processor
@@ -374,10 +369,8 @@ def get_locale():
 #  SMART NUMBER & CURRENCY FORMATTERS
 # ----------------------
 
-# 1. קודם כל מגדירים את הפונקציות
 def format_number_only(value):
     try:
-        # זה יחזיר ১.৪১১,২০ בבנגלדש
         return babel.numbers.format_decimal(value, locale=get_locale())
     except:
         return "{:,.2f}".format(float(value))
@@ -469,7 +462,6 @@ def load_user(user_id):
         if user_id == "0":
             return OwnerUser(os.getenv("OWNER_USERNAME"))
         
-        # משתמשים רגילים מה-DB
         from database import User
         return User.query.get(int(user_id))
             
@@ -904,10 +896,6 @@ def customer_dashboard():
 
 @celery_app.task(name="app.company_translation_task", bind=True, max_retries=3)
 def company_translation_task(self):
-    """
-    משימת רקע של Celery. קוראת את קובץ המקור הקיים בשורש,
-    מתרגמת ל-30 שפות, ושומרת לתיקיית העבודה הנסתרת.
-    """
     try:
         with app.app_context():
             root_path = os.path.join(BASE_DIR, "company.json")
@@ -919,7 +907,6 @@ def company_translation_task(self):
             with open(root_path, "r", encoding="utf-8") as f:
                 base = json.load(f)
 
-            # הרצת תרגום המכונה הכבד לכל השפות (Deep Translator)
             translated = {}
             for key, value in base.items():
                 if value and str(value).strip():
@@ -927,7 +914,6 @@ def company_translation_task(self):
                 else:
                     translated[key] = {}
 
-            # שמירה פיזית לתיקיית היעד (COMPANY_DIR)
             save_company_file(translated)
             return "✅ Company translations completed successfully!"
 
@@ -943,10 +929,8 @@ def company_translation_task(self):
 @app.route("/admin/generate_company", methods=["POST"])
 @login_required
 def admin_generate_company():
-    #  שלב 1: לקיחת הנתונים שהמשתמש מילא בטופס ה-Front
     data = request.get_json(silent=True) or {}
     
-    #  שלב 2: שמירת הנתונים הגולמיים מיד לקובץ הבסיס בשורש האתר (כמו בקוד המקורי שלך)
     root_path = os.path.join(BASE_DIR, "company.json")
     try:
         with open(root_path, "w", encoding="utf-8") as f:
@@ -954,7 +938,6 @@ def admin_generate_company():
     except Exception as e:
         return jsonify({"status": "error", "message": f"Could not save base file: {e}"}), 500
 
-    #  שלב 3: הפעלת משימת התרגום הכבדה ברקע באמצעות Celery
     company_translation_task.delay()
     
     return jsonify({"status": "ok", "message": "Success"})
@@ -964,7 +947,6 @@ def admin_generate_company():
 # -----------------------------
 
 def save_company_file(data):
-    """Saves data specifically to the background COMPANY_DIR"""
     os.makedirs(COMPANY_DIR, exist_ok=True)
     file_path = os.path.join(COMPANY_DIR, "company.json")
     with open(file_path, "w", encoding="utf-8") as f:
@@ -973,7 +955,6 @@ def save_company_file(data):
 
 
 def load_company_file():
-    """Generic loader for the background company file"""
     file_path = os.path.join(COMPANY_DIR, "company.json")
     if not os.path.exists(file_path):
         return None
@@ -1018,27 +999,19 @@ def load_company_data():
 
 @celery_app.task(name="app.customer_translation_task", bind=True, max_retries=3)
 def customer_translation_task(self, customer_id, name, address, city, message):
-    """
-    Isolated background worker task to process multi-lingual translation arrays.
-    Saves context dictionaries directly to external disk files via the shared volume.
-    Safely utilizes Flask app context layers to allow seamless local SQLite/Postgres ORM access.
-    """
     try:
         with app.app_context():
-            #  Execute heavy multi-lingual machine translations (Deep Translator engine)
             name_trans = generate_translations(name or "")
             address_trans = generate_translations(address or "")
             city_trans = generate_translations(city or "")
             message_trans = generate_translations(message or "")
             
-            # Save the final compiled matrix file directly to the dedicated directory partition
             save_customer_file(customer_id, name_trans, address_trans, city_trans, message_trans)
             
             return f"✅ Success: Translated Customer Profile ID: {customer_id}"
             
     except Exception as exc:
         print(f"⚠️ Warning: Customer translation pipeline failed, retrying... Error: {exc}")
-        # Automatic exponential fallback retry window to insulate against translation remote API hiccups
         raise self.retry(exc=exc, countdown=10)
 
 
@@ -1047,7 +1020,6 @@ def customer_translation_task(self, customer_id, name, address, city, message):
 # -----------------------------------------------------------
 
 def save_customer_file(customer_id, name_trans, address_trans, city_trans, message_trans):
-    """Saves structured data specifically to the background CUSTOMERS_DIR"""
     customer_path = os.path.join(CUSTOMERS_DIR, str(customer_id))
     os.makedirs(customer_path, exist_ok=True)
 
@@ -1067,7 +1039,6 @@ def save_customer_file(customer_id, name_trans, address_trans, city_trans, messa
 
 
 def load_customer_file(customer_id):
-    """Generic loader for the external client configuration profile file"""
     file_path = os.path.join(CUSTOMERS_DIR, str(customer_id), f"{customer_id}.json")
 
     if not os.path.exists(file_path):
@@ -1082,21 +1053,14 @@ def load_customer_file(customer_id):
 
 
 def load_customer_translated(customer, language):
-    """
-    Loads localized customer attributes based on active user locale context.
-    Safely drops back to raw database schema seeds if physical directory syncs are offline.
-    """
-    # 1. Handle specialized localization property path maps (e.g., Mandarin)
     special_mappings = {
         "zh": "zh-CN",
         "en": "en"
     }
     lookup_lang = special_mappings.get(language, language)
     
-    # 2. Extract active storage record file layer
     data = load_customer_file(customer.id)
 
-    # 3. Defensive Fallback: If disk volume is missing/reset, serve primary model values
     if not data:
         return {
             "name": customer.customer_name or "",
@@ -1105,10 +1069,8 @@ def load_customer_translated(customer, language):
             "message": customer.message or ""
         }
 
-    # 4. Internal extraction logic ensuring baseline data consistency across UI renders
     def get_val(field_key, default_val):
         field_data = data.get(field_key, {})
-        # Hierarchy: Active System Lang -> Hebrew Base (Source Origin) -> DB Column Value -> Empty string fallback
         return field_data.get(lookup_lang) or field_data.get("he") or default_val or ""
 
     return {
@@ -1124,28 +1086,20 @@ def load_customer_translated(customer, language):
 
 @celery_app.task(name="app.supplier_translation_task", bind=True, max_retries=3)
 def supplier_translation_task(self, supplier_id, name, address, city, postal_code, notes):
-    """
-    Isolated background worker task to process multi-lingual supplier translation arrays.
-    Saves context dictionaries directly to external disk files via the shared volume.
-    Safely utilizes Flask app context layers to allow seamless local SQLite/Postgres ORM access.
-    """
     try:
         with app.app_context():
-            #  Execute heavy multi-lingual machine translations (Deep Translator engine)
             name_trans = generate_translations(name or "")
             address_trans = generate_translations(address or "")
             city_trans = generate_translations(city or "")
             postal_code_trans = generate_translations(postal_code or "")
             notes_trans = generate_translations(notes or "")
             
-            # Save the final compiled matrix file directly to the dedicated directory partition
             save_supplier_file(supplier_id, name_trans, address_trans, city_trans, postal_code_trans, notes_trans)
             
             return f"✅ Success: Translated Supplier Profile ID: {supplier_id}"
             
     except Exception as exc:
         print(f"⚠️ Warning: Supplier translation pipeline failed, retrying... Error: {exc}")
-        # Automatic exponential fallback retry window to insulate against translation remote API hiccups
         raise self.retry(exc=exc, countdown=10)
 
 
@@ -1154,7 +1108,6 @@ def supplier_translation_task(self, supplier_id, name, address, city, postal_cod
 # -----------------------------------------------------------
 
 def save_supplier_file(supplier_id, name_trans, address_trans, city_trans, postal_code_trans, notes_trans):
-    """Saves structured data specifically to the background SUPPLIERS_DIR"""
     supplier_path = os.path.join(SUPPLIERS_DIR, str(supplier_id))
     os.makedirs(supplier_path, exist_ok=True)
 
@@ -1175,7 +1128,6 @@ def save_supplier_file(supplier_id, name_trans, address_trans, city_trans, posta
 
 
 def load_supplier_file(supplier_id):
-    """Generic loader for the external supplier configuration profile file"""
     file_path = os.path.join(SUPPLIERS_DIR, str(supplier_id), f"{supplier_id}.json")
 
     if not os.path.exists(file_path):
@@ -1190,21 +1142,14 @@ def load_supplier_file(supplier_id):
 
 
 def load_supplier_translated(supplier, language):
-    """
-    Loads localized supplier attributes based on active user locale context.
-    Safely drops back to raw database schema seeds if physical directory syncs are offline.
-    """
-    # 1. Handle specialized localization property path maps (e.g., Mandarin)
     special_mappings = {
         "zh": "zh-CN",
         "en": "en"
     }
     lookup_lang = special_mappings.get(language, language)
 
-    # 2. Extract active storage record file layer
     data = load_supplier_file(supplier.id)
 
-    # 3. Defensive Fallback: If disk volume is missing/reset, serve primary model values
     if not data:
         return {
             "name": supplier.supplier_name or "",
@@ -1214,10 +1159,8 @@ def load_supplier_translated(supplier, language):
             "notes": supplier.notes or ""
         }
 
-    # 4. Internal extraction logic ensuring baseline data consistency across UI renders
     def get_val(field_key, default_val):
         field_data = data.get(field_key, {})
-        # Hierarchy: Active System Lang -> Hebrew Base (Source Origin) -> DB Column Value -> Empty string fallback
         return (
             field_data.get(lookup_lang)
             or field_data.get("he")
@@ -1251,18 +1194,11 @@ def product_translation_task(
     supplier_id=None, 
     received_date=None
 ):
-    """
-    Isolated background worker task to process multi-lingual product translation arrays.
-    Saves context dictionaries directly to external disk files via the shared volume.
-    Safely utilizes Flask app context layers to allow seamless local SQLite/Postgres ORM access.
-    """
     try:
         with app.app_context():
-            #  Execute heavy multi-lingual machine translations (Deep Translator engine)
             name_trans = generate_translations(name or "")
             desc_trans = generate_translations(description or "")
             
-            # Save the final compiled matrix file directly to the dedicated directory partition
             save_item_file(
                 product_id=product_id,
                 name_trans=name_trans,
@@ -1280,7 +1216,6 @@ def product_translation_task(
             
     except Exception as exc:
         print(f"⚠️ Warning: Product translation pipeline failed, retrying... Error: {exc}")
-        # Automatic exponential fallback retry window to insulate against translation remote API hiccups
         raise self.retry(exc=exc, countdown=10)
 
 
@@ -1289,7 +1224,6 @@ def product_translation_task(
 # -----------------------------------------------------------
 
 def ensure_product_folder(product_id):
-    """Generates localized item directory path nodes safely on the disk partition"""
     product_path = os.path.join(ITEMS_DIR, str(product_id))
     images_path = os.path.join(product_path, "images")
 
@@ -1304,18 +1238,16 @@ def save_item_file(
     name_trans,
     desc_trans,
     price,
-    income_category,          # Standardized parameter nomenclature matching your DB column fields
+    income_category,          
     cost_price=0.0,
     stock_in=0,
     stock_out=0,
     supplier_id=None,
     received_date=None  
 ):
-    """Saves structured catalog attributes specifically to the background ITEMS_DIR"""
     product_path = ensure_product_folder(product_id)
     file_path = os.path.join(product_path, f"{product_id}.json")
 
-    # Clean data casting properties to secure valid strict type JSON serialization schemas
     data = {
         "id": int(product_id),
         "price": float(price or 0.0),
@@ -1336,7 +1268,6 @@ def save_item_file(
 
 
 def load_item_file(product_id):
-    """Generic loader for the external item configuration configuration data file"""
     file_path = os.path.join(ITEMS_DIR, str(product_id), f"{product_id}.json")
 
     if not os.path.exists(file_path):
@@ -1367,17 +1298,10 @@ def transaction_translation_task(
     cost_price=0.0, 
     income_category='service'
 ):
-    """
-    Isolated background worker task to process multi-lingual transaction arrays.
-    Saves context dictionaries directly to external disk files via the shared volume.
-    Safely utilizes Flask app context layers to allow seamless local SQLite/Postgres ORM access.
-    """
     try:
         with app.app_context():
-            #  Execute heavy multi-lingual machine translations (Deep Translator engine)
             desc_trans = generate_translations(description or "")
             
-            # Save the final compiled matrix file directly to the dedicated directory partition
             save_transaction_file(
                 transaction_id=transaction_id,
                 desc_trans=desc_trans,
@@ -1393,7 +1317,6 @@ def transaction_translation_task(
             
     except Exception as exc:
         print(f"⚠️ Warning: Transaction translation pipeline failed, retrying... Error: {exc}")
-        # Automatic exponential fallback retry window to insulate against translation remote API hiccups
         raise self.retry(exc=exc, countdown=10)
 
 
@@ -1402,7 +1325,6 @@ def transaction_translation_task(
 # -----------------------------------------------------------
 
 def ensure_transaction_folder(transaction_id):
-    """Generates localized ledger folder directory paths safely on the disk partition"""
     trans_path = os.path.join(TRANSACTIONS_DIR, str(transaction_id))
     os.makedirs(trans_path, exist_ok=True)
     return trans_path
@@ -1418,11 +1340,9 @@ def save_transaction_file(
     cost_price=0.0, 
     income_category='service'
 ):
-    """Saves structured ledger attributes specifically to the background TRANSACTIONS_DIR"""
     trans_path = ensure_transaction_folder(transaction_id)
     file_path = os.path.join(trans_path, f"{transaction_id}.json")
 
-    # Clean data casting properties to secure valid strict type JSON serialization schemas
     data = {
         "id": int(transaction_id),
         "amount": float(amount or 0.0),
@@ -1441,7 +1361,6 @@ def save_transaction_file(
 
 
 def load_transaction_file(transaction_id):
-    """Generic loader for the external ledger configuration data file"""
     file_path = os.path.join(TRANSACTIONS_DIR, str(transaction_id), f"{transaction_id}.json")
 
     if not os.path.exists(file_path):
@@ -1461,24 +1380,16 @@ def load_transaction_file(transaction_id):
 
 @celery_app.task(name="app.category_translation_task", bind=True, max_retries=3)
 def category_translation_task(self, cat_id, raw_name_text):
-    """
-    Isolated background worker task to process multi-lingual category translation arrays.
-    Saves context dictionaries directly to external disk files via the shared volume.
-    Safely utilizes Flask app context layers to allow seamless local SQLite/Postgres ORM access.
-    """
     try:
         with app.app_context():
-            #  Execute heavy multi-lingual machine translations (Deep Translator engine)
             name_trans = generate_translations(raw_name_text or "")
             
-            # Save the final compiled matrix file directly to the dedicated directory partition
             save_category_file(cat_id=cat_id, name_trans=name_trans)
             
             return f"✅ Success: Translated Expense Category ID: {cat_id}"
             
     except Exception as exc:
         print(f"⚠️ Warning: Category translation pipeline failed, retrying... Error: {exc}")
-        # Automatic exponential fallback retry window to insulate against translation remote API hiccups
         raise self.retry(exc=exc, countdown=10)
 
 
@@ -1487,14 +1398,12 @@ def category_translation_task(self, cat_id, raw_name_text):
 # -----------------------------------------------------------
 
 def ensure_category_folder(cat_id):
-    """יוצר תיקייה לקטגוריה בתוך CATEGORIES_DIR"""
     cat_path = os.path.join(CATEGORIES_DIR, str(cat_id))
     os.makedirs(cat_path, exist_ok=True)
     return cat_path
 
 
 def save_category_file(cat_id, name_trans):
-    """שומר את תרגום שם הקטגוריה (30 שפות) ל-JSON"""
     cat_path = ensure_category_folder(cat_id)
     file_path = os.path.join(cat_path, f"{cat_id}.json")
 
@@ -1707,19 +1616,13 @@ def send_invoice():
 # ----------------------
 
 def get_next_invoice_number():
-    """
-    Safely extracts the highest numerical invoice number stored in the database.
-    Explicitly casts strings to integers to handle PostgreSQL strict typing schemas.
-    """
     try:
-        # Casts the column to an integer to ensure numerical max calculation works on production servers
         result = db.session.query(db.func.max(db.cast(Invoice.invoice_number, db.Integer))).scalar()
         if result is not None:
             return int(result) + 1
         return 1
     except Exception as e:
         print(f"⚠️ Warning: Could not calculate next invoice number automatically: {e}")
-        # Secondary fallback if casting errors occur on empty/corrupted strings
         result_raw = db.session.query(db.func.max(Invoice.invoice_number)).scalar()
         try:
             return int(result_raw) + 1 if result_raw else 1
