@@ -116,24 +116,34 @@ app.config.update(
 # -----------------------------
 #  Database Config (Postgres)
 # -----------------------------
+
 db_choice = os.getenv("DB_CHOICE", "sqlite").lower()
 
 if db_choice == "postgres":
     uri = os.getenv("POSTGRES_URI")
-    if uri and uri.startswith("postgres://"):
+
+    if not uri:
+        raise RuntimeError("POSTGRES_URI is missing but DB_CHOICE=postgres")
+
+    # תיקון אוטומטי ל-Render אם צריך
+    if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
+
     app.config["SQLALCHEMY_DATABASE_URI"] = uri
-elif db_choice == "mysql":
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("MYSQL_URI")
-elif db_choice == "mssql":
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("MSSQL_URI")
+
 else:
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+    # LOCAL SQLITE
+    sqlite_path = os.getenv(
         "SQLITE_URI",
         f"sqlite:///{os.path.join(app.instance_path, 'data.db')}"
     )
+    app.config["SQLALCHEMY_DATABASE_URI"] = sqlite_path
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+print("=== USING DATABASE ===")
+print(app.config["SQLALCHEMY_DATABASE_URI"])
+
 
 # -----------------------------
 #  Mail Configuration
