@@ -859,21 +859,11 @@ def generate_translations(text):
 
 
 # -----------------------------------------------------------
-#  Company Translation (Threading + DB JSON)
+#  Company Translation (Synchronous - Works on Render)
 # -----------------------------------------------------------
-
-def translate_company_in_background(company_id, name, address, city):
-    thread = threading.Thread(
-        target=run_company_translation,
-        args=(company_id, name, address, city)
-    )
-    thread.daemon = True
-    thread.start()
-
 
 def run_company_translation(company_id, name, address, city):
     try:
-        # חייבים context בתוך Thread
         with app.app_context():
 
             # תרגום ל‑30 שפות
@@ -1563,13 +1553,11 @@ def company():
         return render_template('company.html', company=company_data)
 
     if request.method == 'POST':
-        # Load or create company row
         company = Company.query.filter_by(user_id=current_user.id).first()
         if not company:
             company = Company(user_id=current_user.id)
             db.session.add(company)
 
-        # Update base fields
         company.name = request.form.get('name', '')
         company.company_id_number = request.form.get('company_id_number', '')
         company.deduction_file = request.form.get('deduction_file', '')
@@ -1582,21 +1570,17 @@ def company():
 
         db.session.commit()
 
-        # Extract fields for translation
-        name = company.name
-        address = company.address
-        city = company.city
-
-        # Run background translation (Threading)
-        translate_company_in_background(
+        # תרגום סינכרוני — עובד ב‑Render
+        run_company_translation(
             company_id=company.id,
-            name=name,
-            address=address,
-            city=city
+            name=company.name,
+            address=company.address,
+            city=company.city
         )
 
-        flash("Details saved! Translations updating in background.", "success")
+        flash("Details saved! Translations updated.", "success")
         return redirect(url_for('company'))
+
 
 # ----------------------
 #  Clear Company Results Form 
