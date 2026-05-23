@@ -1,0 +1,577 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="products_manage">ניהול מוצרים</title>
+<style>
+    :root {
+        --excel-blue: #007bff;
+        --excel-green: #28a745;
+        --excel-red: #d9534f;
+        --bg-body: #f4f7f6;
+        --header-bg: #fffdf0;
+        --input-h: 35px; /* גובה אחיד לכל השדות */
+    }
+
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg-body); margin: 0; padding: 20px; direction: rtl; }
+
+    /* --- Header & Navigation --- */
+    .header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; }
+    .header-buttons { display: flex; gap: 10px; }
+    .header-buttons button { 
+        border: none; border-radius: 5px; cursor: pointer; transition: 0.3s;
+        height: var(--input-h); padding: 0 15px; font-weight: bold; font-size: 14px;
+    }
+
+    /* --- ה-Grid החכם (SaaS Style) --- */
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px; margin-bottom: 20px;
+    }
+
+    .card {
+        background: white; padding: 20px; border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-top: 5px solid var(--excel-blue);
+    }
+
+    .card-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 8px; }
+
+    /* --- עיצוב טופס --- */
+    .form-field { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
+    .form-field label { font-size: 13px; font-weight: bold; color: #555; }
+    .form-field input, .form-field select {
+        height: var(--input-h); border: 1px solid #ccc; border-radius: 6px;
+        padding: 0 10px; font-size: 14px; box-sizing: border-box; width: 100%;
+    }
+
+    /* מחשבון פיננסי (כמו באקסל) */
+    .finance-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .profit-badge {
+        background: #f1f3f5; border-radius: 6px; display: flex; align-items: center;
+        justify-content: center; font-weight: bold; font-size: 13px; color: var(--excel-green);
+        height: var(--input-h); border: 1px solid #ddd;
+    }
+
+    /* --- טבלת אקסל (Desktop) --- */
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+    th { background: var(--excel-blue); color: white; padding: 12px; font-size: 14px; }
+    td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-size: 14px; }
+
+    /* --- Mobile Table (Grid) --- */
+    .products-mobile-table { display: none; margin-top: 20px; }
+    .pm-row { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-right: 5px solid var(--excel-blue); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .pm-row div { margin-bottom: 5px; font-size: 14px; }
+
+    .search-bar { background: var(--header-bg); padding: 15px; border-radius: 8px; display: flex; gap: 10px; margin-bottom: 20px; border: 1px solid #fffae0; }
+
+    @media (max-width: 768px) {
+        .product-grid { grid-template-columns: 1fr; }
+        table { display: none; }
+        .products-mobile-table { display: block; }
+        .finance-row { grid-template-columns: 1fr; }
+        .header-row { flex-direction: column; text-align: center; }
+    }
+</style>
+
+<div class="header-row">
+    <h1 data-i18n="products_manage">ניהול מוצרים ומלאי</h1>
+    <div class="header-buttons">
+        <a href="{{ url_for('invoice') }}"><button type="button" data-i18n="invoice.main_page" style="background-color: var(--excel-blue); color: white;">דף ראשי</button></a>
+<a href="{{ url_for('profit') }}"><button type="button" data-i18n="invoice.back_to_profit" style="background-color: #fff8b3; color: black; border: 3px solid black; font-weight: bold; cursor: pointer;">דו"ח רווח והפסד</button></a>
+    </div>
+</div>
+
+<!-- טופס ניהול מוצר חכם -->
+<form id="add-product-form" method="POST" action="{{ url_for('manage_products') }}" onsubmit="return handleProductSubmit(this)">
+    <!-- ID נסתר לעדכון - חשוב ללוגיקה של השרת -->
+    <input type="hidden" id="hidden_id" name="id" value="{{ item_i18n.id if item_i18n else '' }}">
+    
+    <div class="product-grid">
+
+        <!-- כרטיס 1: זהות וסיווג -->
+        <div class="card">
+            <div class="card-title" data-i18n="card.identity.title">📦 הגדרת פריט</div>
+
+       <!-- שורה מפוצלת: סוג הכנסה (70%) ותאריך (30%) -->
+         <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 15px;">
+
+            <div class="form-field" style="flex: 7; margin-bottom: 0;">
+          <label data-i18n="product_type">סוג הכנסה</label>
+          <select name="income_category" id="income_category" style="width: 100%;">
+          {% set current_val = item_i18n.income_category if item_i18n else 'service' %}
+           <option value="service" {% if current_val == 'service' %}selected{% endif %} data-i18n="type.service">מכירת שירות</option>
+           <option value="product" {% if current_val == 'product' %}selected{% endif %} data-i18n="type.product">מכירת מוצר פיזי</option>
+          <option value="rent" {% if current_val == 'rent' %}selected{% endif %} data-i18n="type.rent">הכנסה משכירות</option>
+          <option value="interest" {% if current_val == 'interest' %}selected{% endif %} data-i18n="type.interest">הכנסה מריבית / מניות</option>
+                </select>
+            </div>
+
+        <!-- 30% תאריך קבלה -->
+                <div class="form-field" style="flex: 3; margin-bottom: 0;">
+                    <label data-i18n="product.date">תאריך</label>
+                    <div style="position: relative; border: 0.5px solid #444; border-radius: 1px; width: 100%; height: 30px;">
+                        <!-- השדה הוויזואלי (תצוגה לפי שפה) -->
+                        <input type="text" 
+                               id="product_date_display" 
+                               readonly 
+                               style="width: 100%; height: 100%; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; background: #fff; box-sizing: border-box;">
+                        
+                        <!-- השדה האמיתי (שקוף - לשליחה לשרת) -->
+                        <input type="date" 
+                               name="received_date" 
+                               id="product_date_input" 
+                               required 
+                               value="{{ item_i18n.received_date if item_i18n else today }}"
+                               onchange="updateProductDateDisplay()"
+                               style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label data-i18n="product_id">מק"ט / מזהה:</label>
+                <input type="text" id="id" name="id" value="{{ item_i18n.id if item_i18n else '' }}" required>
+            </div>
+
+            <div class="form-field">
+                <label data-i18n="product_name">שם הפריט:</label>
+                <input type="text" id="name" name="name" value="{{ item_i18n.name if item_i18n else '' }}" required>
+            </div>
+        </div>
+
+        <!-- כרטיס 2: כספים -->
+        <div class="card" style="border-top-color: var(--excel-green);">
+            <div class="card-title" data-i18n="card.finance.title">💰 מחשבון רווח</div>
+
+            <div class="finance-row">
+                <div class="form-field">
+                    <label data-i18n="cost_price">מחיר קנייה</label>
+                    <input type="number" id="cost_price" name="cost_price" 
+                           value="{{ item_i18n.get('cost_price', "") if item_i18n else "" }}" 
+                           step="1" oninput="calculateProfit()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="product_price">מחיר מכירה</label>
+                    <input type="number" id="price" name="price" 
+                           value="{{ item_i18n.price if item_i18n else "" }}" 
+                           step="1" required oninput="calculateProfit()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="profit_percent">אחוז רווח</label>
+                    <div id="profit_margin" class="profit-badge">0%</div>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label data-i18n="product_desc">תיאור:</label>
+                <input type="text" id="description" name="description" value="{{ item_i18n.description if item_i18n else '' }}">
+            </div>
+
+            <button type="submit"
+                    class="save-btn"
+                    data-i18n="save_product"
+                    style="width:100%; height:40px; background: var(--excel-blue); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:10px;">
+                שמור מוצר ועדכן תרגום
+            </button>
+        </div>
+
+        <!-- כרטיס 3: מלאי -->
+        <div class="card" style="border-top-color: #ffc107;">
+            <div class="card-title" data-i18n="card.stock.title">📊 מצב מלאי (ספירה ידנית/אוטומטית)</div>
+
+            <div class="finance-row">
+                {% set s_in = item_i18n.get('stock_in', 0) if item_i18n else 0 %}
+                {% set s_out = item_i18n.get('stock_out', 0) if item_i18n else 0 %}
+                
+                <div class="form-field">
+                    <label data-i18n="stock_in">מלאי פתיחה / נכנס</label>
+                <input type="number" id="stock_in" name="stock_in"
+                     value="{{ s_in if s_in else "" }}"
+                  step="1" required oninput="updateStockBalance()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="stock_out">יצא (מכירות)</label>
+                    <input type="number" name="stock_out" id="stock_out" value="{{ s_out }}" step="1" oninput="updateStockBalance()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="stock_balance">יתרה נוכחית</label>
+                    <input type="number" name="stock_balance" id="stock_balance" value="{{ s_in - s_out }}" readonly
+                           style="font-weight:bold; color:var(--excel-blue); background:#f1f3f5;">
+                </div>
+            </div>
+
+            <!--  שדה ספק — -->
+            <div class="form-field" style="margin-top:15px;">
+                <label data-i18n="supplier.field_label">ספק:</label>
+                <select name="supplier_id" id="supplier_id">
+                    <option value="" data-i18n="supplier.search_name">בחר ספק...</option>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}"
+                            {% if item_i18n and item_i18n.supplier_id|string == s.id|string %}selected{% endif %}>
+                            {{ s.supplier_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-top:15px; text-align:center;">
+                <span id="stockStatusBadge"
+                      class="stock-status stock-in"
+                      data-i18n="stock_ok"
+                      style="display:block; padding:5px; border-radius:5px;">
+                    מלאי מעודכן במערכת
+                </span>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+<!-- סרגל חיפוש -->
+<div class="search-bar">
+    <form method="GET" action="{{ url_for('manage_products') }}" style="display:flex; gap:10px; width:100%;">
+        <input type="text"
+               name="q"
+               id="searchInput"
+               class="search-box"
+               style="flex-grow:1; height:var(--input-h); border-radius:5px; border:1px solid #ccc; padding:0 10px;"
+               data-i18n-placeholder="search.placeholder"
+               value="{{ search }}">
+        <button type="submit"
+                data-i18n="search.button"
+                style="background:var(--excel-blue); color:white; border:none; padding:0 20px; border-radius:5px; cursor:pointer;">
+            חפש
+        </button>
+        <button type="button"
+                onclick="window.location='{{ url_for('manage_products') }}'"
+                data-i18n="search.clear"
+                style="background:#6c757d; color:white; border:none; padding:0 20px; border-radius:5px; cursor:pointer;">
+            נקה
+        </button>
+    </form>
+</div>
+
+<!-- רשימת מוצרים קיימים -->
+<form id="delete-form" method="POST" action="{{ url_for('delete_selected_products') }}" onsubmit="return confirmDelete();">
+    <button type="submit"
+            data-i18n="products.delete_selected"
+            style="background: var(--excel-red); color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:15px;">
+        🗑️ מחק מוצרים נבחרים
+    </button>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:50px;"><input type="checkbox" onclick="toggleAll(this)"></th>
+                <th data-i18n="table.product_id">מק"ט</th>
+             <th data-i18n="product.received_date">תאריך קבלה</th>
+                <th data-i18n="table.product_name">שם המוצר</th>
+                <th data-i18n="table.product_price">מחיר</th>
+                <th data-i18n="table.product_desc">תיאור</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+                <tr>
+                    <td><input type="checkbox" name="delete_products" value="{{ product.id }}"></td>
+                    <td>{{ product.id }}</td>
+                <td data-label="תאריך קבלה">
+                    {{ product.received_date | lang_date if product.received_date else '---' }}
+                </td>
+                    <td style="font-weight:bold;">{{ item_i18n_list[product.id].name }}</td>
+                <td data-label="מחיר" style="color:var(--excel-green); font-weight:bold;">
+                     {{ product.price | currency }}
+                </td>
+                    <td>{{ item_i18n_list[product.id].description }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="products-mobile-table">
+       {% for product in products %}
+       <div class="pm-row" style="border-bottom: 1px solid #eee; padding: 10px 0;">
+           <input type="checkbox" name="delete_products" value="{{ product.id }}">
+           <strong>#{{ product.id }}</strong> | {{ item_i18n_list[product.id].name }}<br>
+        
+         <small style="color: #666;">
+             <span data-i18n="product.received_date">תאריך קבלה</span>: 
+             {{ product.received_date | lang_date if product.received_date else '---' }}
+          </small><br>
+
+        <span style="color:var(--excel-green); font-weight:bold;">
+             {{ product.price | currency }}
+        </span> | {{ item_i18n_list[product.id].description }}
+        </div>
+        {% endfor %}
+    </div>
+</form>
+
+<script>
+//  1. CHRONOLOGICAL UTILITIES (DATE FORMATTING API)
+function updateProductDateDisplay() {
+    const dateInput = document.getElementById('product_date_input');
+    const displayInput = document.getElementById('product_date_display');
+    
+    if (!dateInput || !displayInput) return;
+
+    // Enforce active session fallback rules matching your Python get_lang() system
+    const currentLang = localStorage.getItem("lang") || "he";
+
+    try {
+        const val = dateInput.value;
+        if (!val) {
+            displayInput.value = "---";
+            return;
+        }
+
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+            // Comprehensive 30 languages compilation support utilizing native Intl API specs
+            const formatter = new Intl.DateTimeFormat(currentLang, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+
+            // Enforce uniform divider symbols across global browser engine environments
+            let formatted = formatter.format(d).replace(/[\/.]/g, '-');
+            displayInput.value = formatted;
+        }
+    } catch (e) {
+        displayInput.value = dateInput.value;
+    }
+}
+
+//  2. CENTRAL CORE INTERFACE CONTROLLER LAYER
+document.addEventListener("DOMContentLoaded", () => {
+    // Synchronize array inputs injected straight from your Python routing variables
+    const products = {{ products_json|tojson }};
+    const search = "{{ search }}";
+    const userLang = localStorage.getItem("lang") || "he";
+
+    // Primary UI Element Form Field Selectors
+    const idInputs = document.querySelectorAll('#id');
+    const nameEl = document.getElementById("name");
+    const priceEl = document.getElementById("price");
+    const costPriceEl = document.getElementById("cost_price");
+    const descEl = document.getElementById("description");
+    const stockInEl = document.getElementById("stock_in");
+    const stockOutEl = document.getElementById("stock_out");
+    const balanceEl = document.getElementById("stock_balance");
+    const badgeStatus = document.getElementById("stockStatusBadge");
+    const profitBadge = document.getElementById("profit_margin");
+    const incomeCatEl = document.getElementById("income_category");
+    const dateInput = document.getElementById("product_date_input");
+
+    /**
+     * Re-populates active catalog field parameters dynamically on search matching indexes.
+     * Extracts strings from nested dictionary fields safely to satisfy localized display lines.
+     */
+    window.fillForm = function(p) {
+        if (!p) return;
+
+        // Map identifier fields cleanly
+        idInputs.forEach(input => input.value = p.id);
+
+        // Multilingual string lookup hierarchy matching Python get_val keys exactly
+        nameEl.value = (p.name && p.name[userLang]) ? p.name[userLang] : (p.name ? p.name["he"] : "");
+        descEl.value = (p.description && p.description[userLang]) ? p.description[userLang] : (p.description ? p.description["he"] : "");
+
+        // Inventory values
+        priceEl.value = p.price || 0;
+        costPriceEl.value = p.cost_price || 0;
+        
+        if (p.stock_in !== undefined) stockInEl.value = p.stock_in;
+        if (p.stock_out !== undefined) stockOutEl.value = p.stock_out;
+
+        // Classification codes
+        if (incomeCatEl) incomeCatEl.value = p.income_category || 'service';
+        if (dateInput) {
+            dateInput.value = p.received_date || ""; 
+            updateProductDateDisplay(); // Execute synchronization repaint loop immediately
+        }
+
+        // Trigger runtime metric badge loops
+        calculateProfit();
+        updateStockBalance();
+    };
+
+    /**
+     * Computes live profit performance values directly inside form context wrappers.
+     */
+    window.calculateProfit = function() {
+        const cost = parseFloat(costPriceEl.value) || 0;
+        const sell = parseFloat(priceEl.value) || 0;
+        if (sell > 0) {
+            const margin = ((sell - cost) / sell) * 100;
+            profitBadge.textContent = Math.round(margin) + "%";
+            profitBadge.style.color = margin > 0 ? "#155724" : "#721c24";
+            profitBadge.style.background = margin > 0 ? "#d4edda" : "#f8d7da";
+        } else {
+            profitBadge.textContent = "0%";
+            profitBadge.style.background = "#f1f3f5";
+        }
+    };
+
+    /**
+     * Recalculates remaining inventory metrics dynamically on product changes.
+     */
+    window.updateStockBalance = function() {
+        const sIn = parseFloat(stockInEl.value) || 0;
+        const sOut = parseFloat(stockOutEl.value) || 0;
+        const balance = sIn - sOut;
+        balanceEl.value = balance;
+
+        if (badgeStatus) {
+            if (balance <= 0) {
+                badgeStatus.textContent = "מלאי לא קיים במחסן";
+                badgeStatus.style.background = "#f8d7da";
+                badgeStatus.style.color = "#721c24";
+            } else {
+                badgeStatus.textContent = "מלאי קיים במחסן (" + balance + ")";
+                badgeStatus.style.background = "#d4edda";
+                badgeStatus.style.color = "#155724";
+            }
+        }
+    };
+
+    // State routing verification on startup
+    if (!search) {
+        idInputs.forEach(input => input.value = "");
+        nameEl.value = "";
+        priceEl.value = "";
+        costPriceEl.value = "";
+        descEl.value = "";
+        if (dateInput) updateProductDateDisplay();
+    } else if (products && products.length === 1) {
+        fillForm(products[0]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Execute baseline calculations upon context parsing completion
+    calculateProfit();
+    updateStockBalance();
+    updateProductDateDisplay();
+    
+    // Lock display overlay parameters to secure user input field alignments
+    const displayInput = document.getElementById('product_date_display');
+    if (displayInput) displayInput.style.pointerEvents = 'none';
+});
+
+//  3. ANTI-CONCURRENCY SUBMIT LOCK (FORM PROTECTION)
+function handleProductSubmit(formElement) {
+    if (!formElement) return false;
+    
+    // Find the main active submission button node trigger component dynamically
+    const submitBtn = formElement.querySelector("button[type='submit']");
+    
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = "0.6";
+        submitBtn.style.cursor = "not-allowed";
+    }
+    return true;
+}
+
+//  4. INTERNATIONALIZATION GLOBAL LISTENERS
+if (typeof window.loadLanguage === 'function') {
+    const originalLoadLanguageProduct = window.loadLanguage;
+    window.loadLanguage = function(lang) {
+        if (typeof originalLoadLanguageProduct === 'function') originalLoadLanguageProduct(lang);
+        updateProductDateDisplay();
+    };
+}
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'lang') updateProductDateDisplay();
+});
+
+//  5. SELECTION GRID MASS ACTIONS
+function toggleAll(source) {
+    document.getElementsByName('delete_products').forEach(cb => cb.checked = source.checked);
+}
+
+function confirmDelete() {
+    return confirm("בטוח שרוצה למחוק מוצרים נבחרים?");
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formBody = document.getElementById('add-product-form');
+    if (formBody) {
+        const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
+
+        formBody.addEventListener('keydown', function (event) {
+            const key = event.key;
+            const current = event.target;
+            const index = allFields.indexOf(current);
+
+            if (index === -1) return;
+
+            // אם השדה הוא select ונלחץ חץ למטה — נפתח את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowDown') {
+                current.size = current.options.length; // פותח את כל האפשרויות
+                event.preventDefault();
+                return;
+            }
+
+            // אם השדה הוא select ונלחץ חץ למעלה — סוגר את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowUp') {
+                current.size = 1;
+                event.preventDefault();
+                return;
+            }
+
+            // ניווט רגיל בין שדות
+            if (key === 'ArrowDown' && index < allFields.length - 1) {
+                allFields[index + 1].focus();
+                event.preventDefault();
+            }
+            if (key === 'ArrowUp' && index > 0) {
+                allFields[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+
+        // הדגשה כששדה נבחר
+        allFields.forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.backgroundColor = '#e6f7ff';
+                field.style.outline = '1px solid #007bff';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כברירת מחדל
+                }
+            });
+            field.addEventListener('blur', () => {
+                field.style.backgroundColor = '';
+                field.style.outline = '';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כשמאבדים פוקוס
+                }
+            });
+        });
+    }
+});
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

@@ -1,0 +1,424 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>יומן תנועות כספיות - Transactions</title>
+<style>
+        :root {
+            --excel-border: #d1d1d1;
+            --excel-header: #f2f2f2;
+            --income-green: #28a745;
+            --expense-red: #d9534f;
+            --btn-blue: #007bff;
+
+        /* --- שליטה מלאה בגבהים (תשנה כאן) --- */
+        --search-bar-height: 28px;  /* גובה שורת החיפוש, הקומבו והכפתור */
+        --result-row-height: 25px;  /* גובה כל שורת תוצאה בטבלה */
+        
+        /* גדלי גופן להתאמה מושלמת */
+        --search-font-size: 14px;
+        --result-font-size: 14px;
+        
+        --form-radius: 4px;
+        --form-padding: 8px;
+    }
+    
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; padding: 20px; direction: rtl; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+    
+    h1 { text-align: center; color: #333; margin-bottom: 20px; }
+
+    /* --- שורת חיפוש והוספה (Quick Add) --- */
+    .quick-add { 
+        background: #f1f3f5; 
+        padding: 15px; 
+        border-radius: 8px; 
+        margin-bottom: 20px; 
+        display: flex; 
+        gap: 15px; 
+        flex-wrap: wrap; 
+        align-items: flex-end;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .quick-add div { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 150px; }
+    .quick-add label { font-size: 13px; font-weight: bold; color: #555; }
+
+    /* שליטה בגובה שורת החיפוש והקומבו */
+    .quick-add input, .quick-add select { 
+        height: var(--search-bar-height) !important;
+        padding: 0 var(--form-padding); 
+        border: 1px solid #ccc; 
+        border-radius: var(--form-radius);
+        font-size: var(--search-font-size);
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .btn-save { 
+        background: var(--income-green); 
+        color: white; 
+        border: none; 
+        height: var(--search-bar-height) !important; /* גובה תואם לחיפוש */
+        width: 120px; 
+        border-radius: var(--form-radius); 
+        cursor: pointer; 
+        font-weight: bold; 
+        font-size: var(--search-font-size);
+
+        /* יישור מושלם */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0; 
+    }
+
+    /* --- טבלת תוצאות (Excel Style) --- */
+    .excel-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+    
+    /* גובה כותרת הטבלה */
+    .excel-table th { 
+        background: var(--excel-header); 
+        border: 1px solid var(--excel-border); 
+        height: var(--result-row-height); 
+        font-size: var(--result-font-size);
+        padding: 0 5px;
+        text-align: center;
+    }
+
+    /* שליטה בגובה של כל שורת תוצאה שנוספת */
+    .excel-table tr {
+        height: var(--result-row-height) !important;
+    }
+
+    .excel-table td { 
+        border: 1px solid var(--excel-border); 
+        height: var(--result-row-height) !important;
+        padding: 0 8px; 
+        text-align: center; 
+        font-size: var(--result-font-size);
+        line-height: var(--result-row-height); /* ממקם טקסט באמצע הגובה */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .type-income { color: var(--income-green); font-weight: bold; }
+    .type-expense { color: var(--expense-red); font-weight: bold; }
+
+.nav-btns { margin-bottom: 20px; display: flex; gap: 10px; }
+.btn-nav { text-decoration: none; background: #6c757d; color: white; border-radius: 4px; font-size: 14px; 
+           width: 120px; height: 25px; line-height: 25px; text-align: center; display: inline-block; }
+
+    /* --- שליטה בגובה רכיבי החיפוש --- */
+    .btn-home, .btn-clear, .btn-search, .search-box {
+        height: 30px !important; /* <--- גובה סרגל עליון */
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0 12px !important; font-size: 13px !important;
+        border-radius: 4px; box-sizing: border-box; vertical-align: middle;
+    }
+
+    .top-bar { display: flex; align-items: center; gap: 10px; background: #fffdf0; padding: 5px 12px; border-radius: 8px; margin-bottom: 20px; justify-content: center; border: 1px solid #fffae0; }
+    .btn-search { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .search-box { border: 1px solid #ced4da; background-color: white; }
+    input[type="text"].search-box { flex-grow: 1; min-width: 250px; }
+
+
+/* יישור מספרים פיננסיים */
+.amount-cell {
+    /* end אומר: ימין בעברית, שמאל באנגלית */
+    text-align: end !important; 
+    white-space: nowrap;
+    padding-inline-end: 10px; /* רווח קטן מהקו של הטבלה */
+    font-family: 'Courier New', monospace; /* שומר על ספרות בקו ישר */
+}
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+    .excel-table thead { display: none !important; }
+
+    /* הכרטיס האנכי - כאן קורה הקסם */
+    .excel-table tr {
+        background: #fff;
+        margin-bottom: 30px !important; /* רווח ענק בין תנועה לתנועה */
+        padding: 15px !important;
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        float: none !important; /* מבטל הצמדות לצדדים */
+        clear: both;
+    }
+
+    /*  סידור הנתונים שורה-שורה בתוך הכרטיס */
+    .excel-table td {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center;
+        padding: 12px 5px !important;
+        border-bottom: 1px solid #eee !important;
+        height: auto !important; /* מבטל גובה קבוע לכל תא */
+    }
+
+    .excel-table td:last-child { border-bottom: none !important; }
+
+    /* הזרקת השם מה-data-label */
+    .excel-table td::before {
+        content: attr(data-label) ":";
+        font-weight: bold;
+        color: #007bff;
+        font-size: 14px;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+    <form method="get" action="/transactions" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <!-- Month Selection -->
+        <select id="searchMonth" name="month" class="search-box" onchange="this.form.submit()">
+            <option value="" data-i18n="invoice.all_months">כל החודשים</option>
+            {% for i in range(1,13) %}
+                {% set val = "%02d"|format(i) %}
+                <option value="{{ val }}" data-i18n-month="{{ i-1 }}" {% if selected_month == val %}selected{% endif %}>
+                    {{ months[i-1] }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- Year Selection -->
+        <select id="searchYear" name="year" class="search-box" onchange="this.form.submit()">
+            {% for year in years %}
+                <option value="{{ year }}" {% if selected_year == year|string %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="button" class="btn-clear" onclick="window.location='/transactions'" data-i18n="transactions.clear">נקה</button>
+        <input type="text" id="searchInput" name="q" class="search-box" data-i18n-placeholder="transactions.search_placeholder" placeholder="חיפוש ..." value="{{ search }}">
+        <button type="submit" class="btn-search" data-i18n="invoice.search_btn">חפש</button>
+    </form>
+</div>
+
+<div class="container">
+    <div class="nav-btns">
+        <a href="{{ url_for('invoice') }}" class="btn-nav" data-i18n="invoice.main_page">🏠 דף ראשי</a>
+        <a href="{{ url_for('profit') }}" class="btn-nav" style="background: var(--btn-blue);" data-i18n="invoice.back_to_profit">📊 דו"ח רווח והפסד</a>
+        <a href="{{ url_for('categories') }}" class="btn-nav" style="background: #f39c12;" data-i18n="go_categories_page">📁 קטגוריות</a>
+    </div>
+
+    <h1 data-i18n="transactions.title">יומן תנועות כספיות</h1>
+
+    <!-- Quick Add Form -->
+    <form action="/transaction/add" method="POST" enctype="multipart/form-data" class="quick-add">
+        <div class="form-group">
+            <label data-i18n="transactions.date">תאריך</label>
+            <div style="position: relative; display: flex; align-items: center; width: 165px">
+                <input type="text" id="transaction_date_display" readonly 
+                       style="width: 100%; padding: 5px 35px 5px 10px; border: 1px solid #ccc; border-radius: 14px; background: #fff; cursor: pointer;">
+                <input type="date" name="date" id="transaction_date_input" required value="{{ today }}"
+                       onchange="updateTransactionDateDisplay()"
+                       style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2;">
+            </div>
+        </div>
+
+        <div>
+            <label data-i18n="transactions.description">תיאור</label>
+            <input type="text" name="description" data-i18n-placeholder="transactions.desc_placeholder" placeholder="למשל: תשלום שרתים" required style="width: 250px;">
+        </div>
+
+        <div>
+            <label data-i18n="transactions.type">סוג</label>
+            <select name="type">
+                <option value="expense" data-i18n="transactions.expense">הוצאה ⬇️</option>
+                <option value="income" data-i18n="transactions.income">הכנסה ⬆️</option>
+            </select>
+        </div>
+
+        <div>
+            <label data-i18n="transactions.category_label">קטגוריה</label>
+            <select name="category" id="category">
+                <option value="" selected data-i18n="categories.select_placeholder">-- בחר קטגוריה --</option>
+                {% if business_categories %}
+                    {% for key, name in business_categories.items() %}
+                        <option value="{{ key }}">{{ name }}</option>
+                    {% endfor %}
+                {% else %}
+                    <option disabled selected data-i18n="categories.no_data">לא הוגדרו קטגוריות...</option>
+                {% endif %}
+            </select>
+        </div>
+
+        <div>
+            <label data-i18n="transactions.amount">סכום</label>
+            <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+        </div>
+
+        <div class="file-upload-wrapper" style="position: relative; width: 95px; height: 28px; border: 1.5px solid #000; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; box-sizing: border-box;">
+            <span data-i18n="transactions.add_file" style="font-size: 13px; font-weight: bold; color: #000;">📎 קובץ +</span>
+            <input type="file" name="attachment" accept="image/*,application/pdf" 
+                style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2;" 
+                onchange="const s = this.parentElement.querySelector('span'); this.parentElement.style.background='#000'; s.style.color='#fff'; s.removeAttribute('data-i18n'); s.innerText = (localStorage.getItem('lang') === 'he') ? '✓ מוכן' : '✓ Ready';">
+        </div>
+
+        <button type="submit" class="btn-save" data-i18n="transactions.add_btn" style="margin-top: 20px;">הוסף +</button>
+    </form>
+
+    <!-- Main Table -->
+    <table class="excel-table">
+        <thead>
+            <tr>
+                <th data-i18n="transactions.date">תאריך</th>
+                <th data-i18n="transactions.description">תיאור</th>
+                <th data-i18n="transactions.category">קטגוריה</th>
+                <th data-i18n="transactions.type">סוג</th>
+                <th data-i18n="transactions.amount">סכום</th>
+                <th data-i18n="transactions.profit_col" style="color: green;">רווח גולמי</th> 
+                <th data-i18n="transactions.source">מקור</th>
+                <th style="width: 40px;">📎</th>
+                <th data-i18n="transactions.actions">פעולות</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in transactions %}
+            <tr class="mobile-card-row">
+                   <td data-label="תאריך">
+                        {{ t.date | lang_date if t.date else '---' }}
+                   </td>
+         <td data-label="תיאור" style="text-align: right;">
+                    {% if t.invoice_id %}
+                        <a href="{{ url_for('invoice_view', invoice_id=t.invoice_id) }}">
+                                      <span data-i18n="transactions.invoice">חשבונית</span> 
+                                      <span>#{{ t.invoice_id }}</span>
+                        </a>
+                    {% else %}
+                                  <!-- מקרה ב: תיאור ידני - משתמש ב-JSON של ה-30 שפות -->
+                                  <span class="trans-text" data-translations='{{ t.description | tojson | safe }}'>
+                                      {{ trans_i18n_list.get(t.id, t.description) }}
+                                 </span>
+                    {% endif %}
+                </td>
+                <td data-label="קטגוריה">
+                    {% set cid = t.category_id | string %}
+                    {% if cid in business_categories %}{{ business_categories[cid] }}{% else %}{{ t.category or '---' }}{% endif %}
+                </td>
+                <td data-label="סוג" class="{{ 'type-income' if t.type == 'income' else 'type-expense' }}">
+                    {% if t.type == 'income' %}
+                        <span data-i18n="transactions.income">הכנסה</span> ⬆️
+                    {% else %}
+                        <span data-i18n="transactions.expense">הוצאה</span> ⬇️
+                    {% endif %}
+                </td>
+                <td data-label="סכום" class="amount-cell" dir="ltr" style="font-weight: bold;">
+                    {{ t.amount | currency }}
+                </td>
+                
+                <!-- NEW INTEGRATED PROFIT COLUMN -->
+                <td data-label="רווח" class="amount-cell" dir="ltr" style="color: #27ae60; font-weight: bold;">
+                    {% if t.type == 'income' %}
+                        {% set cost = costs_at_time.get(t.id, 0) %}
+                        {% set profit = t.amount - cost %}
+                        {{ profit | currency }}
+                    {% else %}
+                        <span style="color: #999;">--</span>
+                    {% endif %}
+                </td>
+
+                <td data-label="מקור">
+                    {% if t.invoice_id %}
+                        <a href="{{ url_for('invoice_view', invoice_id=t.invoice_id) }}">
+                                      <span data-i18n="transactions.invoice">חשבונית</span> 
+                                      <span>#{{ t.invoice_id }}</span>
+                        </a>
+                    {% else %}
+                        <span data-i18n="transactions.manual" style="color: #888;">✍️ ידני</span>
+                    {% endif %}
+                </td>
+                <td data-label="קובץ" style="text-align: center;">
+                    {% if t.attachment_path %}
+                        <a href="{{ url_for('static', filename='uploads/' + t.attachment_path) }}" target="_blank">🖼️</a>
+                    {% else %}-{% endif %}
+                </td>
+                <td data-label="פעולות">
+                    <form action="{{ url_for('delete_transaction', id=t.id) }}" method="POST" style="display:inline;">
+                        <button type="submit" style="border:none; background:none; color:#e74c3c; cursor:pointer; font-size: 1.2rem;" 
+                                onclick="return confirm(localStorage.getItem('lang') === 'he' ? 'בטוח שברצונך למחוק?' : 'Are you sure you want to delete?')">
+                            🗑️
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+/**
+ * מעדכן את תצוגת התאריך הוויזואלית לפי השפה שנבחרה
+ */
+function updateTransactionDateDisplay() {
+    const dateInput = document.getElementById('transaction_date_input');
+    const displayInput = document.getElementById('transaction_date_display');
+    
+    if (!dateInput || !displayInput) return;
+
+    // שליחת השפה מ-localStorage (תואם ל-30 שפות)
+    const currentLang = localStorage.getItem("lang") || "he";
+
+    try {
+        const val = dateInput.value;
+        if (!val) return;
+
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+            // שימוש ב-Intl API - הדרך היחידה לתמוך ב-30 שפות (כולל סין YYYY-MM-DD)
+            const formatter = new Intl.DateTimeFormat(currentLang, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+
+            // פירמוט התאריך והחלפת מפרידים למקף לאחידות עם ה-Backend
+            let formatted = formatter.format(d).replace(/[\/.]/g, '-');
+            
+            // בפורמטים מסוימים (כמו ארה"ב) המקף יכול לצאת הפוך, כאן מוודאים ניקיון
+            displayInput.value = formatted;
+        }
+    } catch (e) {
+        console.error("Date formatting failed:", e);
+        displayInput.value = dateInput.value;
+    }
+}
+
+// 1. הפעלה כשה-DOM מוכן
+document.addEventListener("DOMContentLoaded", updateTransactionDateDisplay);
+
+// 2. חיבור לפונקציית החלפת השפה שלך (אם קיימת כזו ב-Global)
+const originalLoadLanguage = window.loadLanguage;
+window.loadLanguage = function(lang) {
+    if (typeof originalLoadLanguage === 'function') originalLoadLanguage(lang);
+    // עדכון מיידי של התצוגה כשהמשתמש מחליף שפה ב-UI
+    updateTransactionDateDisplay();
+};
+
+// 3. האזנה לשינויים ב-LocalStorage (למקרה שהשפה משתנה מטאב אחר)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'lang') updateTransactionDateDisplay();
+});
+</script>
+
+<!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

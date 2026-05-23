@@ -1,0 +1,436 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="profit.title">דו"ח רווח והפסד</title>
+
+<style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; direction: rtl; }
+    h1 { text-align: center; margin-bottom: 10px; }
+
+    /* --- שליטה בגובה רכיבי החיפוש --- */
+    .btn-home, .btn-clear, .btn-search, .search-box {
+        height: 25px !important; /* <--- גובה סרגל עליון */
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0 12px !important; font-size: 13px !important;
+        border-radius: 4px; box-sizing: border-box; vertical-align: middle;
+    }
+
+    /* --- שליטה בגובה שורות התוצאה בטבלה --- */
+    .invoice-table td {
+        height: 25px !important; /* <--- שנה פה ל-20px או 30px לשליטה בגובה התוצאות */
+        padding: 0 8px !important; /* איפוס פדינג כדי שהגובה יאכף */
+        line-height: 6px !important; /* חייב להיות זהה לגובה */
+        border-bottom: 1px solid #ddd;
+        font-size: 15px;
+        text-align: center;
+    }
+
+    .invoice-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .invoice-table th { background: #007bff; color: white; padding: 8px; font-size: 16px; text-align: center; }
+
+    .row-customer { background-color: #fff; cursor: pointer; }
+    .row-customer:hover { background: #f1f1f1; }
+    .hidden-content { display: none; } /* השורה סגורה כברירת מחדל */
+       .show-content { display: table-row !important; } /* פקודה לפתיחת השורה */
+    
+    .top-bar { display: flex; align-items: center; gap: 10px; background: #fffdf0; padding: 5px 12px; border-radius: 8px; margin-bottom: 20px; justify-content: center; border: 1px solid #fffae0; }
+    .btn-search { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .btn-home { background: #6c757d; color: white; text-decoration: none; font-weight: bold; }
+    .btn-invoice { background: #0056b3 !important; }
+    .search-box { border: 1px solid #ced4da; background-color: white; }
+    input[type="text"].search-box { flex-grow: 1; min-width: 250px; }
+
+    .btn-open { background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px; }
+    .toggle-icon { font-weight: bold; color: #007bff; width: 20px; display: inline-block; transition: transform 0.2s; }
+
+    /* Summary Cards */
+    .summary-container { display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+    .summary-card { background: white; padding: 10px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; min-width: 150px; border-top: 4px solid #007bff; }
+
+
+@media print {
+    /* הסתרת כל מה שלא צריך בהדפסה */
+    .top-bar, .btn-open, .btn-home, button, form {
+        display: none !important;
+    }
+
+    /* התאמת הטבלה לדף A4 */
+    body {
+        background: white;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .invoice-table {
+        border: 1px solid #000 !important;
+    }
+
+    /* מניעת שבירת שורות באמצע טבלה */
+    tr {
+        page-break-inside: avoid;
+    }
+}
+
+
+/* =====  MOBILE STYLE   ===== */
+@media screen and (max-width: 768px) {
+    body { padding: 10px; }
+    .top-bar form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+    .btn-home, .btn-clear, .btn-search, .search-box { width: 100% !important; height: 40px !important; }
+
+    /* שחרור נעילת גבהים במובייל */
+    .invoice-table, .invoice-table td, .invoice-table tr, .hidden-content, .hidden-content table {
+        height: auto !important;
+        line-height: 1.5 !important;
+    }
+
+    /* הצגת הטבלה הפנימית בצורה תקינה */
+    .hidden-content[style*="display: table-row"] {
+        display: table-row !important;
+    }
+    
+    /* הסתרת עמודות פחות חשובות בטלפון למניעת גלילה */
+    .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) { display: none; }
+}
+
+/* הדפסה */
+@media print { .top-bar, button, .btn-open { display: none !important; } }
+</style>
+
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+    <form method="get" action="/profit" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('invoice') }}" class="btn-home btn-invoice" data-i18n="invoice.main_page">דף ראשי</a>
+        <a href="{{ url_for('transactions') }}" class="btn-home" data-i18n="invoice.back_to_Transactions">דו"ח תנועות</a>
+
+    <!-- כפתור קסם: פריסה/צמצום הכל בשורה אחת -->
+        <button type="button" class="btn-clear" onclick="toggleAllRows()" data-status="collapsed" style="background: #fff8b3; color: black; font-weight: bold; padding: 0 15px; height: 38px; display: flex; align-items: center;">
+            <span id="expandText" data-i18n="profit.expand_all">פרוס הכל</span>
+        </button>
+
+        <!-- בחירת חודש -->
+        <select id="searchMonth" name="month" class="search-box" onchange="this.form.submit()">
+            <option value="" data-i18n="invoice.all_months">כל החודשים</option>
+            {% for i in range(1,13) %}
+                {% set val = "%02d"|format(i) %}
+                <option value="{{ val }}" data-i18n-month="{{ i-1 }}" {% if selected_month == val %}selected{% endif %}>
+                    {{ months[i-1] }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- בחירת שנה -->
+        <select id="searchYear" name="year" class="search-box" onchange="this.form.submit()">
+            {% for year in years %}
+                <option value="{{ year }}" {% if selected_year == year|string %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="text" id="searchInput" name="q" class="search-box" data-i18n-placeholder="profit.search_placeholder" placeholder="חפש לקוח..." value="{{ search }}">
+        <button type="submit" class="btn-search" data-i18n="invoice.search_btn">חפש</button>
+        <button type="button" class="btn-clear" onclick="window.location='/profit'" data-i18n="profit.clear">נקה</button>
+
+        <!-- כפתור פונקציית ההדפסה  -->
+        <button type="button" class="btn-clear" onclick="printReport()" style="background: #ccffcc; color: black; font-weight: bold; padding: 0 15px; height: 38px; display: flex; align-items: center; gap: 5px;">
+         <span>🖨️</span>
+         <span data-i18n="profit.print">הדפס דו"ח</span>
+       </button>
+
+    </form>
+</div>
+
+<h1 data-i18n="profit.title">דו"ח רווח והפסד (P&L)</h1>
+
+<!-- כרטיסי סיכום מעוצבים ומחוברים ל-DB -->
+<div class="summary-container" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+    
+    <!-- הכנסות -->
+    <div class="summary-card revenue" style="border: 1px solid #ddd; padding: 5px 12px; border-radius: 10px; flex: 1; min-width: 140px; background: #fff;">
+        <b data-i18n="profit.revenue" style="color: #222; display: block; margin-bottom: 0px; font-size: 0.95em; line-height: 1.2;">סה"כ הכנסות</b>
+        <div style="font-weight: bold; font-size: 1.15em; color: #28a745; line-height: 1;">
+            {{ total_revenue | currency }}
+        </div>
+    </div>
+
+    <!-- עלות המכר -->
+    <div class="summary-card cogs" style="border: 1px solid #ddd; padding: 5px 12px; border-radius: 10px; flex: 1; min-width: 140px; background: #fff;">
+        <b data-i18n="profit.total_cogs" style="color: #222; display: block; margin-bottom: 0px; font-size: 0.95em; line-height: 1.2;">עלות המכר</b>
+        <div style="font-weight: bold; font-size: 1.15em; color: #f39c12; line-height: 1;">
+            {{ total_cogs | currency }}
+        </div>
+    </div>
+
+    <!-- הוצאות -->
+    <div class="summary-card expense" style="border: 1px solid #ddd; padding: 5px 12px; border-radius: 10px; flex: 1; min-width: 140px; background: #fff;">
+        <b data-i18n="profit.expenses" style="color: #222; display: block; margin-bottom: 0px; font-size: 0.95em; line-height: 1.2;">הוצאות תפעול</b>
+        <div style="font-weight: bold; font-size: 1.15em; color: #d9534f; line-height: 1;">
+            {{ total_expenses | currency }}
+        </div>
+    </div>
+
+    <!-- סה"כ תשלום מע"מ -->
+    <div class="summary-card vat" style="border: 1px solid #ddd; padding: 5px 12px; border-radius: 10px; flex: 1; min-width: 140px; background: #fff;">
+        <b data-i18n="profit.total_vat" style="color: #222; display: block; margin-bottom: 0px; font-size: 0.95em; line-height: 1.2;">סה"כ תשלום מע"מ</b>
+        <div style="font-weight: bold; font-size: 1.15em; color: #28a745; line-height: 1;">
+            {{ total_vat | currency }}
+        </div>
+    </div>
+
+    <!-- רווח נקי -->
+    <div class="summary-card" style="border: 1px solid #ddd; padding: 5px 12px; border-radius: 10px; flex: 1; min-width: 140px; background: #f8f9fa; border-left: 4px solid #007bff;">
+        <b data-i18n="profit.net_profit" style="color: #000; display: block; margin-bottom: 0px; font-size: 0.95em; line-height: 1.2;">רווח נקי</b>
+        <div style="font-weight: bold; font-size: 1.15em; color: #007bff; line-height: 1;">
+            {{ net_profit | currency }}
+        </div>
+    </div>
+</div>
+
+<table class="invoice-table" style="width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr style="background: #f4f4f4;">
+            <th style="width: 40px;"></th>
+            <th data-i18n="invoice.customer">לקוח</th>
+            <th data-i18n="customer.id_number">מזהה/ח.פ</th>
+            <th data-i18n="invoice.total">סה"כ הכנסה מהלקוח</th>
+            <th data-i18n="invoice.actions">פעולות</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for customer in all_customers %}
+        <tr class="row-customer" onclick="toggleRow('cust-{{ customer.id }}', this)" style="cursor: pointer; border-bottom: 1px solid #eee;">
+            <td data-label="פתיחה" style="text-align: center;"><span class="toggle-icon">+</span></td>
+            <td data-label="לקוח" style="text-align: right; font-weight: bold;">
+                {{ customer_i18n_list[customer.id].name if customer_i18n_list.get(customer.id) else customer.customer_name }}
+            </td>
+            <td data-label="מזהה/ח.פ">{{ customer.id_number or '---' }}</td>
+            <td data-label="סה-כ הכנסה" style="font-weight: bold;">{{ customer_totals.get(customer.id, 0) | currency }}</td>
+            <td data-label="פעולות">
+                <a href="{{ url_for('customer', customer_id=customer.id) }}" class="btn-open" style="background:#007bff; color: white; padding: 3px 10px; border-radius: 4px; text-decoration: none;" data-i18n="profit.edit">פרטי לקוח</a>
+            </td>
+        </tr>
+
+        <!-- פירוט חשבוניות לקוח -->
+        <tr id="cust-{{ customer.id }}" class="hidden-content" style="display: none;">
+            <td colspan="5" style="padding: 10px; background: #fafafa;">
+                <table style="width: 100%; background: white; border: 1px solid #007bff;">
+                    <thead style="background: #e7f3ff;">
+                        <tr>
+                            <th></th>
+                            <th data-i18n="invoice.number">מס' חשבונית</th>
+                            <th data-i18n="invoice.date">תאריך</th>
+                            <th data-i18n="invoice.status">סטטוס</th>
+                            <th data-i18n="vat_label">מע"מ</th>
+                            <th data-i18n="invoice.total">סה"כ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in customer.invoices %}
+                        <tr onclick="event.stopPropagation(); toggleRow('inv-{{ inv.id }}', this)" style="cursor: pointer;">
+                            <td data-label="פריטים" style="text-align: center;"><span class="toggle-icon" style="color:#28a745;">+</span></td>
+                            <td data-label="חשבונית">#{{ inv.invoice_number }}</td>
+                            <td data-label="תאריך">{{ inv.invoice_date | lang_date }}</td>
+                                                  <td data-label="סטטוס">
+                                             {% if inv.status == "canceled" %}
+                                    <span style="color:red; font-weight:bold;" data-i18n="profit.canceled">מבוטלת</span>
+                                {% else %}
+                                    <span style="color:green;" data-i18n="profit.active">פעילה</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="מע"מ" style="font-weight: bold;">
+                                {{ inv.vat_amount | currency }}
+                            </td>
+                            <td data-label="סה-כ" style="font-weight: bold;">{{ inv.grand_total | currency }}</td>
+                            <td data-label="פתח"><a href="/invoice/{{ inv.id }}" class="btn-open" data-i18n="profit.open">פתח</a></td>
+                        </tr>
+
+                        <!-- פריטים בתוך חשבונית -->
+                        <tr id="inv-{{ inv.id }}" class="hidden-content" style="display: none;">
+                            <td colspan="6" style="padding: 15px; background: #fff;">
+                                <table style="width: 100%; border-right: 3px solid #28a745;">
+                                    <tr style="color: #666; font-weight: bold; border-bottom: 1px solid #ddd;">
+                                        <th data-i18n="profit.item">תיאור פריט</th>
+                                        <th data-i18n="profit.quantity">כמות</th>
+                                        <th data-i18n="profit.price">מחיר יח'</th>
+                                        <th data-i18n="profit.total_item">סה"כ</th>
+                                    </tr>
+                                    {% for item in inv.items %}
+                                    <tr>
+                                        <td data-label="פריט">{{ item.description or (item.product.name if item.product else '---') }}</td>
+                                        <td data-label="כמות">{{ item.quantity }}</td>
+                                        <td data-label="מחיר">{{ item.unit_price | currency }}</td>
+                                        <td data-label="סה-כ">{{ item.total_price | currency }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </table>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        {% endfor %}
+
+<!-- SECTION: Manual Income from Transactions -->
+<tr class="row-customer" onclick="toggleRow('manual-inc-block', this)" style="cursor: pointer; border-bottom: 1px solid #eee; background: #f0fff4;">
+    <td data-label="פתיחה" style="text-align: center;"><span class="toggle-icon">+</span></td>
+    <td data-label="לקוח" style="text-align: right; font-weight: bold;" data-i18n="profit.manual_income">הכנסות נוספות (ידני)</td>
+    <td data-label="מזהה/ח.פ">---</td>
+    <td data-label="סה-כ הכנסה" style="font-weight: bold; color: #28a745;">{{ total_manual_income | currency }}</td>
+    <td data-label="פעולות"></td> 
+</tr>
+<tr id="manual-inc-block" class="hidden-content" style="display: none;">
+    <td colspan="5" style="padding: 10px; background: #fafafa;">
+        <table style="width: 100%; background: white; border: 1px solid #28a745;">
+            <thead style="background: #e8f5e9;">
+                <tr>
+                    <th data-i18n="invoice.date">תאריך</th>
+                    <th data-i18n="transactions.description">תיאור</th>
+                    <th data-i18n="transactions.category">קטגוריה</th>
+                    <th data-i18n="invoice.total">סכום</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inc in manual_incomes_list %}
+                <tr>
+                    <td data-label="תאריך">{{ inc.date | lang_date }}</td>
+                    <td data-label="תיאור">{{ trans_i18n_list.get(inc.id, inc.description) }}</td>
+                    <td data-label="קטגוריה">{{ business_categories.get(inc.category_id|string, inc.category) }}</td>
+                    <td data-label="סכום" style="font-weight: bold;">{{ inc.amount | currency }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </td>
+</tr>
+
+<!-- SECTION: Expenses from Transactions -->
+<tr class="row-customer" onclick="toggleRow('manual-exp-block', this)" style="cursor: pointer; border-bottom: 1px solid #eee; background: #fff5f5;">
+    <td data-label="פתיחה" style="text-align: center;"><span class="toggle-icon">+</span></td>
+    <td data-label="לקוח" style="text-align: right; font-weight: bold; color: #d9534f;" data-i18n="profit.expenses">הוצאות תפעול</td>
+    <td data-label="מזהה/ח.פ">---</td>
+    <td data-label="סה-כ הכנסה" style="font-weight: bold; color: #d9534f;">-{{ total_expenses | currency }}</td>
+    <td data-label="פעולות"></td> 
+</tr>
+<tr id="manual-exp-block" class="hidden-content" style="display: none;">
+    <td colspan="5" style="padding: 10px; background: #fafafa;">
+        <table style="width: 100%; background: white; border: 1px solid #d9534f;">
+            <thead style="background: #ffebee;">
+                <tr>
+                    <th data-i18n="invoice.date">תאריך</th>
+                    <th data-i18n="transactions.description">תיאור</th>
+                    <th data-i18n="transactions.category">קטגוריה</th>
+                    <th data-i18n="invoice.total">סכום</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in expenses_list %}
+                <tr>
+                    <td data-label="תאריך">{{ exp.date | lang_date }}</td>
+                    <td data-label="תיאור">{{ trans_i18n_list.get(exp.id, exp.description) }}</td>
+                    <td data-label="קטגוריה">{{ business_categories.get(exp.category_id|string, exp.category) }}</td>
+                    <td data-label="סכום" style="font-weight: bold; color: #d9534f;">-{{ exp.amount | currency }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+// פתיחת שורה בודדת
+function toggleRow(id, el) {
+    const row = document.getElementById(id);
+    const icon = el.querySelector('.toggle-icon');
+    if (!row) return;
+
+    const isHidden = row.style.display === "none" || row.style.display === "";
+    row.style.display = isHidden ? "table-row" : "none";
+    if (icon) icon.innerText = isHidden ? "-" : "+";
+}
+
+// פתיחת/סגירת כל השורות
+function toggleAllRows() {
+    const btn = document.querySelector('[data-status]');
+    const expandText = document.getElementById('expandText');
+    const customerRows = document.querySelectorAll('.row-customer');
+
+    // המצב האמיתי — לא טקסט
+    const isExpanding = btn.getAttribute('data-status') === 'collapsed';
+    const isMobile = window.innerWidth <= 768;
+
+    customerRows.forEach(row => {
+        const onclickAttr = row.getAttribute('onclick');
+        const match = onclickAttr?.match(/'([^']+)'/);
+        if (!match) return;
+
+        const targetId = match[1];
+        const targetRow = document.getElementById(targetId);
+        const icon = row.querySelector('.toggle-icon');
+
+        if (!targetRow) return;
+
+        if (isExpanding) {
+            targetRow.style.display = isMobile ? "block" : "table-row";
+            if (icon) icon.innerText = "-";
+        } else {
+            targetRow.style.display = "none";
+            if (icon) icon.innerText = "+";
+        }
+    });
+
+    // עדכון מצב
+    btn.setAttribute('data-status', isExpanding ? 'expanded' : 'collapsed');
+
+    // עדכון מפתח התרגום בלבד
+    expandText.setAttribute(
+        'data-i18n',
+        isExpanding ? 'profit.collapse_all' : 'profit.expand_all'
+    );
+
+    // הפעלת תרגום מחדש דרך loadLanguage המקורי שלך
+    const lang = localStorage.getItem("lang") || "he";
+    if (typeof loadLanguage === "function") {
+        loadLanguage(lang);
+    }
+}
+</script>
+
+<!-- פונקציית ההדפסה שליפת כל השורות בטבלה  שורת לקוח/תנועה -->
+<script>
+function printReport() {
+    const btn = document.querySelector('[data-status]');
+    const isCollapsed = btn.getAttribute('data-status') === 'collapsed';
+
+    // אם הכל סגור → פותחים לפני הדפסה
+    if (isCollapsed) {
+        toggleAllRows();
+    }
+
+    setTimeout(() => {
+        window.print();
+    }, 300);
+}
+</script>
+
+<!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

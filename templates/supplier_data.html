@@ -1,0 +1,105 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="supplier.title">רשימת ספקים</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='employee_data.css') }}">
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="column1"></div>
+
+        <div class="column2">
+
+            <h1 style="text-align: center;" data-i18n="supplier.title">
+                רשימת ספקים
+            </h1>
+
+            <div style="height: 0.1cm;"></div>
+
+            <div style="display: flex; gap: 10px;">
+
+                <!-- Main Page -->
+                <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+                    <button type="button" class="nav-btn"
+                            data-i18n="supplier.go_main">
+                        עבור לדף הראשי
+                    </button>
+                </a>
+
+                <!-- Back to Supplier -->
+                <a href="{{ url_for('supplier') }}" style="text-decoration: none;">
+                    <button type="button" class="nav-btn"
+                            data-i18n="supplier.back_to_supplier">
+                        חזור לספק
+                    </button>
+                </a>
+
+                <!-- Clear Data -->
+                <button type="button" onclick="clearData()" class="nav-btn"
+                        data-i18n="supplier.clear_data">
+                    נקה מידע
+                </button>
+            </div>
+
+            <div style="height: 0.1cm;"></div>
+
+            <!-- Table -->
+            <table>
+                <thead>
+                    <tr>
+                        <th data-i18n="supplier.date">תאריך</th>
+                        <th data-i18n="supplier.name">שם ספק</th>
+                        <th data-i18n="supplier.number">מספר ספק</th>
+                        <th data-i18n="supplier.address">כתובת</th>
+                        <th data-i18n="supplier.city">עיר</th>
+                        <th data-i18n="supplier.postal_code">מיקוד</th>
+                        <th data-i18n="supplier.phone">טלפון</th>
+                        <th data-i18n="supplier.email">מייל</th>
+                        <th data-i18n="supplier.payment_terms">תנאי תשלום</th>
+                        <th data-i18n="supplier.notes">הערות</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for supplier in suppliers %}
+                    <tr>
+                        <td>{{ supplier.date|lang_date }}</td>
+                        <td>{{ supplier.supplier_name }}</td>
+                        <td>{{ supplier.supplier_number }}</td>
+                        <td>{{ supplier.address }}</td>
+                        <td>{{ supplier.city }}</td>
+                        <td>{{ supplier.postal_code }}</td>
+                        <td>{{ supplier.phone|phone }}</td>
+                        <td>{{ supplier.email }}</td>
+                                      <td><span data-i18n="supplier.payment_terms.{{ supplier.payment_terms|lower }}">{{ supplier.payment_terms }}</span></td>
+                        <td>{{ supplier.notes }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+function clearData() {
+    window.location.href = "{{ url_for('supplier_data') }}";
+}
+</script>
+
+<!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+</script>
+
+<!-- DevTools Blocker -->
+<script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
