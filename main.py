@@ -180,15 +180,11 @@ with app.app_context():
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        if user_id == "0":
-            return OwnerUser(os.getenv("OWNER_USERNAME"))
-        
-        # משתמשים רגילים מה-DB
         from database import User
         return User.query.get(int(user_id))
-            
-    except Exception as e:
+    except Exception:
         return None
+
 
 # -----------------------------
 # Decorators
@@ -276,6 +272,7 @@ def unauthorized():
         return redirect('/customer_dashboard')
     return f"<h1>{py_i18n('auth.no_permission')}</h1>", 403
 
+
 # -----------------------------
 # Login Route
 # -----------------------------
@@ -295,15 +292,31 @@ def login():
     password = request.form.get('password', '').strip()
     selected_role = request.form.get('role', 'customer')
 
-    # OWNER LOGIN
+    # OWNER LOGIN (real DB user, not id=0)
     if login_email == OWNER_USERNAME and check_password_hash(OWNER_PASSWORD, password):
         session.clear()
-        owner_obj = OwnerUser(login_email)
-        login_user(owner_obj)
+
+        # חפש owner ב-DB, ואם אין – צור אותו
+        owner_user = User.query.filter_by(email=OWNER_USERNAME).first()
+        if not owner_user:
+            owner_user = User(
+                email=OWNER_USERNAME,
+                username=OWNER_USERNAME,
+                role='owner',
+                is_active=True
+            )
+            # OWNER_PASSWORD הוא כבר hash (אתה בודק עם check_password_hash)
+            owner_user.password_hash = OWNER_PASSWORD
+            db.session.add(owner_user)
+            db.session.commit()
+
+        login_user(owner_user)
         session['owner_access'] = True
-        session['user_name'] = login_email
+        session['user_id'] = owner_user.id
+        session['user_name'] = owner_user.email
         session['role'] = 'owner'
         session['user_role'] = 'owner'
+
         flash(py_i18n('login.owner_success'), 'success')
         return redirect(url_for('invoice'))
 
@@ -859,11 +872,21 @@ def generate_translations(text):
 
 
 # -----------------------------------------------------------
-#  Company Translation (Synchronous - Works on Render)
+#  Company Translation (Threading + DB JSON)
 # -----------------------------------------------------------
+
+def translate_company_in_background(company_id, name, address, city):
+    thread = threading.Thread(
+        target=run_company_translation,
+        args=(company_id, name, address, city)
+    )
+    thread.daemon = True
+    thread.start()
+
 
 def run_company_translation(company_id, name, address, city):
     try:
+        # חייבים context בתוך Thread
         with app.app_context():
 
             # תרגום ל‑30 שפות
@@ -1553,11 +1576,13 @@ def company():
         return render_template('company.html', company=company_data)
 
     if request.method == 'POST':
+        # Load or create company row
         company = Company.query.filter_by(user_id=current_user.id).first()
         if not company:
             company = Company(user_id=current_user.id)
             db.session.add(company)
 
+        # Update base fields
         company.name = request.form.get('name', '')
         company.company_id_number = request.form.get('company_id_number', '')
         company.deduction_file = request.form.get('deduction_file', '')
@@ -1570,17 +1595,21 @@ def company():
 
         db.session.commit()
 
-        # תרגום סינכרוני — עובד ב‑Render
-        run_company_translation(
+        # Extract fields for translation
+        name = company.name
+        address = company.address
+        city = company.city
+
+        # Run background translation (Threading)
+        translate_company_in_background(
             company_id=company.id,
-            name=company.name,
-            address=company.address,
-            city=company.city
+            name=name,
+            address=address,
+            city=city
         )
 
-        flash("Details saved! Translations updated.", "success")
+        flash("Details saved! Translations updating in background.", "success")
         return redirect(url_for('company'))
-
 
 # ----------------------
 #  Clear Company Results Form 
