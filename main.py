@@ -2293,8 +2293,10 @@ def invoice_data():
 
     if not selected_year:
         selected_year = str(datetime.today().year)
-    if not selected_month:
-        selected_month = datetime.today().strftime('%m')
+
+    if selected_month == "":
+        if "month" not in request.args:
+            selected_month = datetime.today().strftime('%m')
 
     invoices = Invoice.query.options(
         db.joinedload(Invoice.customer),
@@ -2374,6 +2376,7 @@ def invoice_data():
         language=language,
         company=load_company_data()
     )
+
 
 # ----------------------
 # Send Email Invoices To Customers invoice_data Page
@@ -3575,8 +3578,10 @@ def profit():
 
     if not selected_year:
         selected_year = str(datetime.today().year)
-    if not selected_month:
-        selected_month = datetime.today().strftime('%m')
+
+    if selected_month == "":
+        if "month" not in request.args:
+            selected_month = datetime.today().strftime('%m')
 
     all_customers = Customer.query.options(
         db.joinedload(Customer.invoices).joinedload(Invoice.items)
@@ -3629,15 +3634,12 @@ def profit():
                 cust_revenue += float(inv.sub_total or 0.0)
                 total_vat += float(inv.vat_amount or 0.0)
 
-                # -------------------------
-                # REAL COGS — ONLY FROM cost_price_at_time
-                # -------------------------
+                # REAL COGS
                 for item in inv.items:
                     item_cost = float(getattr(item, 'cost_price_at_time', 0.0) or 0.0)
                     qty = float(item.quantity or 0.0)
                     total_cogs += (item_cost * qty)
 
-        # SEARCH
         trans_name = (customer_i18n_list[customer.id].get('name', '') or "").lower()
         match_search = (
             not search
@@ -3675,7 +3677,6 @@ def profit():
                     total_manual_income += float(trans.amount or 0.0)
                     total_revenue += float(trans.amount or 0.0)
 
-                    # COGS for manual income (if exists)
                     total_cogs += float(getattr(trans, 'cost_price_at_time', 0.0) or 0.0)
 
                     manual_incomes_list.append(trans)
@@ -3726,11 +3727,12 @@ def transactions():
         selected_month = request.args.get("month", "")
         selected_year = request.args.get("year", "")
 
-        # Default to current month/year if not provided to secure data grid rendering stability
         if not selected_year:
             selected_year = str(datetime.today().year)
-        if not selected_month:
-            selected_month = datetime.today().strftime('%m')
+
+        if selected_month == "":
+            if "month" not in request.args:
+                selected_month = datetime.today().strftime('%m')
 
         # --- Fetch all transactions ---
         all_transactions = Transaction.query.order_by(Transaction.date.desc()).all()
