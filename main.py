@@ -3461,13 +3461,13 @@ def search_supplier():
     #  ALIGNED: Passes identical layout variable properties matching the core dashboard loops
     return render_template(
         'supplier.html',
-        suppliers=search_results,         # Passes the targeted query results matrix array
-        all_suppliers=all_suppliers,       # Keeps global supplier dropdown options intact
-        supplier=supplier,                 # Passes the resolved supplier entry model
-        supplier_i18n=supplier_i18n,       # Serves localized values for form edit field bindings
+        suppliers=search_results,         
+        all_suppliers=all_suppliers,       
+        supplier=supplier,                 
+        supplier_i18n=supplier_i18n,       
         supplier_i18n_list=supplier_i18n_list,
         today=today_str,
-        input_date_val=input_date_val     # Feeds clean date string to the HTML front picker
+        input_date_val=input_date_val     
     )
 
 # ----------------------
@@ -3492,13 +3492,13 @@ def clear_search_results_supplier():
 
     return render_template(
         'supplier.html',
-        suppliers=[],                      # Resets search data arrays
+        suppliers=[],                      
         all_suppliers=all_suppliers,
         supplier=None,           
         supplier_i18n={},        
         supplier_i18n_list=supplier_i18n_list,
         today=today_str,
-        input_date_val=today_str           # Returns date selector element back to system baseline default
+        input_date_val=today_str           
     )
 
 
@@ -3509,118 +3509,135 @@ def clear_search_results_supplier():
 @app.route('/profit')
 @login_required
 def profit():
-    language = get_lang()   
+    language = get_lang()
     search = request.args.get("q", "").strip().lower()
     selected_month = request.args.get("month", "")
     selected_year = request.args.get("year", "")
 
-    if not selected_year: 
+    if not selected_year:
         selected_year = str(datetime.today().year)
-    if not selected_month: 
+    if not selected_month:
         selected_month = datetime.today().strftime('%m')
 
-    #  אופטימיזציה קריטית (Eager Loading): מונע את בעיית N+1 Queries ומאיץ את המסך פי 50 ב-Render
+    # אופטימיזציה קריטית (Eager Loading)
     all_customers = Customer.query.options(
         db.joinedload(Customer.invoices).joinedload(Invoice.items)
     ).all()
-    
+
     all_transactions = Transaction.query.all()
-    
-    # טעינה של מפת קטגוריות מתורגמות מה-JSON
+
+    # טעינת מפת קטגוריות מתורגמות מה-JSON
     business_categories = {}
     cat_dir = app.config.get('CATEGORIES_DIR')
     if cat_dir and os.path.exists(cat_dir):
         for cat_id in os.listdir(cat_dir):
             data = load_category_file(cat_id)
             if data and "name" in data:
-                business_categories[str(cat_id)] = data["name"].get(language) or data["name"].get("he") or cat_id
+                business_categories[str(cat_id)] = (
+                    data["name"].get(language)
+                    or data["name"].get("he")
+                    or cat_id
+                )
 
     total_revenue = 0.0
     total_expenses = 0.0
-    total_cogs = 0.0 
-    total_manual_income = 0.0  
-    total_vat = 0.0          
-    
+    total_cogs = 0.0
+    total_manual_income = 0.0
+    total_vat = 0.0
+
     customer_totals = {}
     customer_i18n_list = {}
-    product_i18n_list = {}  # מילון חדש לשמירת תרגומי המוצרים/פריטים דינמית
+    product_i18n_list = {}  
     filtered_customers = []
-    
+
     manual_incomes_list = []
     expenses_list = []
     trans_i18n_list = {}
 
-    # 1. PROCESS INVOICES (כולל הכנסות משכירות נכס, שירותים ומוצרים)
+    # 1. PROCESS INVOICES
     for customer in all_customers:
-        # טעינת תרגום הלקוח לשפת המערכת הנוכחית
         customer_i18n_list[customer.id] = load_customer_translated(customer, language)
         cust_revenue = 0.0
-        
+
         for inv in customer.invoices:
-            if inv.status == "canceled": 
-                continue #  מנטרל חשבוניות מבוטלות אוטומטית לפי תנאי ה-QA החשבונאי המלא
-                
+            if inv.status == "canceled":
+                continue
+
             inv_month = inv.invoice_date.strftime('%m')
             inv_year = str(inv.invoice_date.year)
-            
+
             if (not selected_month or inv_month == selected_month) and \
                (not selected_year or inv_year == selected_year):
-                
-                # סכימת ההכנסה נטו (sub_total) כדי למנוע ניפוח של המע"מ בדוח רווח והפסד
-                cust_revenue += float(inv.sub_total or 0.0)
-                
-                # סכימת המע"מ לקוביית המס הירוקה החדשה על המסך
-                total_vat += float(inv.vat_amount or 0.0)
-                
-                # חישוב עלות המכר (COGS) לכל פריט בחשבונית
-                for item in inv.items:
-                    # טעינה בטוחה: רק אם המוצר קיים והוא אובייקט תקין ב-DB
-                    if item.product and item.product_id and item.product_id not in product_i18n_list:
-                        product_i18n_list[item.product_id] = load_item_translated(item.product, language)
 
+                cust_revenue += float(inv.sub_total or 0.0)
+                total_vat += float(inv.vat_amount or 0.0)
+
+                # COGS לכל פריט
+                for item in inv.items:
+                    # טעינת תרגום מוצר אם קיים
+                    if item.product and item.product_id:
+                        if item.product_id not in product_i18n_list:
+                            product_i18n_list[item.product_id] = load_item_translated(
+                                item.product, language
+                            )
+
+                    # מחיר עלות בזמן החשבונית
                     item_cost = float(getattr(item, 'cost_price_at_time', 0.0) or 0.0)
-                    if item_cost == 0.0:
+
+                    # אם אין מחיר עלות בזמן החשבונית → נשלוף מה-DB
+                    if item_cost == 0.0 and item.product_id:
                         prod = Product.query.get(item.product_id)
-                        if prod and getattr(prod, 'income_category', 'service') == 'product':
-                            item_cost = float(prod.cost_price or 0.0)
+                        if prod:
+                            if getattr(prod, 'income_category', 'service') == 'product':
+                                item_cost = float(prod.cost_price or 0.0)
+
+                            # תרגום מוצר גם מה-DB אם צריך
+                            if prod.id not in product_i18n_list:
+                                product_i18n_list[prod.id] = load_item_translated(
+                                    prod, language
+                                )
+
                     total_cogs += (item_cost * float(item.quantity or 0.0))
-        
-        # מנגנון החיפוש החכם
+
         trans_name = (customer_i18n_list[customer.id].get('name', '') or "").lower()
-        match_search = not search or (search in customer.customer_name.lower() or search in trans_name)
-        
+        match_search = (
+            not search
+            or search in customer.customer_name.lower()
+            or search in trans_name
+        )
+
         if match_search and (cust_revenue > 0.0 or not search):
             customer_totals[customer.id] = cust_revenue
             total_revenue += cust_revenue
             filtered_customers.append(customer)
 
-    # 2. PROCESS TRANSACTIONS (הכנסות ידניות כמו מניות והוצאות תפעוליות)
+    # 2. PROCESS TRANSACTIONS
     for trans in all_transactions:
         trans_month = trans.date.strftime('%m')
         trans_year = str(trans.date.year)
 
         if (not selected_month or trans_month == selected_month) and \
            (not selected_year or trans_year == selected_year):
-            
-            # טעינת התרגום של תיאור התנועה מה-JSON
+
             t_file = load_transaction_file(trans.id)
             desc_obj = t_file.get("description", {}) if t_file else {}
-            trans_i18n_list[trans.id] = desc_obj.get(language) or desc_obj.get("he") or trans.description
+            trans_i18n_list[trans.id] = (
+                desc_obj.get(language)
+                or desc_obj.get("he")
+                or trans.description
+            )
 
-            # הוצאות עסק קלאסיות
             if trans.type == 'expense':
                 total_expenses += float(trans.amount or 0.0)
                 expenses_list.append(trans)
-                
-            # הכנסות ידניות
+
             elif trans.type == 'income':
-                if not trans.invoice_id:  # סינון קריטי: לוקח רק הכנסות ידניות (כמו מניות) ולא חשבוניות כפולות
+                if not trans.invoice_id:
                     total_manual_income += float(trans.amount or 0.0)
                     total_revenue += float(trans.amount or 0.0)
                     total_cogs += float(getattr(trans, 'cost_price_at_time', 0.0) or 0.0)
                     manual_incomes_list.append(trans)
 
-    # החישוב החשבונאי הסופי והנקי: הכנסות נטו פחות הוצאות ופחות עלות המכר
     net_profit = total_revenue - total_expenses - total_cogs
 
     months_list = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
@@ -3634,21 +3651,21 @@ def profit():
         total_expenses=total_expenses,
         total_manual_income=total_manual_income,
         manual_incomes_list=manual_incomes_list,
-        expenses_list=expenses_list,             
-        trans_i18n_list=trans_i18n_list,         
-        business_categories=business_categories, 
-        total_cogs=total_cogs,  
+        expenses_list=expenses_list,
+        trans_i18n_list=trans_i18n_list,
+        business_categories=business_categories,
+        total_cogs=total_cogs,
         net_profit=net_profit,
-        total_vat=total_vat, 
+        total_vat=total_vat,
         customer_i18n_list=customer_i18n_list,
-        product_i18n_list=product_i18n_list,  
+        product_i18n_list=product_i18n_list,
         selected_month=selected_month,
         selected_year=selected_year,
         search=search,
         months=months_list,
         years=years_list,
         language=language,
-        company=load_company_data() 
+        company=load_company_data()
     )
 
 
