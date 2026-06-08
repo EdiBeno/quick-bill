@@ -2652,7 +2652,6 @@ def manage_products():
 
     products_json = []
     for p in filtered_objects:
-        # 👇 זה התיקון הקריטי
         item_file = load_item_file(p.id) or {}
         
         p_date = p.received_date
@@ -2699,6 +2698,7 @@ def manage_products():
 # --------------------
 #  Products List Selected Combobox Data
 # ----------------------
+
 @app.get("/api/products_list")
 @login_required
 def products_list():
@@ -2707,7 +2707,6 @@ def products_list():
     result = []
 
     for p in products:
-        # 👇 התיקון הקריטי — לא לתת ל-None להפיל את כל ה-API
         item_file = load_item_file(p.id) or {}
 
         # כמה נמכר בפועל
@@ -3572,46 +3571,46 @@ def profit():
                 cust_revenue += float(inv.sub_total or 0.0)
                 total_vat += float(inv.vat_amount or 0.0)
 
-                # --- COGS לפי מערכת המלאי החדשה ---
+                # --- FIXED COGS CALCULATION ---
                 for item in inv.items:
 
-                    # טעינת תרגום מוצר
+                    # Load product translation
                     if item.product and item.product_id:
                         if item.product_id not in product_i18n_list:
                             product_i18n_list[item.product_id] = load_item_translated(
                                 item.product, language
                             )
 
-                    # שליפת מוצר
                     prod = Product.query.get(item.product_id)
 
-                    # מחיר עלות בזמן החשבונית (אם קיים)
+                    # 1. cost_price_at_time (best source)
                     item_cost = float(getattr(item, 'cost_price_at_time', 0.0) or 0.0)
 
-                    # אם אין מחיר עלות בזמן החשבונית → נשתמש במערכת המלאי החדשה
+                    # 2. If missing → try inventory file
                     if item_cost == 0.0 and prod:
-
-                        # שליפת נתוני מלאי
                         inv_data = load_inventory_data(prod.id)
 
                         if inv_data:
-                            # מחיר קנייה מתוך מערכת המלאי
-                            item_cost = float(inv_data.get("purchase_price", 0.0))
+                            item_cost = float(
+                                inv_data.get("purchase_price")
+                                or inv_data.get("cost_price")
+                                or 0.0
+                            )
 
-                        # fallback ישן
+                        # 3. fallback → product.cost_price
                         if item_cost == 0.0 and getattr(prod, 'income_category', 'service') == 'product':
                             item_cost = float(prod.cost_price or 0.0)
 
-                        # תרגום מוצר מה‑DB אם צריך
+                        # Load translation if missing
                         if prod.id not in product_i18n_list:
                             product_i18n_list[prod.id] = load_item_translated(
                                 prod, language
                             )
 
-                    # חישוב עלות המכר
+                    # 4. Add to COGS
                     total_cogs += (item_cost * float(item.quantity or 0.0))
 
-        # חיפוש
+        # Search filter
         trans_name = (customer_i18n_list[customer.id].get('name', '') or "").lower()
         match_search = (
             not search
