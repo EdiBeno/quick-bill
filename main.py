@@ -1938,7 +1938,6 @@ def save_invoice():
     invoice_id = request.form.get("invoice_id")
     customer_id = request.form.get("customer_id")
 
-    # Guardrail against uninitialized client properties
     if not customer_id:
         flash("שגיאה: יש לבחור לקוח חוקי על מנת לשמור את המסמך", "error")
         return redirect(url_for('invoice'))
@@ -1952,7 +1951,7 @@ def save_invoice():
 
     total_invoice_cost = 0.0 
 
-    # ------ 1. UPDATE EXISTING INVOICE --------
+    # 1. UPDATE EXISTING INVOICE
     if invoice_id:
         invoice = Invoice.query.get(invoice_id)
         if not invoice:
@@ -1972,10 +1971,16 @@ def save_invoice():
                 prod.quantity += old_item.quantity 
                 if item_file_old:
                     save_item_file(
-                        product_id=prod.id, name_trans=item_file_old.get("name", {}), desc_trans=item_file_old.get("description", {}),
-                        price=prod.price, income_category=i_cat_old, cost_price=prod.cost_price,
-                        stock_in=item_file_old.get("stock_in", 0), stock_out=int(db.session.query(func.sum(InvoiceItem.quantity)).filter(InvoiceItem.product_id == prod.id).scalar() or 0),
-                        supplier_id=item_file_old.get("supplier_id"), received_date=item_file_old.get("received_date")
+                        product_id=prod.id,
+                        name_trans=item_file_old.get("name", {}),
+                        desc_trans=item_file_old.get("description", {}),
+                        price=prod.price,
+                        income_category=i_cat_old,
+                        cost_price=prod.cost_price,
+                        stock_in=item_file_old.get("stock_in", 0),
+                        stock_out=int(db.session.query(func.sum(InvoiceItem.quantity)).filter(InvoiceItem.product_id == prod.id).scalar() or 0),
+                        supplier_id=item_file_old.get("supplier_id"),
+                        received_date=item_file_old.get("received_date")
                     )
 
         invoice.customer_id = customer_id
@@ -2004,21 +2009,36 @@ def save_invoice():
             i_cat = getattr(prod, 'income_category', 'service') if prod else 'service'
             if item_file:
                 i_cat = item_file.get("income_category", i_cat)
-            
-            c_price = prod.cost_price if (prod and i_cat == 'product') else 0.0
+
+            #  COST PRICE LOGIC (UPDATE)
+            if prod and i_cat == 'product':
+                if item_file and "cost_price" in item_file:
+                    c_price = float(item_file.get("cost_price") or 0.0)
+                else:
+                    c_price = float(prod.cost_price or 0.0)
+            else:
+                c_price = 0.0
+
             qty = clean_float(item_data.get('quantity'))
             
             if prod and i_cat == 'product':
                 prod.quantity -= qty
-                db.session.flush() # Forces synchronization state before calculation tracking runs
+                db.session.flush()
                 
                 if item_file:
-                    actual_out_calc = int(db.session.query(func.sum(InvoiceItem.quantity)).filter(InvoiceItem.product_id == prod.id).scalar() or 0) + int(qty)
+                    actual_out_calc = int(db.session.query(func.sum(InvoiceItem.quantity))
+                                          .filter(InvoiceItem.product_id == prod.id).scalar() or 0) + int(qty)
                     save_item_file(
-                        product_id=prod.id, name_trans=item_file.get("name", {}), desc_trans=item_file.get("description", {}),
-                        price=prod.price, income_category=i_cat, cost_price=prod.cost_price,
-                        stock_in=item_file.get("stock_in", 0), stock_out=actual_out_calc,
-                        supplier_id=item_file.get("supplier_id"), received_date=item_file.get("received_date")
+                        product_id=prod.id,
+                        name_trans=item_file.get("name", {}),
+                        desc_trans=item_file.get("description", {}),
+                        price=prod.price,
+                        income_category=i_cat,
+                        cost_price=prod.cost_price,
+                        stock_in=item_file.get("stock_in", 0),
+                        stock_out=actual_out_calc,
+                        supplier_id=item_file.get("supplier_id"),
+                        received_date=item_file.get("received_date")
                     )
             
             u_price = clean_float(item_data.get('price'))
@@ -2027,9 +2047,13 @@ def save_invoice():
             total_invoice_cost += (qty * c_price)
 
             db.session.add(InvoiceItem(
-                invoice_id=invoice.id, product_id=item_data['product_id'],
-                quantity=qty, unit_price=u_price, discount=disc,
-                total_price=total_after_discount, cost_price_at_time=c_price,
+                invoice_id=invoice.id,
+                product_id=item_data['product_id'],
+                quantity=qty,
+                unit_price=u_price,
+                discount=disc,
+                total_price=total_after_discount,
+                cost_price_at_time=c_price,
                 income_category=i_cat 
             ))
 
@@ -2038,20 +2062,28 @@ def save_invoice():
         methods = request.form.getlist('payment_method[]')
         for i in range(len(amounts)):
             amt = clean_float(amounts[i])
-            if amt <= 0: continue
+            if amt <= 0:
+                continue
             p_date = datetime.strptime(payment_dates[i], "%Y-%m-%d").date() if payment_dates[i] else None
             db.session.add(Payment(
-                invoice_id=invoice.id, payment_date=p_date, payment_method=methods[i],
-                payment_amount=amt, bank=request.form.getlist('bank[]')[i],
-                branch=request.form.getlist('branch[]')[i], account_number=request.form.getlist('account_number[]')[i]
+                invoice_id=invoice.id,
+                payment_date=p_date,
+                payment_method=methods[i],
+                payment_amount=amt,
+                bank=request.form.getlist('bank[]')[i],
+                branch=request.form.getlist('branch[]')[i],
+                account_number=request.form.getlist('account_number[]')[i]
             ))
 
         Transaction.query.filter_by(invoice_id=invoice.id).delete()
         db.session.add(Transaction(
             date=invoice.invoice_date, 
             description=f"חשבונית #{invoice.invoice_number}",
-            amount=sub_total, # 🟢 Restored net basis tracking to insulate P&L against tax pollution
-            type='income', category_id=None, invoice_id=invoice.id, customer_id=customer_id, 
+            amount=sub_total,
+            type='income',
+            category_id=None,
+            invoice_id=invoice.id,
+            customer_id=customer_id, 
             cost_price_at_time=total_invoice_cost, 
             user_id=current_user.id if (current_user.is_authenticated and str(current_user.id) != "0") else None
         ))
@@ -2060,7 +2092,7 @@ def save_invoice():
         flash('החשבונית עודכנה בהצלחה והמלאי סונכרן', 'success')
         return redirect(url_for('invoice_view', invoice_id=invoice.id))
 
-    # ------ 2. CREATE NEW INVOICE --------
+    # 2. CREATE NEW INVOICE
     invoice_number = get_next_invoice_number()
 
     new_invoice = Invoice(
@@ -2091,8 +2123,16 @@ def save_invoice():
         i_cat = getattr(prod, 'income_category', 'service') if prod else 'service'
         if item_file:
             i_cat = item_file.get("income_category", i_cat)
-        
-        c_price = prod.cost_price if (prod and i_cat == 'product') else 0.0
+
+        #  COST PRICE LOGIC (CREATE)
+        if prod and i_cat == 'product':
+            if item_file and "cost_price" in item_file:
+                c_price = float(item_file.get("cost_price") or 0.0)
+            else:
+                c_price = float(prod.cost_price or 0.0)
+        else:
+            c_price = 0.0
+
         qty = clean_float(item_data.get('quantity'))
         
         if prod and i_cat == 'product':
@@ -2100,12 +2140,19 @@ def save_invoice():
             db.session.flush()
             
             if item_file:
-                actual_out_calc = int(db.session.query(func.sum(InvoiceItem.quantity)).filter(InvoiceItem.product_id == prod.id).scalar() or 0) + int(qty)
+                actual_out_calc = int(db.session.query(func.sum(InvoiceItem.quantity))
+                                      .filter(InvoiceItem.product_id == prod.id).scalar() or 0) + int(qty)
                 save_item_file(
-                    product_id=prod.id, name_trans=item_file.get("name", {}), desc_trans=item_file.get("description", {}),
-                    price=prod.price, income_category=i_cat, cost_price=prod.cost_price,
-                    stock_in=item_file.get("stock_in", 0), stock_out=actual_out_calc,
-                    supplier_id=item_file.get("supplier_id"), received_date=item_file.get("received_date")
+                    product_id=prod.id,
+                    name_trans=item_file.get("name", {}),
+                    desc_trans=item_file.get("description", {}),
+                    price=prod.price,
+                    income_category=i_cat,
+                    cost_price=prod.cost_price,
+                    stock_in=item_file.get("stock_in", 0),
+                    stock_out=actual_out_calc,
+                    supplier_id=item_file.get("supplier_id"),
+                    received_date=item_file.get("received_date")
                 )
             
         u_price = clean_float(item_data.get('price'))
@@ -2114,9 +2161,13 @@ def save_invoice():
         total_invoice_cost += (qty * c_price)
 
         db.session.add(InvoiceItem(
-            invoice_id=new_invoice.id, product_id=item_data['product_id'],
-            quantity=qty, unit_price=u_price, discount=disc,
-            total_price=row_total, cost_price_at_time=c_price,
+            invoice_id=new_invoice.id,
+            product_id=item_data['product_id'],
+            quantity=qty,
+            unit_price=u_price,
+            discount=disc,
+            total_price=row_total,
+            cost_price_at_time=c_price,
             income_category=i_cat 
         ))
 
@@ -2125,19 +2176,27 @@ def save_invoice():
     methods = request.form.getlist('payment_method[]')
     for i in range(len(amounts)):
         amt = clean_float(amounts[i])
-        if amt <= 0: continue
+        if amt <= 0:
+            continue
         p_date = datetime.strptime(payment_dates[i], "%Y-%m-%d").date() if payment_dates[i] else None
         db.session.add(Payment(
-            invoice_id=new_invoice.id, payment_date=p_date, payment_method=methods[i],
-            payment_amount=amt, bank=request.form.getlist('bank[]')[i],
-            branch=request.form.getlist('branch[]')[i], account_number=request.form.getlist('account_number[]')[i]
+            invoice_id=new_invoice.id,
+            payment_date=p_date,
+            payment_method=methods[i],
+            payment_amount=amt,
+            bank=request.form.getlist('bank[]')[i],
+            branch=request.form.getlist('branch[]')[i],
+            account_number=request.form.getlist('account_number[]')[i]
         ))
 
     new_trans = Transaction(
         date=new_invoice.invoice_date, 
         description=f"חשבונית #{new_invoice.invoice_number}",
-        amount=sub_total, #  Restored net basis tracking to isolate reports against tax pollution
-        type='income', category_id=None, invoice_id=new_invoice.id, customer_id=customer_id, 
+        amount=sub_total,
+        type='income',
+        category_id=None,
+        invoice_id=new_invoice.id,
+        customer_id=customer_id, 
         cost_price_at_time=total_invoice_cost, 
         user_id=current_user.id if (current_user.is_authenticated and str(current_user.id) != "0") else None
     )
@@ -2146,6 +2205,7 @@ def save_invoice():
     db.session.commit()
     flash('החשבונית הופקה בהצלחה והמלאי עודכן', 'success')
     return redirect(url_for('invoice_view', invoice_id=new_invoice.id))
+
 
 # --------------------
 # Create Invoice Form Data
