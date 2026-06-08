@@ -3519,14 +3519,14 @@ def profit():
     if not selected_month:
         selected_month = datetime.today().strftime('%m')
 
-    # אופטימיזציה קריטית (Eager Loading)
+    # Eager Loading
     all_customers = Customer.query.options(
         db.joinedload(Customer.invoices).joinedload(Invoice.items)
     ).all()
 
     all_transactions = Transaction.query.all()
 
-    # טעינת מפת קטגוריות מתורגמות מה-JSON
+    # Load translated categories
     business_categories = {}
     cat_dir = app.config.get('CATEGORIES_DIR')
     if cat_dir and os.path.exists(cat_dir):
@@ -3547,7 +3547,7 @@ def profit():
 
     customer_totals = {}
     customer_i18n_list = {}
-    product_i18n_list = {}  
+    product_i18n_list = {}
     filtered_customers = []
 
     manual_incomes_list = []
@@ -3572,33 +3572,46 @@ def profit():
                 cust_revenue += float(inv.sub_total or 0.0)
                 total_vat += float(inv.vat_amount or 0.0)
 
-                # COGS לכל פריט
+                # --- COGS לפי מערכת המלאי החדשה ---
                 for item in inv.items:
-                    # טעינת תרגום מוצר אם קיים
+
+                    # טעינת תרגום מוצר
                     if item.product and item.product_id:
                         if item.product_id not in product_i18n_list:
                             product_i18n_list[item.product_id] = load_item_translated(
                                 item.product, language
                             )
 
-                    # מחיר עלות בזמן החשבונית
+                    # שליפת מוצר
+                    prod = Product.query.get(item.product_id)
+
+                    # מחיר עלות בזמן החשבונית (אם קיים)
                     item_cost = float(getattr(item, 'cost_price_at_time', 0.0) or 0.0)
 
-                    # אם אין מחיר עלות בזמן החשבונית → נשלוף מה-DB
-                    if item_cost == 0.0 and item.product_id:
-                        prod = Product.query.get(item.product_id)
-                        if prod:
-                            if getattr(prod, 'income_category', 'service') == 'product':
-                                item_cost = float(prod.cost_price or 0.0)
+                    # אם אין מחיר עלות בזמן החשבונית → נשתמש במערכת המלאי החדשה
+                    if item_cost == 0.0 and prod:
 
-                            # תרגום מוצר גם מה-DB אם צריך
-                            if prod.id not in product_i18n_list:
-                                product_i18n_list[prod.id] = load_item_translated(
-                                    prod, language
-                                )
+                        # שליפת נתוני מלאי
+                        inv_data = load_inventory_data(prod.id)
 
+                        if inv_data:
+                            # מחיר קנייה מתוך מערכת המלאי
+                            item_cost = float(inv_data.get("purchase_price", 0.0))
+
+                        # fallback ישן
+                        if item_cost == 0.0 and getattr(prod, 'income_category', 'service') == 'product':
+                            item_cost = float(prod.cost_price or 0.0)
+
+                        # תרגום מוצר מה‑DB אם צריך
+                        if prod.id not in product_i18n_list:
+                            product_i18n_list[prod.id] = load_item_translated(
+                                prod, language
+                            )
+
+                    # חישוב עלות המכר
                     total_cogs += (item_cost * float(item.quantity or 0.0))
 
+        # חיפוש
         trans_name = (customer_i18n_list[customer.id].get('name', '') or "").lower()
         match_search = (
             not search
@@ -3668,6 +3681,16 @@ def profit():
         company=load_company_data()
     )
 
+# ----------------------
+# Load Inventory Data
+# ----------------------
+
+def load_inventory_data(product_id):
+    path = os.path.join("inventory", f"{product_id}.json")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
 
 # ----------------------
 # All Transaction Route
