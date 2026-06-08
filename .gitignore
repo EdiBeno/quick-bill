@@ -2,8 +2,8 @@
 *.log
 */**/*.csv
 */**/*.log
-HoursCard/
-HoursCard/**/*.csv
+InvoiceQB/
+InvoiceQB/**/*.csv
 __pycache__/
 *.pyc
 *.pyo
