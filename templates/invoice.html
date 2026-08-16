@@ -2271,8 +2271,7 @@ function createProductSelectElement(priceInput) {
     return selectElement;
 }
 
-/* ----- Update Code המעודכן והמאובטח (גרסה הרמטית שמציגה את המק"ט בכל השורות!) ----- */
-/* ----- Update Code המעודכן וההרמטי (הגנה מוחלטת לחשבונית עצמית/פנימית) ----- */
+/* ----- Update Code המעודכן והמאובטח (מציגה את המק"ט בכל השורות!) ----- */
 function updateCode(selectEl) {
     const row = selectEl.closest("tr");
     if (!row) return;
@@ -2672,28 +2671,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     /* ----- טעינת לקוח קיים ----- */
-    function loadExistingCustomer() {
-        if (!loadedCustomer) return;
+function loadExistingCustomer() {
+    if (!loadedCustomer) return;
 
-        document.getElementById("customer_name_field").innerText = loadedCustomer.customer_name || "";
+    // 1. הפיקס הגאוני שלך: שליפת ה-ID ישירות מתוך אובייקט הלקוח המקורי של המערכת
+    const customerId = String(loadedCustomer.id || loadedCustomer.customer_id || "0").trim();
 
-        const addressParts = [
-            loadedCustomer.address,
-            loadedCustomer.city,
-            loadedCustomer.postal_code
-        ].filter(part => part && part.trim() !== "");
+    // 2. הזרקת הנתונים המתורגמים של השרת לשדות הטקסט הקבועים
+    document.getElementById("customer_name_field").innerText = loadedCustomer.customer_name || "";
+
+    const addressParts = [
+        loadedCustomer.address,
+        loadedCustomer.city,
+        loadedCustomer.postal_code
+    ].filter(part => part && part.trim() !== "");
+    
+    document.getElementById("customer_address_field").innerText = addressParts.join(", ");
+
+    document.getElementById("customer_id_field").innerText = loadedCustomer.id_number || "";
+    document.getElementById("customer_phone_field").innerText = loadedCustomer.phone || "";
+    document.getElementById("customer_email_field").innerText = loadedCustomer.email || "";
+
+    // 3. חוקי התצוגה המקוריים והיציבים שלך (הסתרת החיפוש והצגת הבלוק של הפרטים המעוצבים)
+    document.getElementById("customer_select_wrapper").style.display = "none";
+    document.getElementById("customer_details").style.display = "block";
+
+    // 4. חשיפה אוטומטית ובטוחה של שדות המק"ט (SKU) עבור החשבונית הקיימת שנטענה
+    const invoiceRows = document.querySelectorAll('.invoice-row');
+    invoiceRows.forEach(row => {
+        const codeInput = row.querySelector('.item-code-input');
+        if (codeInput) {
+            codeInput.style.visibility = 'visible';
+        }
+    });
+}
+
+// 5. סנכרון תיבת החיפוש והקומבו-בוקס דרך ה-customer_json המתורגם של השרת בלבד
+document.addEventListener("DOMContentLoaded", function() {
+    const hiddenInput = document.getElementById('customer_select');
+    const searchInput = document.getElementById('customer_search_input');
+    
+    if (hiddenInput && searchInput && typeof loadedCustomer !== "undefined" && loadedCustomer) {
+        // הפיקס המדעי: בודקים את ה-ID שחזר מה-customer_json המבושל של השרת!
+        const serverCustomerId = String(loadedCustomer.id || "").trim();
+        const currentInputId = hiddenInput.value ? String(hiddenInput.value).trim() : "";
         
-        document.getElementById("customer_address_field").innerText = addressParts.join(", ");
-
-        document.getElementById("customer_id_field").innerText = loadedCustomer.id_number || "";
-        document.getElementById("customer_phone_field").innerText = loadedCustomer.phone || "";
-        document.getElementById("customer_email_field").innerText = loadedCustomer.email || "";
-
-        document.getElementById("customer_select_wrapper").style.display = "none";
-        document.getElementById("customer_details").style.display = "block";
+        // אם השרת קבע שהלקוח הנוכחי הוא "0" - זו חשבונית עצמית בוודאות!
+        if (serverCustomerId === "0" || serverCustomerId === "") {
+            // מעדכנים את השדה הנסתר ל-0 לצרכי תצוגה אחידה בפרונטאנד
+            hiddenInput.value = "0";
+            
+            // שולפים את האופציה עם הכוכב מה-Datalist ומציגים אותה בתיבת החיפוש
+            const selfOption = document.querySelector('#customer_datalist option[data-id="0"]');
+            searchInput.value = selfOption ? selfOption.value : (loadedCustomer.customer_name || "");
+        } else {
+            const option = document.querySelector(`#customer_datalist option[data-id="${currentInputId}"]`);
+            if (option) {
+                searchInput.value = option.value;
+            } else {
+                searchInput.value = loadedCustomer.id_number 
+                    ? `${loadedCustomer.customer_name} | ${loadedCustomer.id_number}`
+                    : (loadedCustomer.customer_name || "");
+            }
+        }
     }
+});
 
-/* ----- טעינת פריטים קיימים (גרסה נקייה ללא שינויי גודל ב-JS) ----- */
+
+/* ----- טעינת פריטים קיימים  ----- */
 function loadExistingItems() {
     if (!loadedItems || loadedItems.length === 0) return;
 
@@ -3663,6 +3708,7 @@ function payInvoiceNow() {
 
 <!-- CUSTOMER SEARCH INVOICE DISPLAY CORRECT LANG -->
 <script>
+/* ----- פונקציית האם המרכזית לניהול בחירת הלקוח בזמן אמת ----- */
 function onCustomerSearchInput(inputElement) {
     const val = inputElement.value;
     const options = document.querySelectorAll('#customer_datalist option');
@@ -3684,11 +3730,22 @@ function onCustomerSearchInput(inputElement) {
     hiddenInput.value = foundId;
     
     if (foundId) {
+        // מונע קריאות API כפולות אם הדף נמצא בשלב הטעינה הראשונית שלו
+        if (window.isInitializingInvoice) {
+            // התאמת החלפת תצוגה מבודדת בלבד ללא גרימת לופים
+            if (selectWrapper) selectWrapper.style.display = 'none';
+            if (detailsBlock) detailsBlock.style.display = 'block';
+            if (titleToggle) {
+                titleToggle.innerText = (localStorage.getItem('lang') === 'he') ? 'פרטי לקוח:' : 'Customer Details:';
+            }
+            return;
+        }
+
         if (typeof loadCustomerData === "function") {
-            loadCustomerData(); // טעינת הנתונים דרך ה-API
+            loadCustomerData(); // טעינת הנתונים דרך ה-API רק בשינוי ידני אמיתי
         }
         
-        // החלפת תצוגה
+        // החלפת תצוגה רגילה
         if (selectWrapper) selectWrapper.style.display = 'none';
         if (detailsBlock) detailsBlock.style.display = 'block';
 
@@ -3718,18 +3775,43 @@ function onCustomerSearchInput(inputElement) {
     }
 }
 
-// טעינה ראשונית
+// טעינה ראשונית מאובטחת ומסונכרנת עם הנתונים המבושלים של השרת
 document.addEventListener("DOMContentLoaded", function() {
+    // הרמת דגל טעינה למניעת הרצה כפולה
+    window.isInitializingInvoice = true;
+
     const hiddenInput = document.getElementById('customer_select');
     const searchInput = document.getElementById('customer_search_input');
     
-    if (hiddenInput && hiddenInput.value) {
-        const option = document.querySelector(`#customer_datalist option[data-id="${hiddenInput.value}"]`);
-        if (option) {
-            searchInput.value = option.value;
-            onCustomerSearchInput(searchInput); // קריאה לפונקציה המאוחדת
+    if (hiddenInput && searchInput && typeof loadedCustomer !== "undefined" && loadedCustomer) {
+        const serverCustomerId = String(loadedCustomer.id || "").trim();
+        const currentInputId = hiddenInput.value ? String(hiddenInput.value).trim() : "";
+        
+        // הצלבה מוחלטת: אם השרת קבע באובייקט המבושל שלו שמדובר בחשבונית עצמית (id: "0")
+        if (serverCustomerId === "0" || serverCustomerId === "") {
+            hiddenInput.value = "0"; // כופה 0 פרונטאנד
+            
+            const selfOption = document.querySelector('#customer_datalist option[data-id="0"]');
+            searchInput.value = selfOption ? selfOption.value : (loadedCustomer.customer_name || "");
+            
+            // מריץ את פונקציית החלפת התצוגה המבוססת על ה-Datalist בבטחה
+            onCustomerSearchInput(searchInput);
+        } else {
+            // טיפול מסודר בחשבוניות 1 עד 4 ובכל הלקוחות הרגילים העתידיים מהמאגר
+            const option = document.querySelector(`#customer_datalist option[data-id="${currentInputId}"]`);
+            if (option) {
+                searchInput.value = option.value;
+                onCustomerSearchInput(searchInput);
+            } else {
+                searchInput.value = loadedCustomer.id_number 
+                    ? `${loadedCustomer.customer_name} | ${loadedCustomer.id_number}`
+                    : (loadedCustomer.customer_name || "");
+            }
         }
     }
+    
+    // הורדת הדגל בסיום הטעינה הבטוחה
+    window.isInitializingInvoice = false;
 });
 </script>
 
@@ -4004,7 +4086,6 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 
     <!--  DevTools F12 Browser Blocker Script  -->
-     <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
 
 </body>
 </html>
