@@ -4278,7 +4278,8 @@ def base_invoice_context(customer_id=None):
 # Get Invoice Context Form Data (Multi-Tenant Secure)
 # ----------------------
 
-def invoice_context(invoice_id=None):
+def invoice_context(invoice_id=None, customer_id=None):
+    invoice = None
     try:
         language = get_lang()
 
@@ -4287,18 +4288,22 @@ def invoice_context(invoice_id=None):
         else:
             company_id = current_user.company_id
 
-        invoice = None
         if invoice_id:
             invoice = db.session.get(Invoice, invoice_id)
             if invoice and invoice.company_id != company_id:
                 invoice = None
 
+        # 🔥 פיקס חשבונית עצמית: אם אין חשבונית בדאטהבייס אבל יש מזהה לקוח מהטופס
+        active_customer_id = customer_id
+        if invoice and invoice.customer_id is not None:
+            active_customer_id = invoice.customer_id
+
         company_obj = db.session.get(Company, company_id)
         company_translated = load_company_translated(company_obj, language) if company_obj else {}
 
         customer_json = {}
-        if invoice and invoice.customer_id is not None:
-            if str(invoice.customer_id) == "0":
+        if active_customer_id is not None:
+            if str(active_customer_id) == "0":
                 customer_json = {
                     "id": "0",  
                     "customer_name": f"★ {company_translated.get('name', company_obj.name if company_obj else '')} ",
@@ -4310,14 +4315,14 @@ def invoice_context(invoice_id=None):
                     "email": company_obj.email if company_obj else ""
                 }
             else:
-                c_obj = Customer.query.filter_by(id=invoice.customer_id, company_id=company_id).first()
+                c_obj = Customer.query.filter_by(id=active_customer_id, company_id=company_id).first()
                 if c_obj:
-                    trans = load_customer_translated(c_obj, language)
+                    trans = load_customer_translated(c_obj, language) or {}
                     customer_json = {
                         "id": c_obj.id,
-                        "customer_name": trans.get("name", c_obj.customer_name),
-                        "address": trans.get("address", c_obj.address),
-                        "city": trans.get("city", c_obj.city),
+                        "customer_name": trans.get("name") or c_obj.customer_name,
+                        "address": trans.get("address") or c_obj.address,
+                        "city": trans.get("city") or c_obj.city,
                         "postal_code": c_obj.postal_code or "",
                         "id_number": c_obj.id_number or "",
                         "phone": c_obj.phone or "",
@@ -4336,8 +4341,8 @@ def invoice_context(invoice_id=None):
                 row_name_trans = item.description or ""
                 
                 if target_p:
-                    translated_p_data = load_item_translated(target_p, language, company_id)
-                    item_file_data = load_item_file(company_id, target_p.local_id) or {}
+                    translated_p_data = load_item_translated(target_p, language, company_id) or {}
+                    item_file_data = load_item_file(p.id, company_id=company_id) or {}
                     
                     row_sku = target_p.sku if target_p.sku else item_file_data.get("sku", str(target_p.local_id))
                     row_name_trans = translated_p_data.get("name") or target_p.name or ""
@@ -4360,18 +4365,18 @@ def invoice_context(invoice_id=None):
             .all()
         )
         for c in my_customers:
-            trans = load_customer_translated(c, language)
+            trans = load_customer_translated(c, language) or {}
             all_customers_json.append({
                 "id": c.id,
-                "customer_name": trans.get("name", c.customer_name),
+                "customer_name": trans.get("name") or c.customer_name,
                 "id_number": c.id_number or ""
             })
 
         products_json = []
         my_products = Product.query.filter_by(company_id=company_id).all()
         for p in my_products:
-            item_file = load_item_file(company_id, p.local_id if p.local_id is not None else p.id) or {}
-            translated_core = load_item_translated(p, language, company_id)
+            item_file = load_item_file(p.id, company_id=company_id) or {}
+            translated_core = load_item_translated(p, language, company_id) or {}
 
             p_name = translated_core.get("name") or p.name or ""
             i_cat = translated_core.get("income_category") or p.income_category or "product"
@@ -4431,9 +4436,8 @@ def invoice_context(invoice_id=None):
                 or "ביטול כללי"
             )
 
-        base_ctx = base_invoice_context(
-            customer_id=invoice.customer_id if invoice and invoice.customer_id else None
-        )
+        # העברת ה-ID האקטיבי כדי ש-base_invoice_context יטען את הלקוח העצמי ללא שגיאות
+        base_ctx = base_invoice_context(customer_id=active_customer_id)
 
         base_ctx.update({
             "invoice": invoice,
@@ -4497,33 +4501,40 @@ def invoice_context(invoice_id=None):
             pass
 
         backup_reason = ""
-        try:
-            if invoice:
+        if invoice:
+            try:
                 backup_reason = load_cancellation_translated(invoice, get_lang(), company_id)
-        except:
-            if invoice:
+            except:
                 backup_reason = getattr(invoice, 'cancellation_reason', '') or ""
+
+        fallback_customer = {}
+        # שימוש בבדיקה הבטוחה של active_customer_id למניעת קריסה בטמפלייט
+        if str(active_customer_id) == "0":
+            fallback_customer = {
+                "id": "0",
+                "customer_name": f"★ {company_translated.get('name', company_obj.name if company_obj else '')} "
+            }
 
         return {
             "error": str(e),
-            "invoice": None,
-            "invoice_id": None,
+            "invoice": invoice,
+            "invoice_id": getattr(invoice, 'id', None),
             "company": company_translated,
             "company_db": company_obj,
-            "customer_json": {},
+            "customer_json": fallback_customer,
             "all_customers_json": [],
-            "products": products_backup, 
+            "products": products_backup,
             "items": [],
             "loadedPayments": [],
-            "sub_total": 0.0,
-            "vat_amount": 0.0,
-            "grand_total": 0.0,
-            "discount_total": 0.0,
-            "vat_rate": 0.0,            
-            "invoice_number": get_next_invoice_number(company_id=company_id),            
+            "sub_total": float(getattr(invoice, 'sub_total', 0) or 0),
+            "vat_amount": float(getattr(invoice, 'vat_amount', 0) or 0),
+            "grand_total": float(getattr(invoice, 'grand_total', 0) or 0),
+            "discount_total": float(getattr(invoice, 'discount_total', 0) or 0),
+            "vat_rate": float(getattr(invoice, 'vat_rate', 0) or 0),            
+            "invoice_number": getattr(invoice, 'invoice_number', get_next_invoice_number(company_id=company_id)),            
             "invoice_date": datetime.today().strftime('%d-%m-%Y'),
-            "invoice_status": "active",
-            "translated_reason": backup_reason 
+            "invoice_status": getattr(invoice, 'status', 'active'),
+            "translated_reason": backup_reason
         }
 
         
@@ -4866,6 +4877,7 @@ def save_invoice():
         )
 
         db.session.add(new_invoice)
+        # פוסטגרס מקצה כאן מפתח רשמי בשנייה זו!
         db.session.flush()
 
         items = request.form.getlist('items[]')
@@ -4999,14 +5011,15 @@ def save_invoice():
             description=f"חשבונית #{new_invoice.invoice_number}",
             amount=sub_total,
             type='income',
-            category_id=None,
-            invoice_id=new_invoice.invoice_number,            
+            category_id=None,            
+            invoice_id=new_invoice.id,                        
             customer_id=db_customer_id,             
             cost_price_at_time=total_invoice_cost, 
             quantity=1
         )
         db.session.add(new_trans)
 
+        # שמירה סופית וסגירת העסקה בפוסטגרס בצורה חלקה
         db.session.commit()
         
         flash('החשבונית הופקה בהצלחה והמלאי עודכן', 'success')
