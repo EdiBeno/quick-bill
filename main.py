@@ -71,7 +71,7 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 PERSISTENT_BASE = "/data" if (IS_RENDER and os.path.exists("/data")) else BASE_DIR
 
 if IS_RENDER:
-    # 💡 הפיקס האטומי: כל התיקיות הקריטיות של המערכת עוברות לדיסק הקבוע ב-/data!
+    #  כל התיקיות הקריטיות של המערכת עוברות לדיסק הקבוע ב-/data!
     # זה מונע מחיקת אצוות, לקוחות וספקים ומבטל לחלוטין את ה-Undelete בריסטארטים!
     CUSTOMERS_DIR     = os.path.join(PERSISTENT_BASE, "customers")
     SUPPLIERS_DIR     = os.path.join(PERSISTENT_BASE, "suppliers")
@@ -2315,7 +2315,7 @@ def customer_dashboard_view():
                 .all()
             )
 
-        # 🚀 הפיקס המבודד: מושך לפי מספר החשבונית המקומי והרץ של החברה למניעת סלטים במע"מ!
+        # מושך לפי מספר החשבונית המקומי והרץ של החברה למניעת סלטים במע"מ!
         last_invoice = Invoice.query.filter_by(company_id=target_company_id).order_by(Invoice.invoice_number.desc()).first()
         
         if last_invoice and last_invoice.vat_rate is not None:
@@ -2348,7 +2348,7 @@ def customer_dashboard_view():
                 "message": customer.message or "" if customer else ""
             }
 
-        # 🚀 הפיקס האטומי: חילוץ סיבת הביטול המתורגמת מהדיסק למניעת קופסאות ריקות ברינדור של invoice.html!
+        # חילוץ סיבת הביטול המתורגמת מהדיסק למניעת קופסאות ריקות ברינדור של invoice.html!
         cancellation_reason_trans = ""
         # לוקחים את החשבונית הראשונה במערך במידה והיא מבוטלת כברירת מחדל של ה-Context
         current_active_inv = invoices[0] if invoices else None
@@ -3055,7 +3055,6 @@ def load_supplier_translated(supplier, language, company_id=None):
 
 
 def ensure_product_folder(company_id, local_id):
-    """🔒 מנהל את נתיב תיקיית האב של המוצר בדיסק בצורה מאובטחת ומבודדת"""
     base_dir = app.config["ITEMS_DIR"]
     folder = os.path.join(base_dir, f"{company_id}_{local_id}")
     os.makedirs(folder, exist_ok=True)
@@ -3108,14 +3107,12 @@ def save_item_file(
     stock_out=0,
     sku=None,
     batches=None,
-    supplier_name_trans=None  # 💡 הזרקת מילון 30 השפות המתורגם של שם הספק
+    supplier_name_trans=None  
 ):
-    """👑 קובץ המלך המרכזי: נועל ומעדכן את ה-product.json עם מילוני 30 השפות הרשמיים, כולל הספק!"""
     folder = ensure_product_folder(company_id, local_id)
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, "product.json")
 
-    # 💡 הרעיון הגאוני שלך: הוספת מילון תרגומים מלא של 30 שפות לשם הספק בתוך קובץ האב!
     data = {
         "id": int(local_id),
         "sku": sku if sku else str(local_id),
@@ -3211,7 +3208,6 @@ def save_inventory_transaction(
         except:
             clean_date = received_date
 
-    # 💡 מבנה הטרנזקציה שומר על שמות פשוטים ושטוחים (String) למניעת קריסות
     new_transaction = {
         "product_local_id": int(local_id),
         "received_date": clean_date,
@@ -3231,15 +3227,12 @@ def save_inventory_transaction(
 
 
 def load_item_translated(product, language, company_id=None):
-    """🔒 מאחד בלייב מחרוזות שטוחות בשפת הממשק האקטיבית (שם, תיאור וספק) ישירות לפרונטאנד!"""
     lookup_lang = {"zh": "zh-CN", "en": "en"}.get(language, language)
 
     if not company_id:
         company_id = getattr(product, "company_id", None) or session.get("company_id")
     local_id = getattr(product, "local_id", None)
 
-    # 💡 הגנה אטומית: הגדרת פולבקים קשיחים מה-Database המקומי לכל השדות בממשק
-    # מבטיח שאפילו אם קובץ ה-JSON עדיין לא נוצר או ריק - המסך לעולם לא יציג זבל או קופסאות ריקות!
     fallback_data = {
         "name": product.name or "",
         "description": product.description or "",
@@ -3258,7 +3251,6 @@ def load_item_translated(product, language, company_id=None):
 
     prod_data = load_item_file(company_id, local_id)
     
-    # 💡 פיקס מציל חיים: אם קובץ האב עדיין לא קיים בדיסק, מחזירים מייד את נתוני ה-Fallback היציבים מה-SQL!
     if not prod_data:
         return fallback_data
 
@@ -3303,10 +3295,9 @@ def translate_product_in_background(
     price,
     income_category,
     sku=None,
-    supplier_name=None,  # 💡 פיקס אטומי 1: הוספת שם הספק רשמית לחתימת הפונקציה!
+    supplier_name=None,  
     **kwargs
 ):
-    """🤖 מפעילה את מנוע התרגום ל-30 שפות ברקע רק אם לא קיים כבר קובץ מתורגם בדיסק"""
     product = Product.query.filter_by(id=product_id, company_id=company_id).first()
     if not product:
         return
@@ -3315,7 +3306,6 @@ def translate_product_in_background(
     folder = ensure_product_folder(company_id, local_id)
     file_path = os.path.join(folder, "product.json")
     
-    # בדיקה אם הקובץ קיים ומכיל כבר תרגומים אמיתיים
     if os.path.isfile(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -3332,8 +3322,6 @@ def translate_product_in_background(
     # חילוץ מזהה הספק הקיים מהמוצר במידה ויש
     current_supplier_id = getattr(product, 'supplier_id', None)
 
-    # 💡 פיקס אטומי 2: העברה בטוחה של supplier_name ו-supplier_id לתוך מערך ה-args של ה-Thread!
-    # מונע דריסות של None, ומזרים את הדאטה האמיתי מהטופס ישירות לתוך run_product_translation
     thread = threading.Thread(
         target=run_product_translation,
         args=(
@@ -3371,13 +3359,11 @@ def run_product_translation(
     received_date=None,
     sku=None
 ):
-    """🤖 מריצה את פניות ה-API של גוגל ומתרגמת את השם, התיאור ושם הספק ל-30 שפות במקביל!"""
     try:
         with app.app_context():
             name_trans = generate_translations(name or "")
             desc_trans = generate_translations(description or "")
             
-            # 💡 תרגום אוטומטי של שם הספק ל-30 שפות בלייב מול גוגל ברקע
             supplier_trans = generate_translations(supplier_name or "מלאי פתיחה / כללי")
 
             def clean_translation_dict(trans_dict, original_text):
@@ -3762,7 +3748,6 @@ def ensure_cancellation_folder(company_id, invoice_id):
 
 
 def translate_cancellation_in_background(invoice_id, company_id, text_to_translate):
-    """🚀 משגר Thread נפרד ברקע לתרגום סיבת הביטול ל-30 שפות ללא עיכוב הדף"""
     thread = threading.Thread(
         target=run_cancellation_translation,
         args=(company_id, invoice_id, text_to_translate)
@@ -3829,7 +3814,6 @@ def load_cancellation_file(company_id, invoice_id):
 
 
 def load_cancellation_translated(invoice, language, company_id=None):
-    """🔒 מחלץ בלייב את סיבת הביטול המתורגמת לפי שפת הממשק האקטיבית של ה-A4"""
     lookup_lang = {"zh": "zh-CN", "en": "en"}.get(language, language)
 
     if not company_id:
@@ -3941,7 +3925,7 @@ def company():
 
             db.session.commit()
             flash("נתוני חברת הבעלים עודכנו בהצלחה!", "success")
-
+        
         else:
             if company_obj:
                 for key, value in company_data.items():
@@ -3959,8 +3943,9 @@ def company():
 
                 flash("חברה חדשה נוצרה בהצלחה!", "success")
 
+            # בדיקה אם קיים לקוח מנהל תחת חברת הבעלים
             owner_customer_row = Customer.query.filter_by(
-                id=current_user.id,          
+                id_number=str(current_user.id),          
                 company_id=OWNER_COMPANY_ID
             ).first()
 
@@ -3975,7 +3960,6 @@ def company():
                 next_local_id = 1 if not last_cust else (last_cust.local_id or 0) + 1
 
                 owner_customer_row = Customer(
-                    id=current_user.id,
                     local_id=next_local_id,
                     company_id=OWNER_COMPANY_ID,
                     date=datetime.today().strftime('%d/%m/%Y'),
@@ -3983,6 +3967,7 @@ def company():
                     is_active=True
                 )
                 db.session.add(owner_customer_row)
+                db.session.flush() # פוסטגרס מייצר כאן ID אוטומטי חוקי!
 
             owner_customer_row.customer_name = company_obj.name
             owner_customer_row.address       = company_obj.address
@@ -3996,7 +3981,7 @@ def company():
 
             try:
                 translate_customer_in_background(
-                    customer_id=owner_customer_row.id,
+                    customer_id=owner_customer_row.id, # קוד חוקי ואוטומטי!
                     company_id=OWNER_COMPANY_ID,
                     name=owner_customer_row.customer_name,
                     address=owner_customer_row.address,
@@ -4230,8 +4215,8 @@ def base_invoice_context(customer_id=None):
             "id": p.id,
             "local_id": p.local_id if p.local_id is not None else p.id,
             "sku": p.sku if p.sku else (str(p.local_id) if p.local_id is not None else str(p.id)),
-            "name": p_name,          # 🌟 מחרוזת שטוחה נקייה
-            "description": p_desc,   # 🌟 מחרוזת שטוחה נקייה
+            "name": p_name,          
+            "description": p_desc,   
             "price": float(p.price or 0),
             "cost_price": float(p.cost_price or 0),
             "quantity": int(getattr(p, 'quantity', 0) or 0),
@@ -4264,11 +4249,19 @@ def base_invoice_context(customer_id=None):
         else:
             c_obj = Customer.query.filter_by(id=customer_id, company_id=company_id).first()
             if c_obj:
-                customer_data = load_customer_translated(c_obj, language) or {
-                    "customer_name": c_obj.customer_name
+                # טעינת התרגום
+                trans_dict = load_customer_translated(c_obj, language) or {}
+                
+                customer_data = {
+                    "id": c_obj.id,
+                    "customer_name": trans_dict.get("name") or c_obj.customer_name,
+                    "id_number": getattr(c_obj, 'id_number', '') or "",
+                    "address": getattr(c_obj, 'address', '') or "",
+                    "city": getattr(c_obj, 'city', '') or "",
+                    "postal_code": getattr(c_obj, 'postal_code', '') or "",
+                    "phone": getattr(c_obj, 'phone', '') or "",
+                    "email": getattr(c_obj, 'email', '') or ""
                 }
-                if isinstance(customer_data, dict):
-                    customer_data["id"] = c_obj.id
 
     return {
         "products": products_list_for_js,
@@ -4286,10 +4279,6 @@ def base_invoice_context(customer_id=None):
 # ----------------------
 
 def invoice_context(invoice_id=None):
-    """
-    🔒 פונקציית הליבה המעודכנת: בונה ומסנכרנת את קונטקסט החשבונית לפרונטאנד.
-    מחלחלת את המק"טים, השמות והמלאי בדיסק וב-SQL בצורה ליניארית ללא שום Mismatches!
-    """
     try:
         language = get_lang()
 
@@ -4388,13 +4377,13 @@ def invoice_context(invoice_id=None):
             i_cat = translated_core.get("income_category") or p.income_category or "product"
 
             total_sold = db.session.query(func.sum(InvoiceItem.quantity)) \
-                                   .join(Invoice) \
-                                   .filter(
-                                       InvoiceItem.product_id == str(p.local_id if p.local_id is not None else p.id),
-                                       InvoiceItem.income_category == 'product',
-                                       Invoice.company_id == company_id,
-                                       Invoice.status != "canceled"
-                                   ).scalar() or 0
+                                               .join(Invoice) \
+                                               .filter(
+                                                   InvoiceItem.product_id == str(p.local_id if p.local_id is not None else p.id),
+                                                   InvoiceItem.income_category == 'product',
+                                                   Invoice.company_id == company_id,
+                                                   Invoice.status != "canceled"
+                                               ).scalar() or 0
             
             stock_in_json = item_file.get("stock_in")
             stock_in = int(stock_in_json) if stock_in_json is not None else (int(getattr(p, 'quantity', 0) or 0) + int(total_sold))
@@ -4430,10 +4419,8 @@ def invoice_context(invoice_id=None):
         discount_total = float(getattr(invoice, 'discount_total', 0) or 0) if invoice else 0.0
         vat_rate = float(invoice.vat_rate) if invoice and invoice.vat_rate is not None else 0.0
 
-        # 🚀 הפיקס האטומי: חדירה למפתח האב cancellation_reason מתוך הנתיב המבודד בדיסק לפי השפה האקטיבית!
         cancellation_reason_trans = ""
         if invoice and getattr(invoice, 'status', '') == 'canceled':
-            # פונקציית הטעינה הרשמית שלך שמביאה את ה-JSON המלא מהדיסק
             cancel_file_data = load_cancellation_file(company_id, invoice.id) or {}
             reason_dict = cancel_file_data.get("cancellation_reason", {})
             
@@ -4471,7 +4458,6 @@ def invoice_context(invoice_id=None):
             "translated_reason": cancellation_reason_trans, 
             "company": company_translated,          
             "company_db": company_obj,              
-            # 🚀 הפיקס האטומי: הצלבה מדויקת פנימית ביומן התנועות לפי מזהה החברה הנוכחית ומספר החשבונית המקומי (1) שלה!
             "transaction": Transaction.query.filter_by(
                 invoice_id=invoice.invoice_number, 
                 company_id=company_id
@@ -4510,7 +4496,6 @@ def invoice_context(invoice_id=None):
         except:
             pass
 
-        # 💡 חילוץ גיבוי זמני של סיבת הביטול למניעת קריסות במצב שגיאה חריגה
         backup_reason = ""
         try:
             if invoice:
@@ -4610,10 +4595,23 @@ def save_invoice():
         flash("שגיאה: יש לבחור לקוח חוקי על מנת לשמור את המסמך", "error")
         return redirect(url_for('invoice'))
 
-    if str(customer_id) == "0":
+    #  פוסטגרס (בדיקה וסנכרון ה-ID החוקי)
+    if str(customer_id).strip() == "0":
         checked_customer = True  
+        
+        # מחפשים את הלקוח הדינמי שהמערכת בראה אוטומטית בעמוד החברה לפי המייל של המנהל
+        owner_customer = Customer.query.filter_by(
+            email=current_user.email,
+            company_id=OWNER_COMPANY_ID
+        ).first()
+        
+        if owner_customer:
+            db_customer_id = owner_customer.id  # ה-ID האוטומטי החוקי שפוסטגרס מכיר!
+        else:
+            db_customer_id = None  # הגנה למקרה חירום אם עמוד החברה מעולם לא נשמר
     else:
         checked_customer = Customer.query.filter_by(id=customer_id, company_id=company_id).first()
+        db_customer_id = int(customer_id) if checked_customer else None
         
     if not checked_customer:
         flash("שגיאה: אין לך הרשאה לגשת לנתוני לקוח זה", "error")
@@ -4638,16 +4636,14 @@ def save_invoice():
             flash(f"שגיאה: חשבונית מספר {invoice_number_check} כבר שמורה ומאובטחת במערכת.", "error")
             return redirect(url_for('invoice'))
 
-    # ========================================================
     # ====== 1. עדכון חשבונית קיימת (מצב עריכה) ======
-    # ========================================================
     if invoice_id:
         invoice = db.session.get(Invoice, int(invoice_id))
         if not invoice or invoice.company_id != company_id:
             flash("החשבונית המבוקשת לעריכה אינה קיימת במערכת שלך", "error")
             return redirect(url_for('invoice'))
 
-        # 🛡️ שומר הסף האטומי: חוסם לחלוטין שמירה או עריכה מחדש של מסמך שכבר בוטל!
+        # חוסם לחלוטין שמירה או עריכה מחדש של מסמך שכבר בוטל!
         # מונע כפל מלאים בדיסק ודריסת סטטוסים בבסיס הנתונים.
         if invoice.status in ["canceled", "מבוטלת"]:
             flash("שגיאה חמורה: לא ניתן לערוך או לשמור חשבונית מבוטלת.", "error")
@@ -4852,9 +4848,7 @@ def save_invoice():
         flash('החשבונית עודכנה בהצלחה והמלאי סונכרן', 'success')
         return redirect(url_for('invoice_view', invoice_id=invoice.id))
 
-    # ========================================================
     # ====== 2. יצירת חשבונית חדשה לחלוטין (מצב יצירה) ======
-    # ========================================================
     else:
         invoice_number = get_next_invoice_number(company_id=company_id)
 
@@ -4862,7 +4856,7 @@ def save_invoice():
             company_id=company_id,
             invoice_number=invoice_number,
             invoice_date=datetime.today().date(),
-            customer_id=customer_id,
+            customer_id=db_customer_id,
             sub_total=sub_total,
             vat_amount=vat_amount,
             grand_total=grand_total,
@@ -5006,8 +5000,8 @@ def save_invoice():
             amount=sub_total,
             type='income',
             category_id=None,
-            invoice_id=new_invoice.invoice_number,
-            customer_id=customer_id,
+            invoice_id=new_invoice.invoice_number,            
+            customer_id=db_customer_id,             
             cost_price_at_time=total_invoice_cost, 
             quantity=1
         )
@@ -5107,7 +5101,7 @@ def cancel_invoice(invoice_id):
         prod = Product.query.filter_by(local_id=item.product_id, company_id=company_id).first()
         
         if prod and getattr(prod, 'income_category', 'service') == 'product':
-            # 🔄 המלאי המקורי שלך חוזר למקומו בדיוק כפי שכתבת אותו!
+            #  המלאי המקורי שלך חוזר למקומו בדיוק כפי שכתבת אותו!
             prod.quantity += item.quantity
             db.session.flush()
             
@@ -5146,7 +5140,7 @@ def cancel_invoice(invoice_id):
     if trans:
         trans.amount = 0.0
         trans.cost_price_at_time = 0.0
-        # 💡 אינטגרציה בינלאומית ליומן התנועות: מציג את התיאור והסיבה המדויקת לפי שפת הממשק האקטיבית
+
         if current_lang != "he":
             trans.description = f"Invoice #{invoice.invoice_number} (Canceled: {invoice_reason})"
         else:
@@ -5163,7 +5157,6 @@ def cancel_invoice(invoice_id):
     
     invoice.cancellation_reason = invoice_reason
     
-    # 💡 שמירת קובץ התחלתי מקומי כדי למנוע קופסאות ריקות עד סיום התרגום
     initial_dict = {current_lang: invoice_reason}
     if current_lang == "he":
         initial_dict["en"] = "Cancellation pending translation..."
@@ -5171,7 +5164,6 @@ def cancel_invoice(invoice_id):
         initial_dict["he"] = "ביטול ממתין לתרגום..."
     save_cancellation_file(company_id, invoice.id, initial_dict)
     
-    # 🚀 שילוח ה-Thread החדש ברקע לתרגום ל-30 שפות פלס!
     if user_typed_reason:
         try:
             translate_cancellation_in_background(
@@ -5243,7 +5235,7 @@ def invoice_data():
         db.joinedload(Invoice.items)
     ).all()
 
-    # 🔒 מיפוי מוקדם של כל הברקודים/מק"טים בזיכרון השרת לייעול החיפוש בלולאה
+    #  מיפוי מוקדם של כל הברקודים/מק"טים בזיכרון השרת לייעול החיפוש בלולאה
     all_products_sku_map = {}
     try:
         for p in Product.query.filter_by(company_id=company_id).all():
@@ -5293,7 +5285,7 @@ def invoice_data():
             else:
                 match_search = (search in db_name or search in trans_name or search in str(inv.invoice_date))
             
-# 🔒 הרחבת החיפוש לסריקת מק"טים ותיאורים פנימיים בתוך פריטי החשבונית
+#  הרחבת החיפוש לסריקת מק"טים ותיאורים פנימיים בתוך פריטי החשבונית
             if not match_search:
                 for item in inv.items:
                     item_sku = all_products_sku_map.get(str(item.product_id), "")
@@ -5507,7 +5499,6 @@ def create_payment_link():
             active_company_id = 1
 
         # הפיקס הנכון: מייצרים את השורה הזמנית בטבלת Payment ולא ב-Transaction!
-        # בזכות זה היא לא תופיע בחיים ביומן הראשי שלך ולא תייצר שורות אדומות כפולות!
         new_payment = Payment()
         new_payment.company_id = active_company_id
         new_payment.invoice_id = None  # זמני, מונע קריסות ForeignKey ברנדר
@@ -5731,7 +5722,6 @@ def manage_products():
             flash('תאריך הוא שדה חובה', 'error')
             return redirect(url_for('manage_products'))
 
-        # 💡 פענוח תאריך השפה הגלובלי שהגיע מהטופס העליון (Global i18n Date Parser)
         # מונע קריסות של ימים 13-31 בכל השפות בעולם (עברית, אנגלית, בנגלית, רוסית וערבית)
         formatted_date = None
         possible_formats = ['%d-%m-%Y', '%m-%d-%Y', '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%Y/%m/%d']
@@ -5884,7 +5874,7 @@ def manage_products():
                 supplier_name=None
             )
 
-        # 💡 אינטגרציה מלאה: מנוע התרגום מקבל את השם הגולמי של הספק העדכני ומתרגם אותו ל-30 שפות לתוך ה-product.json הראשי!
+        #  אינטגרציה מלאה: מנוע התרגום מקבל את השם הגולמי של הספק העדכני ומתרגם אותו ל-30 שפות לתוך ה-product.json הראשי!
         translate_product_in_background(
             product_id=product_id,
             company_id=company_id,
@@ -5968,14 +5958,13 @@ def manage_products():
             try: current_date_val = datetime.strptime(current_date_val, '%d/%m/%Y').strftime('%Y-%m-%d')
             except: pass
 
-        # (המשך ישיר אחרי ה-except: pass של התאריך)
         item_i18n_list[p.id] = {
             "id": p.id,
             "local_id": p.local_id,
             "sku": translated_data.get("sku"),
             "name": translated_data.get("name"),                  
             "description": translated_data.get("description"),    
-            "supplier_name": translated_data.get("supplier_name"), # 🌟 מחרוזת שטוחה נקייה ומתורגמת מההלפר!
+            "supplier_name": translated_data.get("supplier_name"), 
             "income_category": translated_data.get("income_category"),
             "price": translated_data.get("price"),
             "cost_price": float(p.cost_price or 0.0),
@@ -7990,7 +7979,7 @@ def transactions():
             trans_file = load_transaction_file(t)
             desc_obj = trans_file.get("description", {}) if trans_file else {}
             
-            # 🚀 הפיקס האטומי לתיאור: הצלבה מדויקת לפי מספר חשבונית פנימי ומזהה חברה אקטיבית למניעת סלטים מה-Database!
+            #  הצלבה מדויקת לפי מספר חשבונית פנימי ומזהה חברה אקטיבית למניעת סלטים מה-Database!
             if desc_obj.get(language):
                 translated_desc = desc_obj.get(language)
             elif desc_obj.get("he"):
@@ -8043,7 +8032,6 @@ def transactions():
                 filtered_transactions.append(t)
                 trans_i18n_list[t.id] = translated_desc
                 
-                # 🚀 פיקס אטומי לעמודות 5 ו-7: שואב את החשבונית כדי לבדוק סטטוס ביטול ומאפס הכל ל-0 בלייב!
                 current_amount = float(t.amount or 0.0)
                 current_cost_price = float(getattr(t, 'cost_price_at_time', 0.0) or 0.0)
                 
@@ -8054,7 +8042,7 @@ def transactions():
                     ).first()
                     
                     if invoice_obj and invoice_obj.status == "canceled":
-                        # 🔒 חומת אש: אם מבוטלת - עמודה 5 הופכת ל-0, עמודה 7 הופכת ל-0, והמע"מ הופך ל-0!
+                        #  אם מבוטלת - עמודה 5 הופכת ל-0, עמודה 7 הופכת ל-0, והמע"מ הופך ל-0!
                         current_amount = 0.0
                         current_cost_price = 0.0
                         vat_amounts_list[t.id] = 0.0
@@ -8191,7 +8179,6 @@ def add_transaction():
         if not future_invoice_id and "אשראי" in description:
             final_description = "pending_credit_payment_checkout"
 
-        # 🚀 הפיקס האטומי: משתמשים אך ורק ב-invoice_number הרשמי ומזהה החברה האקטיבית (שדה future_invoice_id מכיל כאן את מספר החשבונית המקומי של החברה!)
         new_trans = Transaction(
             company_id=active_company_id,
             local_id=next_local_id,
@@ -8209,13 +8196,14 @@ def add_transaction():
         )
         db.session.add(new_trans)
         
-        # מחקנו לחלוטין את ה-db.session.flush() המזיק שגרם לקפיצות מספרים בדאטהבייס
         db.session.commit()
+
+        saved_transaction_id = new_trans.id
 
         current_curr = get_currency() if 'get_currency' in globals() else 'ILS'
         try:
             translate_transaction_in_background(
-                transaction_id=new_trans.id,
+                transaction_id=saved_transaction_id, # משתמשים במזהה השמור הבטוח
                 company_id=active_company_id,   
                 description=final_description,
                 amount=raw_amount,
@@ -8229,6 +8217,7 @@ def add_transaction():
             pass
 
         db.session.close()
+        
         flash('התנועה נוספה בהצלחה!', 'success')
 
     except Exception as e:
@@ -8325,7 +8314,7 @@ def transactions_list():
                 desc_dict = {"he": t.description or ""}
             
             if isinstance(desc_dict, dict):
-                # 🚀 הפיקס האטומי: אם אין תרגום, מצליבים לפי מספר חשבונית פנימי ומזהה חברה אקטיבית כדי להציג את מספר 1 הנכון למסך!
+                # אם אין תרגום, מצליבים לפי מספר חשבונית פנימי ומזהה חברה אקטיבית כדי להציג את מספר 1 הנכון למסך!
                 if desc_dict.get(language):
                     p_desc = desc_dict.get(language)
                 elif desc_dict.get("he"):
@@ -8354,7 +8343,7 @@ def transactions_list():
             final_vat = float(vat_amount_val if vat_amount_val is not None else 0.0)
 
             if getattr(t, 'invoice_id', None):
-                # 🚀 הפיקס האטומי ל-API: מאפס את כל הנתונים, הסכומים והמע"מ ל-0 ברגע שהחשבונית מבוטלת!
+                # API: מאפס את כל הנתונים, הסכומים והמע"מ ל-0 ברגע שהחשבונית מבוטלת!
                 invoice_obj = Invoice.query.filter_by(
                     invoice_number=t.invoice_id, 
                     company_id=active_company_id
@@ -8414,7 +8403,7 @@ def delete_transaction(id):
     trans = Transaction.query.filter_by(id=id, company_id=active_company_id).first()
     
     if trans:
-        # 🛡️ הגנה חשבונאית אטומית: חוסם מחיקה אך ורק אם התנועה היא פיזית תנועת הכנסה מסוג חשבונית השייכת לחברה!
+        #  חוסם מחיקה אך ורק אם התנועה היא פיזית תנועת הכנסה מסוג חשבונית השייכת לחברה!
         if getattr(trans, 'invoice_id', None) and trans.type == 'income' and "חשבונית" in (trans.description or ""):
             invoice_exists = Invoice.query.filter_by(
                 invoice_number=trans.invoice_id, 
@@ -8590,7 +8579,7 @@ def delete_custom_category(cat_id):
         if cat:
             current_local_id = cat.local_id
 
-            # 🛡️ הגנה חשבונאית: ניתוק תנועות קיימות המשויכות לקטגוריה זו כדי למנוע קריסות של דפים ודוחות
+            # ניתוק תנועות קיימות המשויכות לקטגוריה זו כדי למנוע קריסות של דפים ודוחות
             # אנחנו מעדכנים את ה-category_id ל-None (Null) עבור כל התנועות של החברה שקשורות לקטגוריה הנמחקת
             db.session.query(Transaction).filter(
                 Transaction.category_id == cat.id,
@@ -9040,7 +9029,7 @@ def profit():
                     
                     if prod_obj:
                         trans_p = load_item_translated(prod_obj, language) or {}
-                        # 💡 חילוץ מחרוזת שטוחה ונקייה מתוך מילון השפות למניעת הדפסת JSON גולמי בטבלה
+                        #  חילוץ מחרוזת שטוחה ונקייה מתוך מילון השפות למניעת הדפסת JSON גולמי בטבלה
                         p_name_dict = trans_p.get('name') or {}
                         if isinstance(p_name_dict, dict):
                             item_names_map[item.id] = p_name_dict.get(language) or p_name_dict.get("he") or prod_obj.name
