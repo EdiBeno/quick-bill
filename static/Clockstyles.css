@@ -1,0 +1,649 @@
+/* בסיס עיצוב לאפליקציה בעברית */
+body {
+  direction: inherit;
+  text-align: start;
+  margin: auto;
+  max-width: 96vw;
+  overflow-x: hidden;
+}
+
+  /* Top Controls Row Container Alignment */
+  .top-controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px; /* Creates clean spacing gaps between the selectors on desktop and mobile */
+    width: 100%;
+    margin-bottom: 15px;
+    direction: inherit;
+  }
+
+  /* Compact Individual Selector Units */
+  .control-unit-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px; /* Spacing between the text label and the input box */
+  }
+
+  .control-unit-group label {
+    font-weight: bold;
+    font-size: 17px;
+    white-space: nowrap;
+  }
+
+
+  /* FIX TABLE BOX WIDTH ID NUMBER */
+  /* Compact Individual Selector Units */
+  .control-unit-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px; /* Spacing between the text label and the input box */
+  }
+
+  .control-unit-group label {
+    font-weight: bold;
+    font-size: 17px;
+    white-space: nowrap;
+  }
+
+  /*  תוקן: ביטול הגבלת המינימום של הדפדפן המאפשר כיווץ מוחלט של התיבה לגודל הרצוי! */
+  .control-unit-group input {
+    width: 3cm !important; 
+    min-width: 0 !important;  
+    height: 0.58cm;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .control-unit-group select {
+    font-weight: bold;
+    text-align: center;
+    font-size: 15px;
+  }
+
+
+
+
+  .control-unit-group select {
+    font-weight: bold;
+    text-align: center;
+    font-size: 15px;
+  }
+
+  /* איחוד סלקטורים והוספת מניעת כיווץ למניעת קריסת דפדפנים */
+  #employeeMonth {
+    width: 2cm;
+    height: 0.55cm;
+    flex-shrink: 0;
+  }
+
+  #employeeYear {
+    width: 1.8cm;
+    height: 0.55cm;
+    flex-shrink: 0;
+  }
+
+/* Table styles עיצוב טבלה בסיסי  */
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse;
+    text-align: center;
+    font-size: 17px;
+}
+.table-box td {
+    width: 1.8cm; /* Adjusted width to make columns smaller */
+}
+.small-row td {
+    width: 1.8cm; /* Adjusted width to make columns smaller */
+}
+.bold-header {
+    font-weight: bold;
+}
+.wrap-text {
+    white-space: nowrap;
+}
+/* Additional styles for the table box */
+.table-box {
+    width: 100%;
+    border-collapse: collapse;
+}
+.bold-button {
+    font-weight: bold;
+    font-size: 17px;
+}
+.blue {
+    background-color: blue;
+}
+.gray {
+    background-color: gray;
+}
+.yellow {
+    background-color: yellow;
+}
+ .red-font {
+    color: red;
+}
+.title {
+    margin-bottom: 5px; /* Adjust this value (e.g., 0px, 10px) as needed */
+    /* You might also want to remove the top margin if needed: */
+    margin-top: 10px; 
+}
+.header {
+    background: linear-gradient(to right, yellow, darkblue);
+    color: black;
+    padding: 10px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+ }
+ .table-header {
+     background-color: lightblue;
+     color: black;
+     font-weight: bold;
+     text-align: center;
+ }
+/* Form container styles */
+.form-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(6, auto);
+    gap: 20px;
+    justify-content: center;
+    align-items: center;
+
+           /* width: 100%; /* אתה יכול לשנות את הרוחב לפי הצורך */
+           /* padding: 20px;*/
+           /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);*/
+           /* border-radius: 8px;*/
+}
+/* Form column and row styles */
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.form-row {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+    direction: inherit;
+    justify-content: flex-start;
+}
+    .form-label {
+    font-size: 17px;
+    justify-conte00BFFFnt: center;
+    align-items: center;
+    font-weight: bold;
+}
+.form-input {
+    height: 0.5cm;
+    font-weight: bold;
+    font-size: 15px;
+}
+/* Holidays */
+.holiday {
+  color: lightgreen;
+}
+/* Saturdays */
+.saturday {
+  color: lightblue;
+}
+/* Body margin */
+body {
+  /* background-color: #1E90FF; /* Vivid Sky Blue */
+  /* background-color: #BF00FF; /* Electric Purple */
+  /* background-color: #FFD300; /* Cyber Yellow */
+  /* background-color: #708090; /* Slate Gray */
+  /* background-color: #00FFC6; /* Mint Green */
+
+    background-color: #f9f9f9;
+    justify-content: center; /* מרכז את התוכן אופקית */
+   /* margin-left: 1%;*/
+}
+/* Adjust column A width */
+td:nth-child(1), th:nth-child(1) {
+    width: 2.5cm; /* Increased width to prevent wrapping */
+    white-space: nowrap; /* Ensure no wrapping */
+    border: 1px solid black; /* Add border */
+}
+/* Adjust column B width */
+td:nth-child(2), th:nth-child(2) {
+    width: 2.5cm; /* Increased width to prevent wrapping */
+    white-space: nowrap; /* Ensure no wrapping */
+    border: 1px solid black; /* Add border */
+}
+/* Increase height of the first row */
+.table-box th {
+    height: 0.6cm; /* Increased height */
+}
+.row-height {
+    height: 0.2cm;
+}
+.hours-calculated {
+    font-weight: bold;
+    width: 2cm;
+    text-align: center;
+}
+
+/* Hide specific columns */
+td:nth-child(3), th:nth-child(3),
+td:nth-child(4), th:nth-child(4) {
+    display: none;
+}
+
+/* Ensure columns 1, 2, 5, 6, 7, 8, 9 are visible */
+td:nth-child(1), th:nth-child(1),
+td:nth-child(2), th:nth-child(2),
+td:nth-child(5), th:nth-child(5),
+td:nth-child(6), th:nth-child(6),
+td:nth-child(7), th:nth-child(7),
+td:nth-child(8), th:nth-child(8) {
+    display: table-cell;
+}
+
+
+/* ---   תוקן: התאמת כיווניות דינמית ל-30 שפות (RTL / LTR) --- */
+table {
+    direction: inherit; /* Dynamically inherits the page direction from the body */
+}
+            
+/* Align text dynamically according to the language flow */
+td {
+     text-align: inherit; /* Aligns cell content automatically (right for RTL, left for LTR) */
+}
+            
+/* ---  תוקן: סטייל מיושר ודינמי לתיבות הקלט של השעות והמשימות --- */
+input[type="text"] {
+    direction: inherit;  /* מתאים את זרימת הטקסט באינפוט לשפה שנבחרה */
+    text-align: inherit; /* מיישר את הטקסט הפנימי (ימינה לעברית, שמאלה לאנגלית) */
+    font-weight: bold;
+    width: 100%;
+    height: 100%;
+    font-size: 15px;
+    box-sizing: border-box; /* מונע מהאינפוט לחרוג מגבולות המשבצת באקסל */
+}
+
+/* Highlight focused input for better navigation */
+input:focus {
+    border: 2px solid blue;
+    background-color: #f0f8ff;
+}
+/* Button container styles */
+.button-container {
+    display: flex;
+    gap: 10px;
+}
+
+.button-container a {
+    text-decoration: none;
+}
+
+.button-container button {
+    font-weight: bold;
+    width: 4cm;
+    height: 0.5cm;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #4CAF50;
+   # background-color: #45a049;
+    color: #your-text-color;
+}
+
+/* Style for radio buttons */
+input[type="checkbox"], input[type="radio"] {
+    appearance: none;
+    width: 1.3em;
+    height: 1.3em;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    outline: none;
+    box-shadow: 0 0 5px 0px yellow inset;
+}
+
+input[type="checkbox"]:checked, input[type="radio"]:checked {
+    background-color: yellow;
+    box-shadow: 0 0 0 3px lightyellow inset;
+    background-image: radial-gradient(circle, black 50%, transparent 50%);
+}
+
+select {
+    width: 5em;
+    height: 2em;
+}
+
+.confirm-button {
+  height: 30px; /* taller button */
+  padding: 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #28a745;
+  border-radius: 4px;
+  box-sizing: border-box;
+
+  /* Center text vertically and horizontally */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Clear day btn On Hourscard */
+.clear-day-btn {
+    font-weight: bold;
+    color: inherit; 
+}
+
+
+/*  ===== שורת כפתורי לקוח אוניברסלית ומיושרת כמו סרגל פלדה ===== */
+    .global-action-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 15px !important;            /* רווח אחיד וקבוע בין כל 5 הרכיבים */
+    margin-top: 5px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-wrap: nowrap !important;    /* מונע מהם להישבר ולרדת שורות בשפות ארוכות */
+}
+
+    /* בסיס אחיד לכל כפתורי המערכת - מחסל את ה"דו רה מי" לתמיד */
+    .btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    height: 24px !important;          /* גובה קבוע אחיד קשיח לכל הכלים בשורה */
+    padding: 0 15px !important;       /* ריפוד צדדי אחיד */
+    box-sizing: border-box !important;
+    white-space: nowrap !important;   /* מונע מהטקסט להישבר ל-2 שורות בשפות ארוכות */
+    text-overflow: ellipsis !important; /* דוחף 3 נקודות (...) באלגנטיות אם המילה ארוכה מדי */
+    overflow: hidden !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    border: none !important;
+    color: white !important;
+}
+
+    /* רוחב וצבעים קבועים לכל כפתור בנפרד למניעת עיוותים */
+    .btn-save { width: 140px !important; background-color: #28a745 !important; }
+    .btn-save:hover { background-color: #218838 !important; }
+
+    .btn-nav { width: 170px !important; background-color: #0078d4 !important; }
+    .btn-nav:hover { background-color: #005fa3 !important; }
+
+    .btn-timesheet { width: 150px !important; background-color: #6c757d !important; }
+    .btn-timesheet:hover { background-color: #5a6268 !important; }
+
+    .btn-clear-data { width: 140px !important; background-color: #dc3545 !important; }
+    .btn-clear-data:hover { background-color: #bd2130 !important; }
+
+    .btn-print { width: 160px !important; background-color: #17a2b8 !important; }
+    .btn-print:hover { background-color: #138496 !important; }
+  
+
+/* === PRINT STYLES === */
+@media print {
+    body {
+        background-color: white !important;
+        margin: 0;
+        padding: 0;
+        font-size: 10pt;
+        direction: inherit;
+        text-align: start;
+    }
+
+    /* Hide all controls and buttons */
+    .btn-save,
+    .btn-nav,
+    .btn-timesheet,
+    .btn-clear-data,
+    .btn-print {
+        display: none !important;
+    }
+
+    /* Page setup */
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+}
+
+
+
+  /* ===== עיצוב רספונסיבי מאוחד ובינלאומי למובייל (768px ומטה)  ===== */
+  @media screen and (max-width: 768px) {
+    /* Wipes out viewport leakage across all mobile browsers */
+    body {
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 8px !important;
+      box-sizing: border-box !important;
+      overflow-x: hidden !important;
+    }
+
+    /* 1. Global Core Control Headers & Wrappers */
+    .clock-workspace-wrapper {
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+    }
+
+    h1, .page-main-title {
+      width: 100% !important;
+      text-align: center !important;
+      font-size: 24px !important;
+      margin: 0 0 12px 0 !important;
+      padding: 10px !important;
+      box-sizing: border-box !important;
+    }
+
+    /* 2. Top Parameter Context Bar (Employee Select, Year, Month) */
+    .parameters-selection-grid,
+    .filter-selection-bar {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 12px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      margin-bottom: 15px !important;
+    }
+
+    .parameter-box,
+    .filter-dropdown-wrapper {
+      width: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: start !important; /* Forces RTL/LTR dynamic tracking via body configuration */
+      justify-content: flex-start !important;
+      gap: 4px !important;
+      margin: 0 !important;
+    }
+
+    .parameter-box label,
+    .filter-dropdown-wrapper label {
+      width: 100% !important;
+      font-size: 15px !important;
+      font-weight: bold !important;
+      text-align: start !important; /* Native 30-languages RTL/LTR auto-alignment! */
+      display: block !important;
+    }
+
+    /* Standardizes inputs, comboboxes and dropdown selectors for fat fingers */
+    .parameter-box select,
+    .parameter-box input,
+    .filter-dropdown-wrapper select,
+    .filter-dropdown-wrapper input,
+    .combo-employee-selector {
+      width: 100% !important;
+      height: 44px !important; /* Perfect ergonomic touch heights */
+      font-size: 16px !important;
+      padding: 6px 12px !important;
+      box-sizing: border-box !important;
+      display: block !important;
+      margin: 0 !important;
+    }
+
+    /* 3. High-Performance Adaptive Container */
+    .hours-table-responsive-container,
+    .matrix-scroll-sandbox {
+      width: 100% !important;
+      overflow-x: hidden !important; /* Block horizontal viewport stretching */
+      overflow-y: hidden !important;
+      margin-bottom: 20px !important;
+      border: 1px solid #ccc !important;
+      border-radius: 4px !important;
+      box-sizing: border-box !important;
+    }
+
+    /*  הפיקס המרכזי: החבאת עמודה 7 (משימה) ועמודה 8 (סה"כ שעות) נטו במובייל! */
+    .hours-table-responsive-container th:nth-child(7),
+    .hours-table-responsive-container td:nth-child(7),
+    .matrix-scroll-sandbox th:nth-child(7),
+    .matrix-scroll-sandbox td:nth-child(7),
+    #hours-table th:nth-child(7),
+    #hours-table td:nth-child(7),
+    .hours-table-responsive-container th:nth-child(8),
+    .hours-table-responsive-container td:nth-child(8),
+    .matrix-scroll-sandbox th:nth-child(8),
+    .matrix-scroll-sandbox td:nth-child(8),
+    #hours-table th:nth-child(8),
+    #hours-table td:nth-child(8) {
+      display: none !important;
+    }
+
+    /* Locks row matrix to responsive viewport boundaries */
+    .hours-table-responsive-container table,
+    .matrix-scroll-sandbox table,
+    #hours-table {
+      min-width: 100% !important;
+      width: 100% !important;
+    }
+
+    /* Ergo optimizations for cells inside the 0.1-sec DOM loop tracker */
+    .ledger-row td, #table-body td {
+      padding: 6px 4px !important;
+      font-size: 14px !important;
+    }
+
+    .ledger-row input.text-cell,
+    .ledger-row input.num-cell,
+    #table-body input {
+      height: 28px !important;
+      font-size: 14px !important;
+      padding: 4px !important;
+      box-sizing: border-box !important;
+    }
+
+
+    /* 4. שורת כפתורי הפעולה הגלובלית - מפרק את ה-flex של המחשב לבלוקים אנכיים במובייל */
+    .global-action-bar {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        gap: 10px !important;
+        margin-top: 20px !important;
+        flex-wrap: wrap !important;
+    }
+
+    /* התאמת 5 כפתורי הפעולה והקישורים לרוחב מלא ונוח ללחיצה במובייל */
+    .btn-action,
+    .global-action-bar a,
+    .global-action-bar a button,
+    .global-action-bar form,
+    .global-action-bar form button {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 44px !important; /* גובה נוח ואחיד ללחיצה בטלפון */
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* 5. Weekly Overtime Multi-Tenant Warning Banners (The Red Labels) */
+    .weekly-overtime-alert-box,
+    .weekly-limit-banner {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: start !important;
+        gap: 6px !important;
+        padding: 10px !important;
+        margin-bottom: 8px !important;
+        box-sizing: border-box !important;
+        border-radius: 4px !important;
+    }
+
+    .weekly-overtime-alert-box span,
+    .weekly-limit-banner text {
+        font-size: 14px !important;
+        text-align: start !important;
+        width: 100% !important;
+    }
+
+    /* Forces override on inline widths for the compliance action button */
+    .weekly-overtime-alert-box button,
+    .weekly-limit-banner .btn-approve-overtime {
+        width: 100% !important;
+        height: 38px !important;
+        margin-top: 4px !important;
+    }
+
+    /* 6. Bottom Navigation & Exporter Trigger Controls (Unified 4.2cm Target Blocks) */
+    .bottom-navigation-actions,
+    .matrix-footer-action-bar,
+    .global-action-bar {
+        display: flex !important;
+        flex-direction: column !important; /* Splits desktop rows into standalone blocks */
+        align-items: center !important;
+        width: 100% !important;
+        gap: 12px !important;
+        margin-top: 20px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Form containers inside the footer block scale out to full width */
+    .bottom-navigation-actions form,
+    .matrix-footer-action-bar form,
+    .global-action-bar form {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /*  UNBREAKABLE SYMMETRY LOCK: Forces your exact 4.2cm width & 1.0cm height targets to match flawlessly!  */
+    .bottom-navigation-actions a,
+    .bottom-navigation-actions button,
+    .matrix-footer-action-bar a,
+    .matrix-footer-action-bar button,
+    .global-action-bar a,
+    .global-action-bar button {
+        width: 100% !important; /* Takes full width of phone screen for beautiful layout consistency */
+        max-width: 100% !important;
+        height: 44px !important; /* Sets crisp, standardized ergonomic hit targets */
+        font-size: 17px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    /* 7. Loading Sandbox States Overlays */
+    #matrixLoadingOverlay,
+    .clock-loading-spinner-box {
+        width: 100% !important;
+        height: 44px !important;
+        justify-content: center !important;
+    }
+}

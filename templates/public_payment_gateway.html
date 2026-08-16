@@ -1,0 +1,497 @@
+{% set _lang = (language | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="checkout.title">מרכז תשלום מאובטח</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-3 sm:p-6">
+
+    <!-- קונטיינר רספונסיבי: תופס 95% מהמסך במובייל ומתרחב ל-max-w-md במחשב -->
+    <div class="w-[95%] sm:w-full max-w-md bg-gray-800 p-5 sm:p-8 rounded-2xl shadow-xl border border-gray-700 my-auto">
+
+        <!-- לוגו ושם החברה שהפיקה את הלינק (איזולציית טאננט מלאה) -->
+        <div class="text-center mb-6">
+            {% if company_db and company_db.logo %}
+                <img src="/static/uploads/{{ company_db.logo }}" alt="Logo" class="mx-auto h-14 sm:h-16 w-auto mb-2 object-contain rounded-lg">
+            {% endif %}
+            <h1 class="text-lg sm:text-xl font-bold text-gray-300 truncate px-2">
+                {{ company.get('name', company_db.name if company_db else 'Merchant') }}
+            </h1>
+        </div>
+
+        <h2 class="text-xl sm:text-2xl font-bold text-center text-cyan-400 mb-6" data-i18n="checkout.header">
+            דף תשלום מאובטח
+        </h2>
+
+        <!-- Flash Messages -->
+        {% if error_message %}
+        <div class="mb-4">
+            <div class="p-3.5 rounded-xl text-center text-sm sm:text-base font-medium bg-red-700 text-red-200">
+                {{ error_message }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- פרטי החיוב הפיננסיים של הלינק -->
+        <div class="bg-gray-700 p-4 sm:p-5 rounded-xl mb-6 border border-gray-600 text-sm sm:text-base space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-400" data-i18n="checkout.amount_label">סכום לתשלום:</span>
+                <span class="font-black text-green-400 text-xl sm:text-2xl tracking-tight">{{ amount | currency }}</span>
+            </div>
+            {% if description %}
+            <div class="flex justify-between items-start gap-4 pt-2.5 border-t border-gray-600/50">
+                <span class="text-gray-400 shrink-0" data-i18n="checkout.description_label">עבור:</span>
+                <span class="font-semibold text-gray-200 text-right break-all">{{ description }}</span>
+            </div>
+            {% endif %}
+            {% if customer_name %}
+            <div class="flex justify-between items-center pt-2.5 border-t border-gray-600/50">
+                <span class="text-gray-400" data-i18n="checkout.customer_label">לקוח:</span>
+                <span class="font-semibold text-gray-200 truncate max-w-[200px]">{{ customer_name }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- טופס שליחת תשלום מאובטח ומסונכרן (AJAX) -->
+        <form method="POST" action="{{ url_for('public_payment_gateway', token=token) }}" class="space-y-4 sm:space-y-5" id="payment_form">
+
+            <input type="hidden" id="internal_invoice_id" name="internal_invoice_id" value="{{ link.invoice_id or '' }}">
+            <input type="hidden" id="internal_customer_id" name="internal_customer_id" value="{{ link.customer_id or '' }}">
+            <input type="hidden" id="amount" name="amount" value="{{ amount }}">
+
+            <!-- שם בעל הכרטיס -->
+            <div>
+                <label class="block text-xs sm:text-sm font-medium text-gray-400 mb-1.5" data-i18n="checkout.cardholder_name">
+                    שם בעל הכרטיס
+                </label>
+                <input type="text" id="cardHolderName" name="cardholder_name" required autocomplete="name"
+                       class="w-full h-12 px-4 bg-gray-700 rounded-xl border border-gray-600 text-white text-base sm:text-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition">
+            </div>
+
+            <!-- תעודת זהות של בעל הכרטיס - חובה חוקית לסליקה בישראל -->
+            <div>
+                <label class="block text-xs sm:text-sm font-medium text-gray-400 mb-1.5" data-i18n="checkout.holder_id">
+                    תעודת זהות / ח.פ.
+                </label>
+                <input type="text" id="holderId" name="holder_id" inputmode="numeric" pattern="[0-9]{9}" required autocomplete="off"
+                       class="w-full h-12 px-4 bg-gray-700 rounded-xl border border-gray-600 text-white text-base sm:text-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition">
+            </div>
+
+            <!-- מספר כרטיס אשראי -->
+            <div>
+                <label class="block text-xs sm:text-sm font-medium text-gray-400 mb-1.5" data-i18n="checkout.card_number">
+                    מספר כרטיס אשראי
+                </label>
+                <input type="text" id="cardNumber" name="card_number" placeholder="xxxx xxxx xxxx xxxx" inputmode="numeric" pattern="[0-9\s]{13,19}" autocomplete="cc-number" required dir="ltr"
+                       class="w-full h-12 px-4 bg-gray-700 rounded-xl border border-gray-600 text-white text-center font-mono text-lg sm:text-xl tracking-widest focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition">
+            </div>
+
+            <!-- תוקף וקוד סודי -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-gray-400 mb-1.5" data-i18n="checkout.expiry">
+                        תוקף
+                    </label>
+                    <input type="text" id="cardExpiry" name="expiry" placeholder="MM/YY" inputmode="numeric" pattern="(0[1-9]|1[0-2])\/[0-9]{2}" autocomplete="cc-exp" required dir="ltr"
+                           class="w-full h-12 px-4 bg-gray-700 rounded-xl border border-gray-600 text-white text-center font-mono text-base sm:text-lg tracking-wider focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-gray-400 mb-1.5" data-i18n="checkout.cvv">
+                        CVV
+                    </label>
+                    <input type="text" id="cardCvv" name="cvv" placeholder="123" inputmode="numeric" pattern="[0-9]{3,4}" autocomplete="cc-csc" required dir="ltr"
+                           class="w-full h-12 px-4 bg-gray-700 rounded-xl border border-gray-600 text-white text-center font-mono text-base sm:text-lg tracking-wider focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition">
+                </div>
+            </div>
+
+            <!-- כפתור תשלום מאובטח עם מזהה קבוע ל-JavaScript -->
+            <button type="submit" id="submitPaymentBtn"
+                    class="w-full h-14 mt-2 rounded-xl text-base sm:text-lg font-bold text-gray-950 bg-cyan-400 hover:bg-cyan-500 active:scale-[0.99] shadow-lg shadow-cyan-500/10 transition flex items-center justify-center gap-2 touch-manipulation">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <span data-i18n="checkout.pay_button"></span>
+            </button>
+
+        </form>
+
+        <!-- כפתור חזרה לדף הבית  - סוגר את הטאב הנוכחי מבלי לפתוח דף חדש --> 
+        <div class="mt-5 text-center border-t border-gray-700/50 pt-4">
+            <button type="button" onclick="window.close();"
+                    class="inline-block text-sm sm:text-base px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition w-full sm:w-auto font-bold cursor-pointer"
+                    data-i18n="reset.back_home">
+                ⬅️ חזרה לדף הבית (סגור עמוד)
+            </button>
+        </div>
+
+    </div>
+
+<!-- Keyboard Up Down ניווט חצים אוניברסלי וחכם לכל דף וטופס -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('keydown', function (event) {
+        const key = event.key;
+        const current = event.target;
+
+        // 1. Only run if we are inside a typable input box
+        if (!current.matches('input:not([type="hidden"]), textarea, [contenteditable="true"]')) return;
+
+        // 2. We only care about Arrow keys and Enter key
+        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(key)) return;
+
+        // Handle text areas safely so you can still press Enter/Arrows inside them normally
+        if (current.tagName === 'TEXTAREA' && (key === 'Enter' || key === 'ArrowUp' || key === 'ArrowDown')) return;
+
+        event.preventDefault();
+
+        // 3. Find ALL visible typable fields on the entire page
+        const fields = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), [contenteditable="true"]'))
+            .filter(f => f.offsetWidth > 0 && f.offsetHeight > 0); // Only get visible elements
+
+        const currentIndex = fields.indexOf(current);
+        if (currentIndex === -1) return;
+
+        // --- ENTER KEY (Standard Next Field) ---
+        if (key === 'Enter') {
+            if (event.shiftKey && currentIndex > 0) {
+                fields[currentIndex - 1].focus();
+            } else if (!event.shiftKey && currentIndex < fields.length - 1) {
+                fields[currentIndex + 1].focus();
+            }
+            return;
+        }
+
+        // --- ARROW KEYS (Spatial/Grid Navigation) ---
+        const currentRect = current.getBoundingClientRect();
+        let bestMatch = null;
+        let minDistance = Infinity;
+
+        fields.forEach(field => {
+            if (field === current) return;
+
+            const targetRect = field.getBoundingClientRect();
+            
+            // Calculate center points of the boxes
+            const currentCenterX = currentRect.left + currentRect.width / 2;
+            const currentCenterY = currentRect.top + currentRect.height / 2;
+            const targetCenterX = targetRect.left + targetRect.width / 2;
+            const targetCenterY = targetRect.top + targetRect.height / 2;
+
+            const diffX = targetCenterX - currentCenterX;
+            const diffY = targetCenterY - currentCenterY;
+
+            let isValidDirection = false;
+
+            // Check if the target field is in the correct directional zone
+            if (key === 'ArrowDown' && diffY > 5 && Math.abs(diffX) < Math.abs(diffY) * 1.5) isValidDirection = true;
+            if (key === 'ArrowUp' && diffY < -5 && Math.abs(diffX) < Math.abs(diffY) * 1.5) isValidDirection = true;
+            if (key === 'ArrowRight' && diffX > 5 && Math.abs(diffY) < Math.abs(diffX) * 1.5) isValidDirection = true;
+            if (key === 'ArrowLeft' && diffX < -5 && Math.abs(diffY) < Math.abs(diffX) * 1.5) isValidDirection = true;
+
+            if (isValidDirection) {
+                // Calculate straight-line distance to find the closest box
+                const distance = Math.pow(diffX, 2) + Math.pow(diffY, 2);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestMatch = field;
+                }
+            }
+        });
+
+        // Move the focus to the closest box found in that direction
+        if (bestMatch) {
+            bestMatch.focus();
+            // Automatically select text inside standard inputs for easy overwriting
+            if (typeof bestMatch.select === 'function') {
+                bestMatch.select();
+            }
+        }
+    });
+});
+</script>
+
+
+<!-- GLOBAL MULTILINGUAL CHECKOUT POPUP TRANSLATION ENGINE (30 LANGUAGES) -->
+<script>
+window.CHECKOUT_MULTILANG_DICTIONARY = {
+      he: { 
+        "payment.approved_closing": "התשלום אושר בהצלחה! החלון ייסגר כעת."
+      },
+      en: { 
+        "payment.approved_closing": "Payment approved successfully! The window will now close."
+      },
+      fr: { 
+        "payment.approved_closing": "Paiement approuvé avec succès ! La fenêtre va maintenant se fermer."
+      },
+      es: { 
+        "payment.approved_closing": "¡Pago aprobado con éxito! La ventana se cerrará ahora."
+      },
+      de: { 
+        "payment.approved_closing": "Zahlung erfolgreich genehmigt! Das Fenster wird jetzt geschlossen."
+      },
+      ru: { 
+        "payment.approved_closing": "Оплата успешно одобрена! Окно сейчас закроется."
+      },
+      ar: { 
+        "payment.approved_closing": "تم الموافقة على الدفع بنجاح! سيتم إغلاق النافذة الآن."
+      },
+      zh: { 
+        "payment.approved_closing": "付款成功批准！窗口即将关闭。"
+      },
+      ja: { 
+        "payment.approved_closing": "決済が正常に承認されました！ウィンドウを閉じます。"
+      },
+      hi: { 
+        "payment.approved_closing": "भुगतान सफलतापूर्वक स्वीकृत! विंडो अब बंद हो जाएगी।"
+      },
+      pt: { 
+        "payment.approved_closing": "Pagamento aprovado com sucesso! A janela será fechada agora."
+      },
+      it: { 
+        "payment.approved_closing": "Pagamento approvato con successo! La finestra si chiuderà ora."
+      },
+      nl: { 
+        "payment.approved_closing": "Betaling succesvol goedgekeurd! Het venster wordt nu gesloten."
+      },
+      sv: { 
+        "payment.approved_closing": "Betalningen godkändes! Fönstret kommer nu att stängas."
+      },
+      tr: { 
+        "payment.approved_closing": "Ödeme başarıyla onaylandı! Pencere şimdi kapatılacak."
+      },
+      ko: { 
+        "payment.approved_closing": "결제가 성공적으로 승인되었습니다! 창이 이제 닫힙니다."
+      },
+      pl: { 
+        "payment.approved_closing": "Płatność zatwierdzona pomyślnie! Okno zostanie teraz zamknięte."
+      },
+      uk: { 
+        "payment.approved_closing": "Оплату успішно схвалено! Вікно зараз закриється."
+      },
+      fa: { 
+        "payment.approved_closing": "پرداخت با موفقیت تأیید شد! این پنجره اکنون بسته می‌شود."
+      },
+      ro: { 
+        "payment.approved_closing": "Plată aprobată cu succes! Fereastra se va închide acum."
+      },
+      cs: { 
+        "payment.approved_closing": "Platba byla úspěšně schválena! Okno se nyní zavře."
+      },
+      el: { 
+        "payment.approved_closing": "Η πληρωμή εγκρίθηκε με επιτυχία! Το παράθυρο θα κλείσει τώρα."
+      },
+      th: { 
+        "payment.approved_closing": "อนุมัติการชำระเงินเรียบร้อยแล้ว! หน้าต่างนี้กำลังจะปิดลง"
+      },
+      vi: { 
+        "payment.approved_closing": "Thanh toán đã được phê duyệt thành công! Cửa sổ sẽ đóng lại bây giờ."
+      },
+      bn: { 
+        "payment.approved_closing": "পেমেন্ট সফলভাবে অনুমোদিত হয়েছে! উইন্ডোটি এখন বন্ধ হয়ে যাবে।"
+      },
+      id: { 
+        "payment.approved_closing": "Pembayaran berhasil disetujui! Jendela akan ditutup sekarang."
+      },
+      ms: { 
+        "payment.approved_closing": "Pembayaran berjaya diluluskan! Tetingkap akan ditutup sekarang."
+      },
+      tl: { 
+        "payment.approved_closing": "Matagumpay na naaprubahan ang pagbabayad! Masasara na ang window ngayon."
+      },
+      hu: { 
+        "payment.approved_closing": "Fizetés sikeresen jóváhagyva! Az ablak most beárul."
+      },
+      bg: { 
+        "payment.approved_closing": "Плащането е одобрено успешно! Прозорецът ще се затвори сега."
+      }
+    };
+    
+window.getCheckoutLocalizedText = function (key, placeholderValue = "") {
+  let activeLang = localStorage.getItem("lang") || document.documentElement.getAttribute("lang") || "he";
+  activeLang = activeLang.toLowerCase().trim();
+
+  if (activeLang.indexOf("-") !== -1) {
+    activeLang = activeLang.split("-")[0];
+  }
+
+  let langPackage = window.CHECKOUT_MULTILANG_DICTIONARY[activeLang] || window.CHECKOUT_MULTILANG_DICTIONARY["en"];
+  let rawTemplate = langPackage[key] || window.CHECKOUT_MULTILANG_DICTIONARY["en"][key] || "";
+
+  if (placeholderValue !== "") {
+    return rawTemplate.replace("{formatted_amount}", placeholderValue);
+  }
+  return rawTemplate;
+};
+</script>
+
+
+<!--  בצע תשלום מאובטח SECURE CARD TRANSACTION HANDLER & CROSS-TAB COMMUNICATOR (GATEWAY)  -->
+<script>
+/**
+ * מריץ את חיוב האשראי ושולח איתות חזרה לדף החשבונית
+ */
+function submitSecurePayment(event) {
+    // מניעת רענון ברירת המחדל של הטופס
+    event.preventDefault();
+
+    const paymentToken = "{{ token }}"; 
+    
+    // 1. איסוף הערכים בדיוק לפי ה-IDs וה-Names של ה-HTML שלך! 
+    const cardNumber = document.querySelector('input[name="card_number"]') ? document.querySelector('input[name="card_number"]').value.replace(/\s+/g, '') : '';
+    const cardExpiry = document.querySelector('input[name="expiry"]') ? document.querySelector('input[name="expiry"]').value.replace('/', '') : ''; // הופך MM/YY ל-MMYY לקארדקום
+    const cardCvv = document.querySelector('input[name="cvv"]') ? document.querySelector('input[name="cvv"]').value : '';
+    const cardHolderName = document.querySelector('input[name="cardholder_name"]') ? document.querySelector('input[name="cardholder_name"]').value : '';
+    const holderId = document.getElementById('holderId') ? document.getElementById('holderId').value : '';
+
+    // תרגום דינמי להודעת שדות החובה במידה והיוזר פספס שדה כרטיס
+    if (!cardNumber || !cardExpiry || !cardCvv || !holderId) {
+        alert(window.getCheckoutLocalizedText("validation.required_fields") || 'אנא מלא את כל שדות החובה בכרטיס האשראי.');
+        return;
+    }
+
+    // שינוי מצב כפתור התשלום שלך לטעינה בעזרת מפתח תרגום מובנה
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        // שימוש במפתח תרגום ייעודי לטעינה או ערך ברירת מחדל נקי
+        submitBtn.innerText = '...';
+    }
+
+    // 2. שילוח הפרטים לפלאסק בפורמט JSON שתואם ב-100% לשרת
+    fetch(`/pay/${paymentToken}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            card_number: cardNumber,
+            card_expiry: cardExpiry, // נשלח כ-MMYY נקי
+            card_cvv: cardCvv,
+            card_holder_name: cardHolderName,
+            holder_id: holderId
+        })
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("Server rejected card processing pipeline.");
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.status === 'success') {
+            // 3. האיתות לחלון של החשבונית (invoice.html) שנמצא ברקע
+            if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({
+                    status: 'payment_success',
+                    amount: parseFloat("{{ amount }}"),
+                    reference: data.reference_number || 'APPROVED'
+                }, window.location.origin);
+            }
+
+            // הפיקס המבוקש: שימוש במפתח התרגום האוניברסלי ל-30 שפות לסגירת החלון
+            alert(window.getCheckoutLocalizedText("payment.approved_closing") || 'התשלום אושר בהצלחה! החלון ייסגר כעת.');
+            window.close(); // סוגר את הטאב
+            
+        } else {
+            throw new Error(data.message || 'העסקה נדחתה על ידי חברת האשראי.');
+        }
+    })
+    .catch(err => {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'בצע תשלום מאובטח';
+        }
+        // הודעת כישלון החיוב מוצגת בצורה דינמית ומקצועית
+        alert(window.getCheckoutLocalizedText("error") + `: ${err.message}`);
+    });
+}
+
+// מאזין קבוע לטופס שלך
+document.addEventListener("DOMContentLoaded", function() {
+    const gatewayForm = document.getElementById('payment_form');
+    if (gatewayForm) {
+        gatewayForm.addEventListener('submit', submitSecurePayment);
+    }
+});
+</script>
+
+<!--  החלפת תוכן בלוני הודעות הדפדפן (מלא שדה זה) בתרגום המילון לכל 30 השפות -->
+<script type="text/javascript">
+(function() {
+    const VALIDATION_FALLBACK = {
+      he: { "validation.required_fields": "אנא מלא את כל שדות החובה בטופס." },
+      en: { "validation.required_fields": "Please fill all required fields in the form." },
+      fr: { "validation.required_fields": "Veuillez remplir tous les champs obligatoires du formulaire." },
+      es: { "validation.required_fields": "Por favor, complete todos los campos obligatorios del formulario." },
+      de: { "validation.required_fields": "Bitte füllen Sie alle Pflichtfelder im Formular aus." },
+      ru: { "validation.required_fields": "Пожалуйста, заполните все обязательные поля в форме." },
+      ar: { "validation.required_fields": "يرجى ملء جميع الحقول المطلوبة في النموذج." },
+      "zh-CN": { "validation.required_fields": "请填写表格中的所有必填项。" },
+      ja: { "validation.required_fields": "フォームの必須項目をすべて入力してください。" },
+      hi: { "validation.required_fields": "कृपया फॉर्म में सभी आवश्यक फ़ีल्ड भरें।" },
+      pt: { "validation.required_fields": "Por favor, preencha todos os campos obrigatórios no formulário." },
+      it: { "validation.required_fields": "Si prega di compilare tutti i campi obbligatori nel modulo." },
+      nl: { "validation.required_fields": "Vul alstublieft alle verplichte velden in het formulier in." },
+      sv: { "validation.required_fields": "Vänligen fyll i alla obligatoriska fält i formuläret." },
+      tr: { "validation.required_fields": "Lütfen formdaki tüm zorunlu alanları doldurun." },
+      ko: { "validation.required_fields": "양식의 모든 필수 항목을 입력해 주세요." },
+      pl: { "validation.required_fields": "Proszę remplir wszystkie wymagane pola w formularzu." },
+      uk: { "validation.required_fields": "Будь ласка, заповніть усі обов'язкові поля у формі." },
+      fa: { "validation.required_fields": "لطفاً تمام فیلدهای الزامی را در فرم پر کنید." },
+      ro: { "validation.required_fields": "Vă rugăm să completați toate câmpurile obligatorii din formular." },
+      cs: { "validation.required_fields": "Vyplňte prosím všechna povinná pole ve formuláři." },
+      el: { "validation.required_fields": "Παρακαλούμε συμπληρώστε όλα τα απαιτούμενα πεδία στη φόρμα." },
+      th: { "validation.required_fields": "กรุณากรอกข้อมูลในช่องที่จำเป็นให้ครบถ้วน" },
+      vi: { "validation.required_fields": "Vui lòng điền đầy đủ các thông tin bắt buộc trong biểu mẫu." },
+      bn: { "validation.required_fields": "দয়া করে ফর্মের সব প্রয়োজনীয় ঘরগুলি পূরণ করুন।" },
+      id: { "validation.required_fields": "Silakan isi semua kolom wajib dalam formulir." },
+      ms: { "validation.required_fields": "Sila isi semua medan yang diperlukan dalam borang." },
+      tl: { "validation.required_fields": "Mangyaring punan ang lahat ng kinakailangang field sa porma." },
+      hu: { "validation.required_fields": "Kérjük, töltse ki az összes kötelező mezőt az űrlapon." },
+      bg: { "validation.required_fields": "Моля, попълнете всички задължителни полета в формуляра." }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // מאתר את כל שדות החובה הקיימים בדף
+        const inputs = document.querySelectorAll('input[required], textarea[required], select[required]');
+        
+        inputs.forEach(function(input) {
+            //  הפיקס המקצועי: מאזין לרגע המדויק שבו הדפדפן מנסה להקפיץ את הודעת השגיאה שלו
+            input.addEventListener('invalid', function(e) {
+                let activeLang = localStorage.getItem('lang') || 'he';
+                
+                // שליפת משפט התרגום הנכון מתוך המילון
+                let msg = (VALIDATION_FALLBACK[activeLang] && VALIDATION_FALLBACK[activeLang]["validation.required_fields"])
+                    ? VALIDATION_FALLBACK[activeLang]["validation.required_fields"]
+                    : "Please fill this field";
+                
+                //  הזרקה ישירה לתוך הפונקציה הפנימית של הדפדפן - זה מחליף את "מלא שדה זה" בטקסט שלך!
+                e.target.setCustomValidity(msg);
+            });
+
+            // מנקה את השגיאה ברגע שהמשתמש מקליד משהו מחדש כדי לא לחסום את הטופס
+            input.addEventListener('input', function(e) {
+                e.target.setCustomValidity('');
+            });
+            input.addEventListener('change', function(e) {
+                e.target.setCustomValidity('');
+            });
+        });
+    });
+})();
+</script>
+
+    <!-- טעינת מנוע התרגום הסטטי ב-JavaScript לכל 30 השפות -->
+    <script src="/static/lang.js"></script>
+    <script>
+        const lang = localStorage.getItem("lang") || "he";
+        loadLanguage(lang);
+    </script>
+    
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
