@@ -2718,67 +2718,68 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 /* ----- טעינת לקוח קיים ----- */
 function loadExistingCustomer() {
-    // שליפת רכיבי ה-DOM הנחוצים לסנכרון
     const hiddenInput = document.getElementById("customer_select");
     const searchInput = document.getElementById("customer_search_input");
     const datalist = document.getElementById("customer_datalist");
 
-    // משיכה דינמית ומאובטחת של מזהה הלקוח הקיים מתוך ה-Context
-    // אם מדובר בחשבונית עצמית, ה-ID יהיה "0"
-    let currentId = "";
-    if (typeof loadedCustomer !== "undefined" && loadedCustomer && loadedCustomer.id !== undefined) {
-        currentId = String(loadedCustomer.id).trim();
-    } else if (hiddenInput && hiddenInput.value) {
-        currentId = hiddenInput.value.trim();
+    // 1. חילוץ המזהה הקיים מהשדה הנסתר (Flask מזרים אותו לשם ב-value)
+    let currentId = hiddenInput ? hiddenInput.value.trim() : "";
+
+    // גיבוי למקרה שהמשתנה loadedCustomer קיים ומכיל מזהה
+    if (!currentId && typeof loadedCustomer !== "undefined" && loadedCustomer) {
+        currentId = String(loadedCustomer.id || "").trim();
+        if (hiddenInput) hiddenInput.value = currentId;
     }
 
-    //  מעדכנים את השדה הנסתר ב-DOM כדי שכל שאר הפונקציות (כמו addRow) ידעו מי הלקוח!
-    if (hiddenInput) {
-        hiddenInput.value = currentId;
+    if (!currentId || !searchInput || !datalist) return;
+
+    // 2. סריקת ה-datalist כדי למצוא את ה-Text הויזואלי המתאים ל-ID הזה
+    const options = datalist.querySelectorAll("option");
+    let visualValue = "";
+
+    options.forEach(opt => {
+        if (opt.getAttribute("data-id") === currentId) {
+            visualValue = opt.value; // מושך את "★ שם החברה" או "שם לקוח | ח.פ"
+        }
+    });
+
+    // 3. הזרקה ישירה לתוך שדה החיפוש הויזואלי - זה מונע מהקומבו להישאר ריק!
+    if (visualValue) {
+        searchInput.value = visualValue;
+    } else if (currentId === "0") {
+        // גיבוי קשיח למצב חברה 0 אם ה-datalist עוד לא רונדר במלואו
+        const compName = document.getElementById("company_name_placeholder")?.value || "";
+        searchInput.value = compName ? `★ ${compName}` : "★ חברה עצמית";
     }
 
-    // 1. טיפול במצב של חשבונית עצמית (מזהה "0" או פריט פנימי)
-    if (currentId === "0" || !loadedCustomer) {
-        // מפעיל ישירות את הפונקציה שכבר כתבנו שמזריקה את פרטי החברה מהג'ינג'ה בצורה מושלמת
+    // 4. הפעלת הרינדור הויזואלי של פרטי הלקוח וטעינת הטבלה בהתאם
+    if (currentId === "0") {
         if (typeof loadCustomerData === "function") {
             loadCustomerData();
         }
+    } else if (typeof loadedCustomer !== "undefined" && loadedCustomer) {
+        // הצגת פרטי לקוח רגיל
+        if (document.getElementById("customer_name_field")) {
+            document.getElementById("customer_name_field").innerText = loadedCustomer.customer_name || "";
+        }
         
-        // מעדכן את תיבת החיפוש הויזואלית בשם החברה עם הכוכבית
-        if (searchInput && datalist) {
-            const opt = datalist.querySelector('option[data-id="0"]');
-            if (opt) searchInput.value = opt.value;
+        const addressParts = [
+            loadedCustomer.address,
+            loadedCustomer.city,
+            loadedCustomer.postal_code
+        ].filter(part => part && part.trim() !== "");
+        
+        if (document.getElementById("customer_address_field")) {
+            document.getElementById("customer_address_field").innerText = addressParts.join(", ");
         }
-        return; // עוצרים כאן - סיימנו לטפל בחשבונית עצמית!
+
+        if (document.getElementById("customer_id_field")) document.getElementById("customer_id_field").innerText = loadedCustomer.id_number || "---";
+        if (document.getElementById("customer_phone_field")) document.getElementById("customer_phone_field").innerText = loadedCustomer.phone || "---";
+        if (document.getElementById("customer_email_field")) document.getElementById("customer_email_field").innerText = loadedCustomer.email || "---";
+
+        if (document.getElementById("customer_select_wrapper")) document.getElementById("customer_select_wrapper").style.display = "none";
+        if (document.getElementById("customer_details")) document.getElementById("customer_details").style.display = "block";
     }
-
-    // 2. טיפול במצב של לקוח רגיל מהדאטהבייס (הקוד המקורי עם סינכרון התיבה הויזואלית!)
-    document.getElementById("customer_name_field").innerText = loadedCustomer.customer_name || "";
-
-    const addressParts = [
-        loadedCustomer.address,
-        loadedCustomer.city,
-        loadedCustomer.postal_code
-    ].filter(part => part && part.trim() !== "");
-    
-    document.getElementById("customer_address_field").innerText = addressParts.join(", ");
-
-    document.getElementById("customer_id_field").innerText = loadedCustomer.id_number || "";
-    document.getElementById("customer_phone_field").innerText = loadedCustomer.phone || "";
-    document.getElementById("customer_email_field").innerText = loadedCustomer.email || "";
-
-    // מעדכן את תיבת החיפוש הויזואלית בשם הלקוח והח.פ שלו מתוך ה-datalist
-    if (searchInput && datalist) {
-        const opt = datalist.querySelector(`option[data-id="${currentId}"]`);
-        if (opt) {
-            searchInput.value = opt.value;
-        } else {
-            searchInput.value = loadedCustomer.customer_name || "";
-        }
-    }
-
-    document.getElementById("customer_select_wrapper").style.display = "none";
-    document.getElementById("customer_details").style.display = "block";
 }
 
 /* ----- טעינת פריטים קיימים (גרסה נקייה ללא שינויי גודל ב-JS) ----- */
