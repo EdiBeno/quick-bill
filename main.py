@@ -4278,86 +4278,6 @@ def base_invoice_context(customer_id=None):
 # Get Invoice Context Form Data (Multi-Tenant Secure)
 # ----------------------
 
-def invoice_context(invoice_id=None, customer_id=None):
-    invoice = None
-    try:
-        language = get_lang()
-
-        if session.get('owner_access') or getattr(current_user, 'role', '') == 'owner':
-            company_id = OWNER_COMPANY_ID
-        else:
-            company_id = current_user.company_id
-
-        if invoice_id:
-            invoice = db.session.get(Invoice, invoice_id)
-            if invoice and invoice.company_id != company_id:
-                invoice = None
-
-        #  חשבונית עצמית: אם אין חשבונית בדאטהבייס אבל יש מזהה לקוח מהטופס
-        active_customer_id = customer_id
-        if invoice and invoice.customer_id is not None:
-            active_customer_id = invoice.customer_id
-
-        company_obj = db.session.get(Company, company_id)
-        company_translated = load_company_translated(company_obj, language) if company_obj else {}
-
-        customer_json = {}
-        if active_customer_id is not None:
-            if str(active_customer_id) == "0":
-                customer_json = {
-                    "id": "0",  
-                    "customer_name": f"★ {company_translated.get('name', company_obj.name if company_obj else '')} ",
-                    "address": company_translated.get('address', company_obj.address if company_obj else ""),
-                    "city": company_translated.get('city', company_obj.city if company_obj else ""),
-                    "postal_code": company_obj.postal_code if company_obj else "",
-                    "id_number": company_obj.company_id_number if company_obj else "",
-                    "phone": company_obj.phone if company_obj else "",
-                    "email": company_obj.email if company_obj else ""
-                }
-            else:
-                c_obj = Customer.query.filter_by(id=active_customer_id, company_id=company_id).first()
-                if c_obj:
-                    trans = load_customer_translated(c_obj, language) or {}
-                    customer_json = {
-                        "id": c_obj.id,
-                        "customer_name": trans.get("name") or c_obj.customer_name,
-                        "address": trans.get("address") or c_obj.address,
-                        "city": trans.get("city") or c_obj.city,
-                        "postal_code": c_obj.postal_code or "",
-                        "id_number": c_obj.id_number or "",
-                        "phone": c_obj.phone or "",
-                        "email": c_obj.email or ""
-                    }
-
-        items_json = []
-        if invoice:
-            items = InvoiceItem.query.filter_by(invoice_id=invoice.id).all()
-            for item in items:
-                target_p = None
-                if str(item.product_id).isdigit():
-                    target_p = Product.query.filter_by(local_id=int(item.product_id), company_id=company_id).first()
-                
-                row_sku = str(item.product_id)
-                row_name_trans = item.description or ""
-                
-                if target_p:
-                    translated_p_data = load_item_translated(target_p, language, company_id) or {}
-                    item_file_data = load_item_file(p.id, company_id=company_id) or {}
-                    
-                    row_sku = target_p.sku if target_p.sku else item_file_data.get("sku", str(target_p.local_id))
-                    row_name_trans = translated_p_data.get("name") or target_p.name or ""
-
-                items_json.append({
-                    "product_id": item.product_id,        
-                    "sku": str(row_sku).strip(),          
-                    "name": row_name_trans,               
-                    "quantity": float(item.quantity or 0),
-                    "unit_price": float(item.unit_price or 0),
-                    "discount": float(item.discount or 0),
-                    "total_price": float(item.total_price or 0),
-                    "cost_price": float(getattr(item, 'cost_price_at_time', 0.0) or 0.0)
-                })
-
         all_customers_json = []
         my_customers = (
             Customer.query.filter_by(company_id=company_id)
@@ -4508,7 +4428,6 @@ def invoice_context(invoice_id=None, customer_id=None):
                 backup_reason = getattr(invoice, 'cancellation_reason', '') or ""
 
         fallback_customer = {}
-        # שימוש בבדיקה הבטוחה של active_customer_id למניעת קריסה בטמפלייט
         if str(active_customer_id) == "0":
             fallback_customer = {
                 "id": "0",
