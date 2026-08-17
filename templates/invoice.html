@@ -1133,7 +1133,7 @@ body {
         </div>
 
 
-        <!-- Customer -->
+<!-- Customer -->
         <div class="customer-block">
 
             <div id="customer_select_wrapper">
@@ -1146,12 +1146,14 @@ body {
                        data-i18n-placeholder="customer_search_placeholder" 
                        autocomplete="off"
                        oninput="onCustomerSearchInput(this)"
+                       value="{% if customer_json %}{% if customer_json.id == '0' or customer_json.id == 0 %}★ {{ company.name if company else '' }} {% else %}{{ customer_json.customer_name }} | {{ customer_json.id_number }}{% endif %}{% endif %}"
                        style="width: 100%; max-width: 3000px; height: 24px; box-sizing: border-box;">
                 
                 <input type="hidden" id="customer_select" name="customer_id" value="{% if customer_json %}{{ customer_json.id }}{% endif %}">
                 
                 <datalist id="customer_datalist">
-                    <option data-id="{{ company.id if company else '1' }}" value="★ {{ company.name if company else '' }} "></option>
+                    <option data-id="0" value="★ {{ company.name if company else '' }} "></option>
+
                     {% for c in all_customers_json %}
                         <option data-id="{{ c.id }}" value="{{ c.customer_name }} | {{ c.id_number }}"></option>
                     {% endfor %}
@@ -2007,17 +2009,17 @@ function formatCurrency(num) {
 
 /* ----- טען פרטי לקוח בלחיצה על select ----- */
 function loadCustomerData() {
-    let id = document.getElementById("customer_select").value;
+    //  מנקים רווחים מה-ID מיד בהתחלה כדי למנוע חוסר סנכרון עם שאר חלקי הקוד!
+    let rawId = document.getElementById("customer_select")?.value;
+    let id = rawId ? rawId.trim() : "";
+
     if (!id) {
         document.getElementById("customer_details").style.display = "none";
         return;
     }
 
-    // משיכת הערך הגלוי מתוך תיבת החיפוש בשביל זיהוי חסין
-    const searchVal = document.getElementById("customer_search_input") ? document.getElementById("customer_search_input").value.trim() : "";
-
-    // אם נבחר בעל החברה (לפי הכוכב ★) או לפי מזהי ברירת המחדל
-    if (searchVal.startsWith('★') || id === "0" || id === "1") {
+    // דיווח עצמי / הכנסה פסיבית: חונק את הפנייה לשרת אם נבחר מזהה 0 או ריק בחשבונית עצמית
+    if (id === "0" || id === "") {
         const compName = '{{ (company.name if company else (company_db.name if company_db else "")) | safe }}';
         
         const compAddr = '{{ (company.address if company else (company_db.address if company_db else "")) | safe }}';
@@ -2028,20 +2030,21 @@ function loadCustomerData() {
         const compPhone = '{{ (company.phone if company else (company_db.phone if company_db else "")) | safe }}';
         const compEmail = '{{ (company.email if company else (company_db.email if company_db else "")) | safe }}';
 
-        // הפיקס המנצח: הזרקה חסינה באמצעות textContent עבור תגיות Span!
-        if (document.getElementById("customer_name_field")) document.getElementById("customer_name_field").textContent = `★ ${compName}`;
+        // הזרקת שם החברה המקורי
+        document.getElementById("customer_name_field").innerText = `★ ${compName}`;
         
+        // הזרקה והצגה של הסטטוס המתורגם דינמית מקובץ ה-JSON
         const statusEl = document.querySelector("[data-i18n='self_billing_status']");
         if (statusEl) {
-            statusEl.textContent = typeof t === 'function' ? t("self_billing_status") : " ";
+            statusEl.innerText = typeof t === 'function' ? t("self_billing_status") : " ";
         }
 
         const addr = [compAddr, compCity, compZip].filter(Boolean).join(", ");
-        if (document.getElementById("customer_address_field")) document.getElementById("customer_address_field").textContent = addr || "כתובת החברה";
+        document.getElementById("customer_address_field").innerText = addr || "כתובת החברה";
 
-        if (document.getElementById("customer_id_field")) document.getElementById("customer_id_field").textContent = compNum || "---";
-        if (document.getElementById("customer_phone_field")) document.getElementById("customer_phone_field").textContent = compPhone || "---";
-        if (document.getElementById("customer_email_field")) document.getElementById("customer_email_field").textContent = compEmail || "---";
+        document.getElementById("customer_id_field").innerText = compNum || "---";
+        document.getElementById("customer_phone_field").innerText = compPhone || "---";
+        document.getElementById("customer_email_field").innerText = compEmail || "---";
 
         document.getElementById("customer_details").style.display = "block";
         document.getElementById("customer_select_wrapper").style.display = "none";
@@ -2063,14 +2066,14 @@ function loadCustomerData() {
     fetch(`/api/customer/${id}`)
         .then(res => res.json())
         .then(data => {
-            if (document.getElementById("customer_name_field")) document.getElementById("customer_name_field").textContent = data.customer_name || "";
+            document.getElementById("customer_name_field").innerText = data.customer_name || "";
 
             const addr = [data.address, data.city, data.postal_code].filter(Boolean).join(", ");
-            if (document.getElementById("customer_address_field")) document.getElementById("customer_address_field").textContent = addr;
+            document.getElementById("customer_address_field").innerText = addr;
 
-            if (document.getElementById("customer_id_field")) document.getElementById("customer_id_field").textContent = data.id_number || "";
-            if (document.getElementById("customer_phone_field")) document.getElementById("customer_phone_field").textContent = data.phone || "";
-            if (document.getElementById("customer_email_field")) document.getElementById("customer_email_field").textContent = data.email || "";
+            document.getElementById("customer_id_field").innerText = data.id_number || "";
+            document.getElementById("customer_phone_field").innerText = data.phone || "";
+            document.getElementById("customer_email_field").innerText = data.email || "";
 
             document.getElementById("customer_details").style.display = "block";
             document.getElementById("customer_select_wrapper").style.display = "none";
@@ -2142,9 +2145,11 @@ function createItemSelect(selectedId = "", priceInput = null) {
     }    
     select.appendChild(defaultOption);
 
-    const currentCustomerId = document.getElementById("customer_select")?.value || "0";
+    //  מנקים רווחים ובודקים אם זה "0", ריק או לא קיים - מבטיח טעינת SKU בנקאי בחשבונית עצמית!
+    let customerInputVal = document.getElementById("customer_select")?.value;
+    const currentCustomerId = customerInputVal ? customerInputVal.trim() : "";
 
-    if (currentCustomerId === "0") {
+    if (currentCustomerId === "0" || currentCustomerId === "") {
         const legalCategories = [
             { id: "rent", i18n: "rent", fallbackName: "הכנסה פסיבית מדמי שכירות נכס" },
             { id: "stocks", i18n: "stocks", fallbackName: "הכנסה ממימוש / מכירת מניות בנקאיות" },
@@ -2912,7 +2917,7 @@ function loadExistingItems() {
 
 
 /* ----- הוספת שורת פריט ----- */
-function addRow() {
+function addRow(selectedId = "") {
     const tableBody = document.getElementById('items-tbody');
     const newRow = document.createElement('tr');
     newRow.className = "invoice-row";
@@ -2948,15 +2953,17 @@ function addRow() {
     descCell.appendChild(rowDescHiddenInput);
 
     // קריאה לפונקציה הנכונה שמזהה את סוג החשבונית
-    const selectElement = createItemSelect("", priceInput);
+    const selectElement = createItemSelect(selectedId, priceInput);
     descCell.appendChild(selectElement);
 
     // === Automatically update the SKU field input and description on line selection change ===
     selectElement.addEventListener("change", () => {
         const selectedVal = selectElement.value;
-        const currentCustomerId = document.getElementById("customer_select")?.value || "0";
+        
+        let customerInputVal = document.getElementById("customer_select")?.value;
+        const currentCustomerId = customerInputVal ? customerInputVal.trim() : "";
 
-        //  עוצרים רק אם הבחירה עצמה ריקה! לא חוסמים יותר את לקוח 0!
+        // עוצרים רק אם הבחירה עצמה ריקה! לא חוסמים יותר את לקוח 0!
         if (!selectedVal) {
             codeInput.value = "";
             rowDescHiddenInput.value = ""; 
@@ -3009,8 +3016,8 @@ function addRow() {
             }
             codeInput.style.visibility = 'visible';
         } else {
-            // הפיקס המנצח: אם מדובר בלקוח 0 והערך הוא פריט בנקאי, מזריקים את המק"ט המתורגם הנקי
-            if (selectedVal === 'rent' || selectedVal === 'stocks' || selectedVal === 'dividend' || selectedVal === 'unspecified' || currentCustomerId === "0") {
+            // אם מדובר בלקוח 0 או ריק, והערך הוא פריט בנקאי, מזריקים את המק"ט המתורגם הנקי
+            if (selectedVal === 'rent' || selectedVal === 'stocks' || selectedVal === 'dividend' || selectedVal === 'unspecified' || currentCustomerId === "0" || currentCustomerId === "") {
                 let localizedSku = (SKU_LOCALIZED[currentLang] && SKU_LOCALIZED[currentLang][selectedVal])
                     ? SKU_LOCALIZED[currentLang][selectedVal]
                     : (SKU_LOCALIZED["en"][selectedVal] || selectedVal);
@@ -3090,6 +3097,11 @@ function addRow() {
     newRow.appendChild(totalCell);
 
     tableBody.appendChild(newRow);
+
+    // אם השורה נטענת עם ערך קיים, נפעיל ידנית את אירוע ה-change כדי שהמק"ט יתמלא מעצמו מיד בטעינה!
+    if (selectedId) {
+        selectElement.dispatchEvent(new Event('change'));
+    }
 
     calculateTotals();
     if (typeof translateMobileItemLabels === "function") {
@@ -3214,8 +3226,9 @@ if (typeof loadedItems !== "undefined" && Array.isArray(loadedItems) && loadedIt
     const isCustomerDashboard = typeof is_customer_view !== "undefined" && is_customer_view === true;
     
     if (!isCustomerDashboard && typeof addRow === "function") {
-        // משיכה חסינה בלייב של מזהה הלקוח הנוכחי מה-DOM
-        const currentCustomerId = document.getElementById("customer_select") ? document.getElementById("customer_select").value : "0";
+        // משיכה חסינה ומנוקה של מזהה הלקוח הנוכחי מה-DOM כדי להתאים לכל שאר הפונקציות
+        let customerInputVal = document.getElementById("customer_select")?.value;
+        const currentCustomerId = customerInputVal ? customerInputVal.trim() : "";
         
         // סנכרון בטוח: מוודא שה-Select הפנימי ייבנה בצורה המותאמת לסוג החשבונית
         addRow(); 
@@ -3674,6 +3687,7 @@ function onCustomerSearchInput(inputElement) {
     
     let foundId = "";
     
+    // מציאת ה-ID לפי הערך שנבחר ב-Datalist
     for (let i = 0; i < options.length; i++) {
         if (options[i].value === val) {
             foundId = options[i].getAttribute('data-id');
@@ -3684,37 +3698,32 @@ function onCustomerSearchInput(inputElement) {
     hiddenInput.value = foundId;
     
     if (foundId) {
-        // אם נבחר בעל החברה (מזהים לפי הכוכב ★ בתחילת השם)
-        if (val.trim().startsWith('★')) {
-            if (document.getElementById('customer_name_field')) document.getElementById('customer_name_field').textContent = "{{ company.name if company else '' }}";
-            if (document.getElementById('customer_address_field')) document.getElementById('customer_address_field').textContent = "{{ company.address if company else '' }}, {{ company.city if company else '' }}";
-            if (document.getElementById('customer_id_field')) document.getElementById('customer_id_field').textContent = "{{ company.company_id_number if company else '' }}";
-            if (document.getElementById('customer_phone_field')) document.getElementById('customer_phone_field').textContent = "{{ company.phone if company else '' }}";
-            if (document.getElementById('customer_email_field')) document.getElementById('customer_email_field').textContent = "{{ company.email if company else '' }}";
-            
-            if (detailsBlock) detailsBlock.style.display = 'block';
-        } else {
-            if (typeof loadCustomerData === "function") {
-                loadCustomerData();
-            }
-            if (detailsBlock) detailsBlock.style.display = 'block';
+        if (typeof loadCustomerData === "function") {
+            loadCustomerData(); // טעינת הנתונים דרך ה-API
         }
         
+        // החלפת תצוגה
+        if (selectWrapper) selectWrapper.style.display = 'none';
+        if (detailsBlock) detailsBlock.style.display = 'block';
+
+        // עדכון כותרת
         if (titleToggle) {
             titleToggle.innerText = (localStorage.getItem('lang') === 'he') ? 'פרטי לקוח:' : 'Customer Details:';
         }
 
+        // סורק את השורות ומכריח את המק"ט הבנקאי להיות גלוי ומתורגם מיד לאחר החלפת הלקוח!
         setTimeout(() => {
             const rows = document.querySelectorAll("#items-tbody tr");
             rows.forEach(row => {
                 const selectEl = row.querySelector(".item-select");
                 if (selectEl && typeof updateCode === "function") {
-                    updateCode(selectEl);
+                    updateCode(selectEl); // קורא לפונקציית התרגום המרכזית שתפתח את ה-visibility!
                 }
             });
-        }, 150);
+        }, 150); // השהייה קלה של 150 מילישניות כדי לתת ל-API של השרת לסיים לרנדר את השורות
         
     } else {
+        // איפוס תצוגה אם אין בחירה
         if (selectWrapper) selectWrapper.style.display = 'block';
         if (detailsBlock) detailsBlock.style.display = 'none';
         if (titleToggle) {
@@ -3723,32 +3732,19 @@ function onCustomerSearchInput(inputElement) {
     }
 }
 
-// טעינה הראשונית של הלקוח !
+// טעינה ראשונית
 document.addEventListener("DOMContentLoaded", function() {
     const hiddenInput = document.getElementById('customer_select');
     const searchInput = document.getElementById('customer_search_input');
-    const activeCompanyId = '{{ company.id if company else "1" }}';
     
     if (hiddenInput && hiddenInput.value) {
-        // בודק אם מדובר בחשבונית עצמית (מזהה 0 או מזהה החברה הדינמי)
-        if (hiddenInput.value === "0" || String(hiddenInput.value) === String(activeCompanyId)) {
-            const option = document.querySelector(`#customer_datalist option[data-id="0"]`) || 
-                           document.querySelector(`#customer_datalist option[data-id="${activeCompanyId}"]`);
-            if (option && searchInput) {
-                searchInput.value = option.value;
-                onCustomerSearchInput(searchInput); 
-            }
-        } else {
-            // עבור לקוחות מסחריים רגילים חיצוניים
-            const option = document.querySelector(`#customer_datalist option[data-id="${hiddenInput.value}"]`);
-            if (option && searchInput) {
-                searchInput.value = option.value;
-                onCustomerSearchInput(searchInput);
-            }
+        const option = document.querySelector(`#customer_datalist option[data-id="${hiddenInput.value}"]`);
+        if (option) {
+            searchInput.value = option.value;
+            onCustomerSearchInput(searchInput); // קריאה לפונקציה המאוחדת
         }
     }
 });
-
 </script>
 
 
