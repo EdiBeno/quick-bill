@@ -749,7 +749,7 @@ body {
         width: 190mm;        /* Leave 20mm total for side gaps */
         margin: 0 auto;      /* Center it horizontally */
         
-        /* THE FIX: Shift 1cm to the right */
+        /* Shift 1cm to the right */
         padding-left: 0.5mm;  /* Pushes content away from the left edge */
         padding-right: 0;
         
@@ -2009,7 +2009,7 @@ function formatCurrency(num) {
 
 /* ----- טען פרטי לקוח בלחיצה על select ----- */
 function loadCustomerData() {
-    //  מנקים רווחים מה-ID מיד בהתחלה כדי למנוע חוסר סנכרון עם שאר חלקי הקוד!
+    //  STEP 1: Safely grab and clean the active customer ID
     let rawId = document.getElementById("customer_select")?.value;
     let id = rawId ? rawId.trim() : "";
 
@@ -2018,14 +2018,12 @@ function loadCustomerData() {
         return;
     }
 
-    // דיווח עצמי / הכנסה פסיבית: חונק את הפנייה לשרת אם נבחר מזהה 0 או ריק בחשבונית עצמית
+    // דיווח עצמי / הכנסה פסיבית: חונק את הפנייה לשרת אם נבחר מזהה 0 או ריק בחשבונית עצמית STEP 2: SELF INVOICE / INTERNAL INCOME (CUSTOMER ID IS "0" OR EMPTY)
     if (id === "0" || id === "") {
         const compName = '{{ (company.name if company else (company_db.name if company_db else "")) | safe }}';
-        
         const compAddr = '{{ (company.address if company else (company_db.address if company_db else "")) | safe }}';
         const compCity = '{{ (company.city if company else (company_db.city if company_db else "")) | safe }}';
         const compZip  = '{{ (company.postal_code if company else (company_db.postal_code if company_db else "")) | safe }}';
-        
         const compNum  = '{{ (company.company_id_number if company else (company_db.company_id_number if company_db else "")) | safe }}';
         const compPhone = '{{ (company.phone if company else (company_db.phone if company_db else "")) | safe }}';
         const compEmail = '{{ (company.email if company else (company_db.email if company_db else "")) | safe }}';
@@ -2033,7 +2031,6 @@ function loadCustomerData() {
         // הזרקת שם החברה המקורי
         document.getElementById("customer_name_field").innerText = `★ ${compName}`;
         
-        // הזרקה והצגה של הסטטוס המתורגם דינמית מקובץ ה-JSON
         const statusEl = document.querySelector("[data-i18n='self_billing_status']");
         if (statusEl) {
             statusEl.innerText = typeof t === 'function' ? t("self_billing_status") : " ";
@@ -2049,6 +2046,7 @@ function loadCustomerData() {
         document.getElementById("customer_details").style.display = "block";
         document.getElementById("customer_select_wrapper").style.display = "none";
 
+        // Rebuild rows to use banking categories
         document.querySelectorAll("select.item-select").forEach(selectEl => {
             const currentVal = selectEl.value;
             const rowPriceInput = selectEl.closest("tr") ? selectEl.closest("tr").querySelector(".price-input") : null;
@@ -2059,10 +2057,10 @@ function loadCustomerData() {
             }
         });
 
-        return; 
+        return; //  STOP RIGHT HERE. Never execute the API call below for a self-invoice!
     }
 
-    // שאר הלקוחות האמיתיים מהדאטהבייס ללא שום שינוי
+    //  שאר הלקוחות האמיתיים מהדאטהבייס ללא שום שינוי  STEP 3: REGULAR CUSTOMERS ONLY (FETCH FROM DATABASE)
     fetch(`/api/customer/${id}`)
         .then(res => res.json())
         .then(data => {
@@ -2078,6 +2076,7 @@ function loadCustomerData() {
             document.getElementById("customer_details").style.display = "block";
             document.getElementById("customer_select_wrapper").style.display = "none";
 
+            // Safely rebuild dropdowns for a regular client
             document.querySelectorAll("select.item-select").forEach(selectEl => {
                 const currentVal = selectEl.value;
                 const rowPriceInput = selectEl.closest("tr") ? selectEl.closest("tr").querySelector(".price-input") : null;
@@ -2087,7 +2086,8 @@ function loadCustomerData() {
                     container.replaceChild(newSelect, selectEl);
                 }
             });
-        });
+        })
+        .catch(err => console.error("Error loading customer data:", err));
 }
 
 
@@ -2277,18 +2277,29 @@ function createProductSelectElement(priceInput) {
     return selectElement;
 }
 
-/* ----- Update Code המעודכן והמאובטח (גרסה הרמטית שמציגה את המק"ט בכל השורות!) ----- */
-/* ----- Update Code המעודכן וההרמטי (הגנה מוחלטת לחשבונית עצמית/פנימית) ----- */
+/* ----- Update Code המעודכן והמאובטח (גרסה הרמטית שמציגה את המק"ט בכל השורות! הגנה מוחלטת לחשבונית עצמית/פנימית) ----- */
 function updateCode(selectEl) {
     const row = selectEl.closest("tr");
     if (!row) return;
     
     // מאתר את שדה קלט המק"ט בצורה חסינה
     const codeInput = row.querySelector("input.item-code-input") || row.querySelector(".col-code input") || row.querySelector(".item-code-input");
+    
+    // מאתר את שדות התיאור (הנסתר והגלוי) בשורה כדי לעדכן אותם במקביל!
+    const rowDescHiddenInput = row.querySelector(".desc-hidden-input");
+    const rowDescVisibleInput = row.querySelector(".col-desc input");
+
     if (codeInput) {
         const selectedVal = selectEl.value;
+        
+        // משיכה חסינה ומנוקה של מזהה הלקוח הנוכחי מה-DOM
+        let customerInputVal = document.getElementById("customer_select")?.value;
+        const currentCustomerId = customerInputVal ? customerInputVal.trim() : "";
+
         if (!selectedVal) {
             codeInput.value = "";
+            if (rowDescHiddenInput) rowDescHiddenInput.value = "";
+            if (rowDescVisibleInput) rowDescVisibleInput.value = "";
             return;
         }
 
@@ -2326,28 +2337,48 @@ function updateCode(selectEl) {
           bg: { rent: "Наем", stocks: "Акции", dividend: "Дивидент", unspecified: "Общо" }
         };
 
+        // טיפול חסין בשפות (מנקה תוספות כמו he-IL ל-he קצר)
         let currentLang = localStorage.getItem("lang") || "he";
         currentLang = currentLang.toLowerCase().trim();
         if (currentLang.indexOf("-") !== -1) {
-            currentLang = currentLang.split("-");
+            currentLang = currentLang.split("-")[0];
         }
 
         const currentList = window.itemsList || products;
         const targetProd = currentList ? currentList.find(p => String(p.id) === String(selectedVal) || String(p.local_id) === String(selectedVal)) : null;
-        
+
         if (targetProd) {
             codeInput.value = targetProd.sku ? targetProd.sku : (targetProd.local_id !== undefined ? targetProd.local_id : "");
             codeInput.style.visibility = 'visible';
+            
+            // עדכון התיאור של מוצר רגיל
+            let prodDesc = "";
+            if (targetProd.description) {
+                prodDesc = typeof targetProd.description === "object" ? (targetProd.description[currentLang] || targetProd.description["he"] || "") : targetProd.description;
+            }
+            let prodName = typeof targetProd.name === "object" ? (targetProd.name[currentLang] || targetProd.name["he"]) : targetProd.name;
+            
+            if (rowDescHiddenInput) rowDescHiddenInput.value = prodDesc || prodName || "";
+            if (rowDescVisibleInput) rowDescVisibleInput.value = prodDesc || prodName || "";
         } else {
-            // אם מדובר באחד מ-4 פריטי המס הפנימיים של בעל החברה
-            if (selectedVal === 'rent' || selectedVal === 'stocks' || selectedVal === 'dividend' || selectedVal === 'unspecified') {
+            // אם מדובר באחד מ-4 פריטי המס הפנימיים של בעל החברה, או שלקוח 0 פעיל
+            if (selectedVal === 'rent' || selectedVal === 'stocks' || selectedVal === 'dividend' || selectedVal === 'unspecified' || currentCustomerId === "0" || currentCustomerId === "") {
+                
+                // שליפת מק"ט מתורגם
                 let localizedSku = (SKU_LOCALIZED[currentLang] && SKU_LOCALIZED[currentLang][selectedVal])
                     ? SKU_LOCALIZED[currentLang][selectedVal]
                     : (SKU_LOCALIZED["en"][selectedVal] || selectedVal);
                 
                 codeInput.value = localizedSku;
                 
-                //  מכריח את המק"ט המתורגם להישאר גלוי תמיד בחשבונית הפנימית!
+                //  SMART DYNAMIC LOOKUP: Reads the translated description directly from the option element text
+                const selectedOption = selectEl.options[selectEl.selectedIndex];
+                let localizedDesc = selectedOption ? selectedOption.text : "";
+                
+                if (rowDescHiddenInput) rowDescHiddenInput.value = localizedDesc;
+                if (rowDescVisibleInput) rowDescVisibleInput.value = localizedDesc;
+                
+                // מכריח את המק"ט המתורגם להישאר גלוי תמיד בחשבונית הפנימית
                 codeInput.style.visibility = 'visible';
                 codeInput.style.display = 'block';
             } else {
@@ -2446,11 +2477,20 @@ function buildItemsForSubmit() {
             return typeof parseLocaleNumber === 'function' ? parseLocaleNumber(val) : val.replace(/,/g, '');
         };
 
+        const codeInput = row.querySelector('.item-code-input');
+        const descInput = row.querySelector('.desc-hidden-input');
+        
+        const skuValue = codeInput ? codeInput.value.trim() : "";
+        const descriptionValue = descInput ? descInput.value.trim() : "";
+
         const hidden = document.createElement('input');
         hidden.type = 'hidden';
         hidden.name = 'items[]';
+        
         hidden.value = JSON.stringify({
             product_id: productId,
+            sku: skuValue,                
+            description: descriptionValue, 
             quantity: clean('.quantity-input'),
             price: clean('.price-input'),
             discount: clean('.discount-input')
@@ -3144,7 +3184,7 @@ function loadExistingPayments() {
             item.account_number || ""
         );
 
-        // 3. FIX: Find the row we just added and FORCE the hidden value to match
+        // 3.  Find the row we just added and FORCE the hidden value to match
         const rows = tbody.querySelectorAll('.payment-row');
         const lastRow = rows[rows.length - 1];
         if (lastRow) {

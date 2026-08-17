@@ -4293,7 +4293,7 @@ def invoice_context(invoice_id=None, customer_id=None):
             if invoice and invoice.company_id != company_id:
                 invoice = None
 
-        # 🔥 פיקס חשבונית עצמית: אם אין חשבונית בדאטהבייס אבל יש מזהה לקוח מהטופס
+        #  חשבונית עצמית: אם אין חשבונית בדאטהבייס אבל יש מזהה לקוח מהטופס
         active_customer_id = customer_id
         if invoice and invoice.customer_id is not None:
             active_customer_id = invoice.customer_id
@@ -6029,7 +6029,7 @@ def manage_products():
             "batches": clean_batches
         })
 
-    # 👑 קסם הברזל החדש: בניית רשימת הבחירה לקומבו-בוקס (Combobox) בהצלבה מול קבצי המוצרים המתורגמים!
+    # בניית רשימת הבחירה לקומבו-בוקס (Combobox) בהצלבה מול קבצי המוצרים המתורגמים!
     # מונע מיסמאץ' ומבטיח ששם הספק יוצג בשפה האקטיבית של המשתמש מייד ברילווד
     all_suppliers = Supplier.query.filter_by(company_id=company_id).order_by(Supplier.supplier_name).all()
     suppliers_translated = []
@@ -6071,7 +6071,7 @@ def manage_products():
         item_i18n=item_i18n,
         item_i18n_list=item_i18n_list,
         current_lang=language,
-        suppliers=suppliers_translated, # 🌟 מוזרק לקומבו-בוקס בשפה הנכונה פלס!
+        suppliers=suppliers_translated, 
         today=today_str,
         company=load_company_translated(company_obj, language),
         company_db=company_obj
@@ -6117,7 +6117,7 @@ def products_list():
         else:
             p_desc = str(raw_descs) if raw_descs else p.description or ""
 
-        # 👑 קסם הברזל החדש: טוענים את קובץ ה-JSON הגולמי מהדיסק כדי לחלץ את מילון 30 השפות האמיתי של הספק!
+        #  טוענים את קובץ ה-JSON הגולמי מהדיסק כדי לחלץ את מילון 30 השפות האמיתי של הספק!
         # מונע מיסמאץ' של עברית הפוכה במוצרים קיימים ובאצוות מלאי חדשות.
         prod_data = load_item_file(company_id, p_local_lookup)
         if prod_data and isinstance(prod_data.get("supplier_name"), dict):
@@ -6146,7 +6146,7 @@ def products_list():
             if b_date_raw:
                 b_copy["received_date"] = format_lang_date(b_date_raw)
             
-            # 🌟 מעדכן את שם הספק בתוך האצווה לשם המתורגם האמיתי מהאב!
+            #  מעדכן את שם הספק בתוך האצווה לשם המתורגם האמיתי מהאב!
             b_copy["supplier_name"] = supplier_name
             clean_batches.append(b_copy)
 
@@ -6180,10 +6180,6 @@ def products_list():
 # ----------------------
 
 def delete_product_folder(product_id, company_id, local_id=None):
-    """🧹 גורסת ומוחקת בצורה הרמטית את תיקיית המוצר ושוברת את נעילות החומרה של Windows"""
-    import shutil
-    import os
-
     effective_local_id = local_id if local_id is not None else product_id
     base_dir = app.config["ITEMS_DIR"]
     folder_path = os.path.join(base_dir, f"{company_id}_{effective_local_id}")
