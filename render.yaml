@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: my-playwright-service
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+    startCommand: gunicorn -w 1 --threads 100 main:app --bind 0.0.0.0:$PORT
+    disk:
+      name: translations-disk
+      mountPath: /data
+      sizeGB: 1

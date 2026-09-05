@@ -1,0 +1,1210 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="products_manage">ניהול מוצרים</title>
+<style>
+    :root {
+        --excel-blue: #007bff;
+        --excel-green: #28a745;
+        --excel-red: #d9534f;
+        --bg-body: #f4f7f6;
+        --header-bg: #fffdf0;
+        --input-h: 35px; /* גובה אחיד לכל השדות */
+    }
+
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg-body); margin: 0; padding: 20px; direction: rtl; }
+
+    /* --- Header & Navigation --- */
+    .header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; }
+    .header-buttons { display: flex; gap: 10px; }
+    .header-buttons button { 
+        border: none; border-radius: 5px; cursor: pointer; transition: 0.3s;
+        height: var(--input-h); padding: 0 15px; font-weight: bold; font-size: 14px;
+    }
+
+    /* --- ה-Grid החכם (SaaS Style) --- */
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px; margin-bottom: 20px;
+    }
+
+    .card {
+        background: white; padding: 20px; border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-top: 5px solid var(--excel-blue);
+    }
+
+    .card-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 8px; }
+
+    /* --- עיצוב טופס --- */
+    .form-field { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
+    .form-field label { font-size: 13px; font-weight: bold; color: #555; }
+    .form-field input, .form-field select {
+        height: var(--input-h); border: 1px solid #ccc; border-radius: 6px;
+        padding: 0 10px; font-size: 14px; box-sizing: border-box; width: 100%;
+    }
+
+    /* מחשבון פיננסי (כמו באקסל) */
+    .finance-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .profit-badge {
+        background: #f1f3f5; border-radius: 6px; display: flex; align-items: center;
+        justify-content: center; font-weight: bold; font-size: 13px; color: var(--excel-green);
+        height: var(--input-h); border: 1px solid #ddd;
+    }
+
+    /* --- טבלת אקסל (Desktop) --- */
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+    th { background: var(--excel-blue); color: white; padding: 12px; font-size: 14px; }
+    td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-size: 14px; }
+
+
+/* ===== עיצוב לוח שנה צף קומפקטי בצבע שמנת שמתאים לסקריפט לוח שנה צף===== */
+.custom-calendar-picker {
+    position: absolute; 
+    z-index: 9999; 
+    background-color: #fdfbf7 !important; /* צבע שמנת עדין */
+    border: 1px solid #c2bfae; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    padding: 8px; 
+    width: 210px; /* קטן וקומפקטי יותר */
+    font-family: system-ui, -apple-system, sans-serif; 
+    display: none; 
+    text-align: center; 
+    direction: ltr !important;
+    border-radius: 6px;
+}
+
+/* ניווט עליון - תפריט בחירה מהיר */
+.calendar-nav { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 6px; 
+    gap: 3px;
+}
+
+/* עיצוב רשימות הבחירה של החודש והשנה */
+.calendar-nav select {
+    background: #f4eee1;
+    border: 1px solid #d3cbba;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333 !important;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;    
+    height: 22px;          
+    padding: 0 4px;        
+    box-sizing: border-box; 
+}
+
+.calendar-nav select:focus {
+    outline: none;
+    border-color: #8c826b;
+}
+
+.calendar-nav button { 
+    background: #e8e2d2; 
+    border: 1px solid #c8bfa9; 
+    font-size: 13px; 
+    cursor: pointer; 
+    padding: 2px 6px; 
+    font-weight: bold; 
+    color: #333 !important;
+    border-radius: 4px;
+}
+
+.calendar-nav button:hover {
+    background: #dbd4c0;
+}
+
+/* גריד הימים */
+.calendar-days-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 3px; 
+    font-size: 11px; 
+    color: #333 !important;
+}
+
+.calendar-day-header { 
+    font-weight: bold; 
+    color: #7c7565 !important; 
+    padding-bottom: 3px; 
+}
+
+.calendar-day-cell { 
+    padding: 4px 0; 
+    cursor: pointer; 
+    border-radius: 4px; 
+    color: #333 !important; 
+    font-weight: 500;
+    background-color: transparent;
+}
+
+.calendar-day-cell:hover:not(.empty) { 
+    background: #ebdcb9 !important; 
+}
+
+.calendar-day-cell.selected { 
+    background: #5a5241 !important; 
+    color: #ffffff !important; 
+    font-weight: bold; 
+}
+
+.calendar-day-cell.empty { 
+    cursor: default; 
+    background: none !important;
+}
+
+
+/* ===== עיצוב רספונסיבי מאוחד ובינלאומי למובייל (768px ומטה) - דף מוצרים ומלאי ===== */
+
+/* --- Mobile Table (Grid) --- */
+.products-mobile-table { display: none; margin-top: 20px; width: 100% !important; box-sizing: border-box !important; }
+
+/* כרטיס תנועת מוצר בודד במובייל - מותאם דינמית לכיוון השפה */
+.pm-row { 
+    background: white; 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin-bottom: 10px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+    box-sizing: border-box !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    /* text-align: start נצמד אוטומטית לימין בשפות RTL ולשמאל בשפות LTR (מתאים לכל 30 השפות!) */
+    text-align: start !important;
+    /* border-inline-start צובע את הפס בצד הנכון אוטומטית (ימין בעברית, שמאל באנגלית!) */
+    border-inline-start: 5px solid var(--excel-blue) !important; 
+}
+
+.pm-row div { 
+    margin-bottom: 5px; 
+    font-size: 14px; 
+    text-align: start !important;
+    width: 100% !important;
+}
+
+/* סרגל החיפוש העליון - מותאם למובייל */
+.search-bar { 
+    background: var(--header-bg); 
+    padding: 15px; 
+    border-radius: 8px; 
+    display: flex; 
+    gap: 10px; 
+    margin-bottom: 20px; 
+    border: 1px solid #fffae0; 
+    box-sizing: border-box !important;
+    width: 100% !important;
+}
+
+@media (max-width: 768px) {
+    body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    /* פירוק גריד כרטיסי המוצרים והכספים לבלוקים אנכיים חלקים */
+    .product-grid,
+    .finance-row { 
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 15px !important;
+        width: 100% !important;
+    }
+
+    /* כרטיסי ניהול המוצר במובייל (הגדרת פריט, חישוב רווח, סטטוס מלאי) */
+    .card {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 15px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    /* כותרות הכרטיסים */
+    .card-title {
+        text-align: start !important;
+        font-size: 16px !important;
+        margin-bottom: 5px !important;
+        width: 100% !important;
+    }
+
+    /* שורות הטופס בתוך הכרטיסים במובייל */
+    .form-field {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: start !important;
+        justify-content: flex-start !important;
+        margin-bottom: 10px !important;
+        gap: 4px !important;
+    }
+
+    /* שילוב חכם לשורות מפוצלות (כמו סוג הכנסה 70% ותאריך 30%) - הופך לרוחב מלא אחד מתחת לשני */
+    div[style*="display: flex; gap: 15px; align-items: flex-end"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        width: 100% !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* כפיית רוחב מלא ויישור חכם ללייבלים של המוצרים */
+    .form-field label {
+        width: 100% !important;
+        font-size: 15px !important;
+        text-align: start !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    /* כפיית רוחב מלא וגובה אחיד על כל התיבות, הסלקטים והדיב של התאריך במובייל */
+    .form-field input,
+    .form-field select,
+    .form-field div[style*="position: relative"] {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        height: 34px !important;
+        font-size: 15px !important;
+        padding: 6px 10px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    /* אבטחת מיקום שדה התאריך השקוף של הלוח שנה בתוך הדיב במובייל */
+    .form-field div[style*="position: relative"] input {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* פירוק שורת כפתורי הכותרת העליונה (דף ראשי, דו"ח רווח והפסד) */
+    .header-row { 
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        text-align: center !important;
+        gap: 15px !important;
+        width: 100% !important;
+    }
+
+    .header-buttons {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    /* התאמת כפתורי הניווט העליונים לרוחב מלא */
+    .header-buttons a,
+    .header-buttons a button {
+        width: 100% !important;
+        height: 42px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* פירוק סרגל החיפוש העליון במובייל */
+    .search-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .search-bar input,
+    .search-bar select,
+    .search-bar button {
+        width: 100% !important;
+        height: 40px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* הסתרת טבלת המחשב הרחבה והצגת כרטיסי המובייל הנקיים */
+    table { display: none !important; }
+    .products-mobile-table { display: block !important; }
+}
+</style>
+
+<div class="header-row">
+    <h1 data-i18n="products_manage">ניהול מוצרים ומלאי</h1>
+    <div class="header-buttons">
+        <a href="{{ url_for('invoice') }}"><button type="button" data-i18n="invoice.main_page" style="background-color: var(--excel-blue); color: white;">דף ראשי</button></a>
+<a href="{{ url_for('profit') }}"><button type="button" data-i18n="invoice.back_to_profit" style="background-color: #fff8b3; color: black; border: 3px solid black; font-weight: bold; cursor: pointer;">דו"ח רווח והפסד</button></a>
+    </div>
+</div>
+
+<!-- טופס ניהול מוצר חכם -->
+<form id="add-product-form" method="POST" action="{{ url_for('manage_products') }}" onsubmit="return handleProductSubmit(this)">
+    <!-- ID נסתר לעדכון - חשוב ללוגיקה של השרת -->
+    <input type="hidden" id="hidden_id" name="id" value="{{ item_i18n.id if item_i18n else '' }}">
+    
+    <div class="product-grid">
+
+        <!-- כרטיס 1: זהות וסיווג -->
+        <div class="card">
+            <div class="card-title" data-i18n="card.identity.title">📦 הגדרת פריט</div>
+
+       <!-- שורה מפוצלת: סוג הכנסה (70%) ותאריך (30%) -->
+         <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 15px;">
+
+            <div class="form-field" style="flex: 7; margin-bottom: 0;">
+          <label data-i18n="product_type">סוג הכנסה</label>
+          <select name="income_category" id="income_category" style="width: 100%;">
+          {% set current_val = item_i18n.income_category if item_i18n else 'service' %}
+           <option value="service" {% if current_val == 'service' %}selected{% endif %} data-i18n="type.service">מכירת שירות</option>
+           <option value="product" {% if current_val == 'product' %}selected{% endif %} data-i18n="type.product">מכירת מוצר פיזי</option>
+          <option value="rent" {% if current_val == 'rent' %}selected{% endif %} data-i18n="type.rent">הכנסה משכירות</option>
+          <option value="interest" {% if current_val == 'interest' %}selected{% endif %} data-i18n="type.interest">הכנסה מריבית / מניות</option>
+                </select>
+            </div>
+
+        <!-- 30% תאריך קבלה -->
+                <div class="form-field" style="flex: 3; margin-bottom: 0;">
+                    <label data-i18n="product.date">תאריך</label>
+                    <div style="position: relative; border: 0.5px solid #444; border-radius: 1px; width: 100%; height: 30px;">
+                        <!-- השדה הוויזואלי (תצוגה לפי שפה) -->
+                        <input type="text" 
+                               id="product_date_display" 
+                               readonly 
+                               style="width: 100%; height: 100%; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; background: #fff; box-sizing: border-box;">
+                        
+                        <!-- השדה האמיתי (שקוף - לשליחה לשרת) -->
+                        <input type="text" 
+                               name="received_date" 
+                               id="product_date_input" 
+                               data-calendar="true"
+                               required 
+                               value="{{ item_i18n.received_date if item_i18n else today }}"
+                               onchange="updateProductDateDisplay()"
+                               style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label data-i18n="product_id">מק"ט / מזהה:</label>
+                <input type="text" id="id" name="sku" value="{{ item_i18n.sku if item_i18n else (product.local_id if product else '') }}" required>
+            </div>
+
+            <div class="form-field">
+                <label data-i18n="product_name">שם הפריט:</label>
+                <input type="text" id="name" name="name" value="" required>
+            </div>
+        </div>
+
+        <!-- כרטיס 2: כספים -->
+        <div class="card" style="border-top-color: var(--excel-green);">
+            <div class="card-title" data-i18n="card.finance.title">💰 מחשבון רווח</div>
+
+            <div class="finance-row">
+                <div class="form-field">
+                    <label data-i18n="cost_price">מחיר קנייה</label>
+                    <input type="number" id="cost_price" name="cost_price" 
+                           value="{{ item_i18n.get('cost_price', '') if item_i18n else '' }}" 
+                           step="0.01" oninput="calculateProfit()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="product_price">מחיר מכירה</label>
+                    <input type="number" id="price" name="price" 
+                           value="{{ item_i18n.price if item_i18n else '' }}" 
+                           step="0.01" required oninput="calculateProfit()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="profit_percent">אחוז רווח</label>
+                    <div id="profit_margin" class="profit-badge">0%</div>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label data-i18n="product_desc">תיאור:</label>
+                <input type="text" id="description" name="description" value="">
+            </div>
+
+            <button type="submit"
+                    class="save-btn"
+                    data-i18n="save_product"
+                    onclick="this.disabled=true; this.innerText=(typeof t === 'function' ? t('saving') : 'שומר ומעובר לתרגום...'); this.style.opacity='0.6'; this.style.cursor='not-allowed'; this.form.submit();"
+                    style="width:100%; height:40px; background: var(--excel-blue); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:10px;">
+                שמור מוצר ועדכן תרגום
+            </button>
+        </div>
+
+        <!-- כרטיס 3: מלאי -->
+        <div class="card" style="border-top-color: #ffc107;">
+            <div class="card-title" data-i18n="card.stock.title">📊 מצב מלאי (ספירה ידנית/אוטומטית)</div>
+
+            <div class="finance-row">
+                {% set s_in = item_i18n.get('stock_in', 0) if item_i18n else 0 %}
+                {% set s_out = item_i18n.get('stock_out', 0) if item_i18n else 0 %}
+                
+                <div class="form-field">
+                    <label data-i18n="stock_in">מלאי פתיחה / נכנס</label>
+                <input type="number" id="stock_in" name="stock_in"
+                     value="{{ s_in if s_in else '' }}"
+                  step="1" required oninput="updateStockBalance()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="stock_out">יצא (מכירות)</label>
+                    <input type="number" name="stock_out" id="stock_out" value="{{ s_out }}" step="1" oninput="updateStockBalance()">
+                </div>
+
+                <div class="form-field">
+                    <label data-i18n="stock_balance">יתרה נוכחית</label>
+                    <!-- מציג את היתרה המדויקת והמצטברת ללא מינוסים שגויים -->
+                    <input type="number" name="stock_balance" id="stock_balance" value="{{ item_i18n.quantity if item_i18n else (s_in - s_out) }}" readonly
+                           style="font-weight:bold; color:var(--excel-blue); background:#f1f3f5;">
+                </div>
+            </div>
+
+            <!--  שדה ספק — -->
+            <div class="form-field" style="margin-top:15px;">
+                <label data-i18n="supplier.field_label">ספק:</label>
+                <select name="supplier_id" id="supplier_id">
+                    <option value="" data-i18n="supplier.search_name">בחר ספק...</option>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}"
+                            {% if item_i18n and item_i18n.supplier_id|string == s.id|string %}selected{% endif %}>
+                            {{ s.supplier_name }} 
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-top:15px; text-align:center;">
+                <span id="stockStatusBadge"
+                      class="stock-status stock-in"
+                      data-i18n="stock_ok"
+                      style="display:block; padding:5px; border-radius:5px;">
+                    מלאי מעודכן במערכת
+                </span>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+<!-- סרגל חיפוש -->
+<div class="search-bar">
+    <form method="GET" action="{{ url_for('manage_products') }}" style="display:flex; gap:10px; width:100%;">
+        <input type="text"
+               name="q"
+               id="searchInput"
+               class="search-box"
+               style="flex-grow:1; height:var(--input-h); border-radius:5px; border:1px solid #ccc; padding:0 10px;"
+               data-i18n-placeholder="search.placeholder"
+               value="{{ search }}">
+        <button type="submit"
+                data-i18n="search.button"
+                style="background:var(--excel-blue); color:white; border:none; padding:0 20px; border-radius:5px; cursor:pointer;">
+            חפש
+        </button>
+        <button type="button"
+                onclick="window.location='{{ url_for('manage_products') }}'"
+                data-i18n="search.clear"
+                style="background:#6c757d; color:white; border:none; padding:0 20px; border-radius:5px; cursor:pointer;">
+            נקה
+        </button>
+    </form>
+</div>
+
+<!-- רשימת מוצרים קיימים -->
+<form id="delete-form" method="POST" action="{{ url_for('delete_selected_products') }}" onsubmit="return confirmDelete();">
+    <button type="submit"
+            data-i18n="products.delete_selected"
+            style="background: var(--excel-red); color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:15px;">
+        🗑️ מחק מוצרים נבחרים
+    </button>
+
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th style="width:50px;"><input type="checkbox" onclick="toggleAll(this)"></th>
+                <th data-i18n="table.product_id">מק"ט</th>
+                <th data-i18n="product.received_date">תאריך קבלה</th>
+                <th data-i18n="table.product_name">שם המוצר</th>
+                <th data-i18n="table.product_price">מחיר</th>
+                <th data-i18n="table.product_cost_price">מחיר קנייה</th>
+                <th data-i18n="table.stock_in">כמות נכנסת</th>
+                <th data-i18n="table.supplier">ספק</th>
+                <th data-i18n="table.product_desc">תיאור</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for product in products %}
+                {% set product_index = loop.index0 %}
+                {% set p_i18n = item_i18n_list[product.id] if item_i18n_list and product.id in item_i18n_list else None %}
+                {% set product_batches = products_json[product_index].batches if products_json and products_json[product_index] else [] %}
+                {% set current_sku = p_i18n.sku if p_i18n and p_i18n.sku else (product.sku if product.sku else product.local_id) %}
+
+                {% if product_batches|length > 0 %}
+                    {% for batch in product_batches %}
+                        {% set current_batch_date = batch.received_date %}
+                        <tr onclick="fillForm({{ products_json[product_index] | tojson | safe }})" style="cursor: pointer;">
+                            <td onclick="event.stopPropagation();">
+                                <input type="checkbox" name="delete_products" value="{{ product.id }}_{{ current_batch_date }}_{{ batch.stock_in }}">
+                            </td>
+                            <td class="px-4 py-3 font-bold">{{ current_sku }}</td>
+                            <td>{{ current_batch_date | lang_date if current_batch_date else '---' }}</td>
+                            <td style="font-weight:bold;">{{ p_i18n.name if p_i18n else product.name }}</td>
+                            <td style="color:var(--excel-green); font-weight:bold;">{{ product.price | currency }}</td>
+                            <td style="color:#666;">{{ batch.cost_price | currency }}</td>
+                            <td style="font-weight:bold; color: var(--excel-blue);">{{ batch.stock_in }}</td>
+                            <td style="font-style: italic; color: #555; font-weight: bold;">{{ batch.supplier_name }}</td>
+                            <td>{{ p_i18n.description if p_i18n else product.description }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr onclick="fillForm({{ products_json[loop.index0] | tojson | safe }})" style="cursor: pointer;">
+                        <td onclick="event.stopPropagation();">
+                            <input type="checkbox" name="delete_products" value="{{ product.id }}">
+                        </td>
+                        <td class="px-4 py-3 font-bold">{{ current_sku }}</td>
+                        <td>{{ product.received_date | lang_date if product.received_date else '---' }}</td>
+                        <td style="font-weight:bold;">{{ p_i18n.name if p_i18n else product.name }}</td>
+                        <td style="color:var(--excel-green); font-weight:bold;">{{ product.price | currency }}</td>
+                        <td>{{ product.cost_price | currency }}</td>
+                        <td>{{ p_i18n.stock_in if p_i18n else product.quantity }}</td>
+                        <td style="color:#555; font-style: italic; font-weight: bold;">{{ p_i18n.supplier_name if p_i18n and p_i18n.supplier_name else 'מלאי פתיחה / כללי' }}</td>
+                        <td>{{ p_i18n.description if p_i18n else product.description }}</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!--  סנכרון מלא למסך המובייל עם הגנות תרגום אבסולוטיות -->
+<div class="products-mobile-table">
+    {% for product in products %}
+        {% set product_index = loop.index0 %}
+        {% set p_i18n = item_i18n_list[product.id] if item_i18n_list and product.id in item_i18n_list else None %}
+        {% set product_batches = products_json[product_index].batches if products_json and products_json[product_index] else [] %}
+        {% set current_sku = p_i18n.sku if p_i18n and p_i18n.sku else (product.sku if product.sku else product.local_id) %}
+
+        {% if product_batches|length > 0 %}
+            {% for batch in product_batches %}
+                {% set current_batch_date_mob = batch.received_date %}
+                <div class="pm-row" onclick="fillForm({{ products_json[product_index] | tojson | safe }})" style="border-bottom: 1px solid #eee; padding: 10px 0; cursor: pointer;">
+                    <span onclick="event.stopPropagation();">
+                        <input type="checkbox" name="delete_products" value="{{ product.id }}_{{ current_batch_date_mob }}_{{ batch.stock_in }}">
+                    </span>
+                    <strong>#{{ current_sku }}</strong> | {{ p_i18n.name if p_i18n else product.name }}<br>
+                    <small style="color: #666;">
+                        <span data-i18n="product.received_date">תאריך קבלה</span>: {{ current_batch_date_mob | lang_date }} | 
+                        <span data-i18n="table.supplier">ספק</span>: <span style="font-weight: bold;">{{ batch.supplier_name }}</span>
+                    </small><br>
+                    <span style="color:var(--excel-green); font-weight:bold;">{{ product.price | currency }}</span> |
+                    <span style="color:#666;"><span data-i18n="table.product_cost_price">מחיר קנייה</span>: {{ batch.cost_price | currency }}</span> |
+                    <span style="font-weight:bold; color: var(--excel-blue);"><span data-i18n="table.stock_in">כמות נכנסת</span>: {{ batch.stock_in }}</span><br>
+                    <small style="color:#444;">{{ p_i18n.description if p_i18n else product.description }}</small>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="pm-row" onclick="fillForm({{ products_json[loop.index0] | tojson | safe }})" style="border-bottom: 1px solid #eee; padding: 10px 0; cursor: pointer;">
+                <span onclick="event.stopPropagation();">
+                    <input type="checkbox" name="delete_products" value="{{ product.id }}">
+                </span>
+                <strong>#{{ current_sku }}</strong> | {{ p_i18n.name if p_i18n else product.name }}<br>
+                <small style="color: #666;"><span data-i18n="product.received_date">תאריך קבלה</span>: {{ product.received_date | lang_date if product.received_date else '---' }}</small><br>
+                <span style="color:var(--excel-green); font-weight:bold;">{{ product.price | currency }}</span> | {{ p_i18n.description if p_i18n else product.description }}
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+</form>
+
+<script>
+// ====== 1. CHRONOLOGICAL UTILITIES (DATE FORMATTING API) ======
+function updateProductDateDisplay() {
+    const dateInput = document.getElementById('product_date_input');
+    const displayInput = document.getElementById('product_date_display');
+    
+    if (!dateInput || !displayInput) return;
+    const currentLang = localStorage.getItem("lang") || "he";
+
+    try {
+        const val = dateInput.value;
+        if (!val || val === "---") {
+            displayInput.value = "---";
+            return;
+        }
+
+        const parts = val.trim().split('-');
+        if (parts.length === 3) {
+            let year, month, day;
+            
+            if (parts[0].length === 4) {
+                year = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10) - 1;
+                day = parseInt(parts[2], 10);
+            } else if (currentLang === "en") {
+                month = parseInt(parts[0], 10) - 1;
+                day = parseInt(parts[1], 10);
+                year = parseInt(parts[2], 10);
+            } else {
+                day = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10) - 1;
+                year = parseInt(parts[2], 10);
+            }
+
+            if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                const dObj = new Date(year, month, day);
+                const formatter = new Intl.DateTimeFormat(currentLang, {
+                    year: 'numeric', month: '2-digit', day: '2-digit'
+                });
+                displayInput.value = formatter.format(dObj).replace(/[\/.]/g, '-');
+                return;
+            }
+        }
+        displayInput.value = val;
+    } catch (e) {
+        displayInput.value = dateInput.value;
+    }
+}
+
+// ====== 2. CENTRAL CORE INTERFACE CONTROLLER LAYER ======
+document.addEventListener("DOMContentLoaded", () => {
+    const products = {{ products_json|tojson }};
+    const search = "{{ search }}";
+    const userLang = (localStorage.getItem("lang") || "he").toLowerCase().trim();
+    const backendLang = "{{ current_lang }}".toLowerCase().trim();
+
+    const hiddenIdInput = document.getElementById('hidden_id');
+    const visibleIdInput = document.getElementById('id');
+    const nameEl = document.getElementById("name");
+    const priceEl = document.getElementById("price");
+    const costPriceEl = document.getElementById("cost_price");
+    const descEl = document.getElementById("description");
+    const stockInEl = document.getElementById("stock_in");
+    const stockOutEl = document.getElementById("stock_out");
+    const balanceEl = document.getElementById("stock_balance");
+    const badgeStatus = document.getElementById("stockStatusBadge");
+    const profitBadge = document.getElementById("profit_margin");
+    const incomeCatEl = document.getElementById("income_category");
+    const dateInput = document.getElementById("product_date_input");
+    const supplierSelect = document.getElementById("supplier_id");
+
+    window.fillForm = function(p) {
+        if (!p) return;
+
+        if (visibleIdInput) visibleIdInput.value = p.sku ? p.sku : (p.local_id ? p.local_id : "");
+        if (hiddenIdInput) hiddenIdInput.value = p.id;
+
+        if (nameEl) {
+            if (p.name && typeof p.name === 'object') {
+                nameEl.value = p.name[userLang] || p.name[backendLang] || p.name["en"] || p.name["he"] || "";
+            } else {
+                nameEl.value = p.name || "";
+            }
+        }
+
+        if (descEl) {
+            if (p.description && typeof p.description === 'object') {
+                descEl.value = p.description[userLang] || p.description[backendLang] || p.description["en"] || p.description["he"] || "";
+            } else {
+                descEl.value = p.description || "";
+            }
+        }
+
+        if (priceEl) priceEl.value = p.price || 0;
+        
+        const batches = p.batches && p.batches.length > 0 ? p.batches : [];
+        if (batches.length > 0) {
+            const latestBatch = batches[batches.length - 1];
+            if (costPriceEl) costPriceEl.value = parseFloat(latestBatch.cost_price || 0).toFixed(2);
+            if (supplierSelect) supplierSelect.value = latestBatch.supplier_id || "";
+            if (dateInput) dateInput.value = latestBatch.received_date || "";
+        } else {
+            if (costPriceEl) costPriceEl.value = p.cost_price || 0;
+            if (supplierSelect) supplierSelect.value = p.supplier_id || "";
+            if (dateInput) dateInput.value = p.received_date || "";
+        }
+
+        if (stockInEl) stockInEl.value = p.stock_in !== undefined ? p.stock_in : "0";
+        if (stockOutEl) stockOutEl.value = p.stock_out !== undefined ? p.stock_out : "0";
+        if (incomeCatEl) incomeCatEl.value = p.income_category || 'product';
+        
+        if (dateInput && typeof updateProductDateDisplay === "function") updateProductDateDisplay();
+        calculateProfit();
+        updateStockBalance();
+    };
+
+    window.calculateProfit = function() {
+        if (!costPriceEl || !priceEl || !profitBadge) return;
+        const cost = parseFloat(costPriceEl.value) || 0;
+        const sell = parseFloat(priceEl.value) || 0;
+        if (sell > 0) {
+            const margin = ((sell - cost) / sell) * 100;
+            profitBadge.textContent = Math.round(margin) + "%";
+            profitBadge.style.color = margin > 0 ? "#155724" : "#721c24";
+            profitBadge.style.background = margin > 0 ? "#d4edda" : "#f8d7da";
+        } else {
+            profitBadge.textContent = "0%";
+            profitBadge.style.background = "#f1f3f5";
+            profitBadge.style.color = "#333";
+        }
+    };
+
+    window.updateStockBalance = function() {
+        const activeProductId = hiddenIdInput ? hiddenIdInput.value : "";
+        let currentProductObj = null;
+        if (activeProductId && products) {
+            currentProductObj = products.find(prod => String(prod.id) === String(activeProductId));
+        }
+
+        const sIn = currentProductObj ? parseFloat(currentProductObj.stock_in || 0) : (parseFloat(stockInEl.value) || 0);
+        const sOut = currentProductObj ? parseFloat(currentProductObj.stock_out || 0) : (parseFloat(stockOutEl.value) || 0);
+        const balance = sIn - sOut;
+        
+        if (balanceEl) balanceEl.value = balance;
+
+        if (badgeStatus) {
+            badgeStatus.textContent = balance <= 0 ? "מלאי לא קיים במחסן" : "מלאי קיים במחסן (" + balance + ")";
+            badgeStatus.style.background = balance <= 0 ? "#f8d7da" : "#d4edda";
+            badgeStatus.style.color = balance <= 0 ? "#721c24" : "#155724";
+        }
+    };
+
+    document.body.addEventListener('change', function(e) {
+        if (e.target.id === 'product_date_input' && typeof updateProductDateDisplay === "function") updateProductDateDisplay();
+    });
+    document.body.addEventListener('input', function(e) {
+        if (e.target.id === 'product_date_input' && typeof updateProductDateDisplay === "function") updateProductDateDisplay();
+    });
+
+    if (!search) {
+        if (hiddenIdInput) hiddenIdInput.value = "";
+        if (visibleIdInput) visibleIdInput.value = "";
+        if (nameEl) nameEl.value = "";
+        if (priceEl) priceEl.value = "";
+        if (costPriceEl) costPriceEl.value = "";
+        if (descEl) descEl.value = "";
+        if (stockInEl) stockInEl.value = "";
+        if (stockOutEl) stockOutEl.value = "";
+        if (balanceEl) balanceEl.value = "0";
+        if (supplierSelect) supplierSelect.value = "";
+        
+        if (dateInput) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+            if (typeof window.updateProductDateDisplay === "function") window.updateProductDateDisplay();
+        }
+    } else if (products && products.length === 1) {
+        fillForm(products[0]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (products && products.length > 1) {
+        fillForm(products[0]);
+    }
+
+    calculateProfit();
+    updateStockBalance();
+    
+    const displayInput = document.getElementById('product_date_display');
+    if (displayInput) displayInput.style.pointerEvents = 'none';
+});
+
+// ====== 3. ANTI-CONCURRENCY SUBMIT LOCK (FORM PROTECTION) ======
+function handleProductSubmit(formElement) {
+    if (!formElement) return false;
+    const submitBtn = formElement.querySelector("button[type='submit']");
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = "0.6";
+        submitBtn.style.cursor = "not-allowed";
+    }
+    return true;
+}
+
+// ====== 4. INTERNATIONALIZATION GLOBAL LISTENERS ======
+if (typeof window.loadLanguage === 'function') {
+    const originalLoadLanguageProduct = window.loadLanguage;
+    window.loadLanguage = function(lang) {
+        if (typeof originalLoadLanguageProduct === 'function') originalLoadLanguageProduct(lang);
+        if (typeof updateProductDateDisplay === 'function') updateProductDateDisplay();
+    };
+}
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'lang') {
+        if (typeof updateProductDateDisplay === 'function') updateProductDateDisplay();
+    }
+});
+
+// ====== 5. SELECTION GRID MASS ACTIONS ======
+function toggleAll(source) {
+    document.getElementsByName('delete_products').forEach(cb => cb.checked = source.checked);
+}
+
+function confirmDelete() {
+    return confirm("בטוח שרוצה למחוק מוצרים נבחרים?");
+}
+</script>
+
+
+<!-- Keyboard Up Down ניווט חצים אוניברסלי וחכם לכל דף וטופס -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // מאזין גלובלי ללחיצות מקשים על כל הדף
+    document.addEventListener('keydown', function (event) {
+        const key = event.key;
+        const current = event.target;
+
+        // מניעת התנגשות: אם הפוקוס הוא בתוך בחירת חודש/שנה של הלוח שנה - אל תתערב בניווט!
+        if (current.id === 'calMonthSelect' || current.id === 'calYearSelect') return;
+
+        // בודק אם המשתמש נמצא בתוך שדה קלט כלשהו (input, textarea, select)
+        if (!current.matches('input:not([type="hidden"]), textarea, select')) return;
+
+        // מוצא את הטופס (form) הקרוב ביותר שבו השדה נמצא כרגע, או את ה-wrapper שלו
+        const container = current.closest('form') || current.closest('.form-wrapper') || current.closest('.form-container') || document.body;
+        
+        // אוסף את כל השדות הרלוונטיים באותו אזור בלבד
+        const allFields = Array.from(container.querySelectorAll('input:not([type="hidden"]), textarea, select'));
+        
+        // מסנן החוצה את התיבות של הלוח שנה מהרשימה הכללית של השדות
+        const filteredFields = allFields.filter(field => field.id !== 'calMonthSelect' && field.id !== 'calYearSelect');
+
+        const index = filteredFields.indexOf(current);
+        if (index === -1) return;
+
+        // ===== טיפול מיוחד בקומבו-בוקס (SELECT) =====
+        if (current.tagName === 'SELECT') {
+            if (current.size > 1) {
+                if (key === 'Enter' || key === 'Escape') {
+                    current.size = 1;
+                    current.blur();
+                    current.focus();
+                    event.preventDefault();
+                    
+                    if (key === 'Enter' && index < filteredFields.length - 1) {
+                        filteredFields[index + 1].focus();
+                    }
+                }
+                return;
+            }
+
+            if ((key === 'Enter' || key === ' ') && current.size === 1) {
+                current.size = current.options.length;
+                event.preventDefault();
+                return;
+            }
+        }
+
+        // ===== ניווט חצים רגיל ורציף בין כל השדות =====
+        if (key === 'ArrowDown' && index < filteredFields.length - 1) {
+            filteredFields[index + 1].focus();
+            event.preventDefault();
+        }
+        if (key === 'ArrowUp' && index > 0) {
+            filteredFields[index - 1].focus();
+            event.preventDefault();
+        }
+    });
+
+    // הדגשת צבע ויישור פוקוס דינמי לשדות (עובד על כל שדה בדף בכל זמן)
+    document.body.addEventListener('focusin', function (event) {
+        const field = event.target;
+        if (field.matches('input:not([type="hidden"]), textarea, select')) {
+            if (field.id !== 'calMonthSelect' && field.id !== 'calYearSelect') {
+                field.style.backgroundColor = '#e6f7ff'; // צבע הדגשה בהיר
+                field.style.outline = '1px solid #007bff';
+            }
+        }
+    });
+
+    document.body.addEventListener('focusout', function (event) {
+        const field = event.target;
+        if (field.matches('input:not([type="hidden"]), textarea, select')) {
+            field.style.backgroundColor = '';
+            field.style.outline = '';
+            if (field.tagName === 'SELECT') {
+                field.size = 1; // סגירת קומבו בבטחה ביציאה
+            }
+        }
+    });
+
+    // סגירת קומבו-בוקס אוטומטית מיד לאחר שינוי ערך עם העכבר
+    document.body.addEventListener('change', function (event) {
+        const field = event.target;
+        if (field.tagName === 'SELECT' && field.id !== 'calMonthSelect' && field.id !== 'calYearSelect') {
+            field.size = 1;
+            field.blur();
+            field.focus();
+        }
+    });
+});
+</script>
+
+
+<!-- לוח שנה צף קומפקטי בצבע שמנת סקריפט  -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. קריאה ישירה של השפה הפעילה מתוך ה-Cookie של המערכת שלך
+    const currentLang = document.cookie.split('; ').find(row => row.startsWith('lang='))?.split('=')[1] || localStorage.getItem("lang") || "he";
+
+    // 2. חילוץ שמות החודשים המתורגמים הרשמיים מהדפדפן לפי השפה
+    const translatedMonths = Array.from({ length: 12 }, (_, i) => {
+        return new Intl.DateTimeFormat(currentLang, { month: 'long' }).format(new Date(2026, i, 1));
+    });
+
+    // 3. חילוץ אוטומטי של ימי השבוע המקוצרים מהדפדפן לפי השפה הפעילה (א'-ש' בעברית, Lu-Do בספרדית וכו')
+    const daysWeek = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(2026, 5, 21 + i); // 21 ביוני 2026 הוא יום ראשון
+        return new Intl.DateTimeFormat(currentLang, { weekday: currentLang === 'he' ? 'narrow' : 'short' }).format(date);
+    });
+
+    // 4.  פירוק ידני קשיח ובטוח לפי חוקי ה-main.py שלך - מונע לחלוטין את הקריסה בימים 13-31!
+    function parseDateByLang(dateStr, lang) {
+        if (!dateStr) return null;
+        
+        const parts = dateStr.trim().split('-');
+        if (parts.length !== 3) return null;
+
+        let year, month, day;
+
+        // בדיקה חכמה: אם החלק הראשון הוא באורך 4 ספרות (פורמט בינלאומי גולמי של השרת YYYY-MM-DD)
+        if (parts[0].length === 4) {
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+        } 
+        // פורמט ארה"ב (אנגלית): MM-DD-YYYY
+        else if (lang === "en") {
+            month = parseInt(parts[0], 10) - 1;
+            day = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        } 
+        // פורמט ישראל ואירופה (עברית, ספרדית וכו'): DD-MM-YYYY
+        else {
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            year = parseInt(parts[2], 10);
+        }
+
+        // בדיקת בטיחות קשיחה כדי למנוע יצירת ערכים שבורים
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+            return null;
+        }
+        
+        // מחזיר אובייקט נתונים נקי במקום אובייקט Date מובנה שמתבלבל בין ימים לחודשים
+        return { year, month, day };
+    }
+
+    function formatDateByLang(year, monthIndex, day, lang) {
+        const d = String(day).padStart(2, '0');
+        const m = String(monthIndex + 1).padStart(2, '0');
+        const y = year;
+
+        if (lang === "en") return `${m}-${d}-${y}`; // MM-DD-YYYY
+        if (["zh", "ja", "ko"].includes(lang)) return `${y}-${m}-${d}`; // YYYY-MM-DD
+        return `${d}-${m}-${y}`; // DD-MM-YYYY
+    }
+
+    // 5. יצירה והזרקה אוטומטית של אלמנט הלוח שנה לדף
+    const calendar = document.createElement('div');
+    calendar.id = 'customCalendarPicker';
+    calendar.className = 'custom-calendar-picker';
+    calendar.innerHTML = `
+        <div class="calendar-nav">
+            <button id="calPrevBtn" type="button">&lt;</button>
+            <div style="display: flex; gap: 4px;">
+                <select id="calMonthSelect"></select>
+                <select id="calYearSelect"></select>
+            </div>
+            <button id="calNextBtn" type="button">&gt;</button>
+        </div>
+        <div id="calendarGrid" class="calendar-days-grid"></div>
+    `;
+    document.body.appendChild(calendar);
+
+    const monthSelect = document.getElementById('calMonthSelect');
+    const yearSelect = document.getElementById('calYearSelect');
+    const grid = document.getElementById('calendarGrid');
+    let activeInput = null;
+    
+    let currentDate = new Date();
+    let displayedMonth = currentDate.getMonth();
+    let displayedYear = currentDate.getFullYear();
+
+    function initSelectOptions() {
+        monthSelect.innerHTML = '';
+        translatedMonths.forEach((m, idx) => {
+            monthSelect.innerHTML += `<option value="${idx}">${m}</option>`;
+        });
+
+        yearSelect.innerHTML = '';
+        const currentYearNum = new Date().getFullYear();
+        for (let y = currentYearNum + 10; y >= currentYearNum - 100; y--) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+    }
+
+    function renderCalendar() {
+        grid.innerHTML = '';
+
+        monthSelect.value = displayedMonth;
+        yearSelect.value = displayedYear;
+
+        daysWeek.forEach(d => {
+            grid.innerHTML += `<div class="calendar-day-header">${d}</div>`;
+        });
+
+        const firstDayIndex = new Date(displayedYear, displayedMonth, 1).getDay();
+        const totalDays = new Date(displayedYear, displayedMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            grid.innerHTML += `<div class="calendar-day-cell empty"></div>`;
+        }
+
+        let selectedDay = null;
+        if (activeInput && activeInput.value && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed && parsed.year === displayedYear && parsed.month === displayedMonth) {
+                selectedDay = parsed.day;
+            }
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+            const isSelected = (day === selectedDay) ? 'selected' : '';
+            grid.innerHTML += `<div class="calendar-day-cell ${isSelected}" data-day="${day}">${day}</div>`;
+        }
+
+        grid.querySelectorAll('.calendar-day-cell:not(.empty)').forEach(cell => {
+            cell.onclick = function(e) {
+                e.stopPropagation();
+                if (!activeInput) return;
+
+                const day = parseInt(this.getAttribute('data-day'), 10);
+                activeInput.value = formatDateByLang(displayedYear, displayedMonth, day, currentLang);
+                
+                // שליחת אירועי עדכון מלאים עם bubbles כדי שכל הדף ומנוע הפייתון יזהו את השינוי ב-POST
+                activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                calendar.style.display = 'none';
+            };
+        });
+    }
+
+    monthSelect.addEventListener('change', (e) => {
+        displayedMonth = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    yearSelect.addEventListener('change', (e) => {
+        displayedYear = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    document.getElementById('calPrevBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth--;
+        if (displayedMonth < 0) {
+            displayedMonth = 11;
+            displayedYear--;
+        }
+        renderCalendar();
+    };
+
+    document.getElementById('calNextBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth++;
+        if (displayedMonth > 11) {
+            displayedMonth = 0;
+            displayedYear++;
+        }
+        renderCalendar();
+    };
+
+    // פונקציית פתיחה מאוחדת ומאובטחת שמחשבת מיקום מדויק של הלוח
+    function openCalendar(targetInput) {
+        activeInput = targetInput;
+        initSelectOptions();
+        
+        let today = new Date();
+        displayedMonth = today.getMonth();
+        displayedYear = today.getFullYear();
+        
+        if (activeInput.value && activeInput.value.trim() !== "" && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed) {
+                displayedMonth = parsed.month;
+                displayedYear = parsed.year;
+            }
+        }
+
+        renderCalendar();
+
+        const rect = activeInput.getBoundingClientRect();
+        calendar.style.top = (rect.bottom + window.scrollY) + 'px';
+        calendar.style.left = (rect.left + window.scrollX) + 'px';
+        calendar.style.display = 'block';
+    }
+
+    // הגנה כפולה לפתיחה: מגיב חלק גם בפוקוס (טפסים) וגם בקליק עכבר ישיר (טבלאות וגרידים)
+    document.body.addEventListener('focusin', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            openCalendar(e.target);
+        }
+    });
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openCalendar(e.target);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!calendar.contains(e.target) && activeInput && e.target !== activeInput) {
+            calendar.style.display = 'none';
+        }
+    });
+    
+    calendar.onclick = (e) => e.stopPropagation();
+});
+</script>
+
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    if (typeof loadLanguage === "function") {
+        loadLanguage(lang);
+    }
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

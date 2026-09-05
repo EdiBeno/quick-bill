@@ -1,0 +1,1370 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="payment.title">דף תשלום מרכזי</title>
+<style>
+    :root {
+        --primary: #007bff;
+        --secondary: #6c757d;
+        --bg: #f5f5f5;
+        --card-bg: #ffffff;
+        --text: #222;
+        --border: #ddd;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: 20px auto;
+        background: var(--card-bg);
+        padding: 20px 30px;
+        border-radius: 8px;
+        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+
+    h1, h2, h3 {
+        margin-top: 0;
+    }
+
+    /* --- שליטה בגובה רכיבי החיפוש --- */
+    .btn-home {
+        height: 25px !important; /* <--- גובה סרגל עליון */
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0 12px !important; font-size: 13px !important;
+        border-radius: 4px; box-sizing: border-box; vertical-align: middle;
+        background: #0056b3; color: white; text-decoration: none; font-weight: bold;
+    }
+    
+    section {
+        border-bottom: 1px solid var(--border);
+        padding: 15px 0;
+        margin-bottom: 10px;
+    }
+
+    section:last-of-type {
+        border-bottom: none;
+    }
+
+    label {
+        display: block;
+        margin: 6px 0 2px;
+        font-weight: bold;
+    }
+
+    input, select, button {
+        padding: 6px 8px;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    input, select {
+        width: 260px;
+        max-width: 100%;
+        border: 1px solid var(--border);
+    }
+
+    .supplier-select {
+        width: 282px;
+        height: 32px;
+        padding: 5px 10px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        box-sizing: border-box;
+    }
+    
+    button {
+        cursor: pointer;
+        margin-inline-start: 5px;
+        margin-top: 4px;
+    }
+
+    .btn-primary {
+        background-color: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+    }
+
+    .btn-secondary {
+        background-color: var(--secondary);
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 25px;
+    }
+
+    .col {
+        flex: 1 1 320px;
+        min-width: 280px;
+    }
+
+    .small {
+        font-size: 12px;
+    }
+
+    /* --- עיצוב טבלת סיכום תשלומים למחשב (Desktop) - מונע חריגה מהמסגרת --- */
+    .table-responsive {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 15px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--card-bg);
+    }
+
+    table {
+        width: 100%;
+        max-width: 100%;
+        border-collapse: collapse;
+        text-align: right; /* יישור לימין של נתוני הטבלה בעברית */
+        font-size: 14px;
+        table-layout: fixed; /* כופה על העמודות להינעל בתוך ה-100% של ה-section */
+    }
+
+    th, td {
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border);
+        text-overflow: ellipsis; /* מוסיף שלוש נקודות (...) אם הטקסט ארוך מדי במקום לשבור את המבנה */
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        color: #444;
+    }
+
+    /* חלוקת רוחב באחוזים לעמודות במחשב למניעת כיווץ אסימטרי */
+    table th:nth-child(1) { width: 15%; } /* תאריך */
+    table th:nth-child(2) { width: 15%; } /* סוג תשלום */
+    table th:nth-child(3) { width: 30%; } /* יעד - מקבל שטח רחב יותר לשם לקוח/ספק */
+    table th:nth-child(4) { width: 15%; } /* סכום */
+    table th:nth-child(5) { width: 10%; } /* סטטוס */
+    table th:nth-child(6) { width: 15%; } /* מספר אישור */
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* צבעי סטטוס מעוצבים */
+    .status-paid { color: #28a745; font-weight: bold; }
+    .status-pending { color: #ffc107; font-weight: bold; }
+
+
+/* ===== עיצוב לוח שנה צף קומפקטי בצבע שמנת שמתאים לסקריפט לוח שנה צף===== */
+.custom-calendar-picker {
+    position: absolute; 
+    z-index: 9999; 
+    background-color: #fdfbf7 !important; /* צבע שמנת עדין */
+    border: 1px solid #c2bfae; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    padding: 8px; 
+    width: 210px; /* קטן וקומפקטי יותר */
+    font-family: system-ui, -apple-system, sans-serif; 
+    display: none; 
+    text-align: center; 
+    direction: ltr !important;
+    border-radius: 6px;
+}
+
+/* ניווט עליון - כופה שורה אחת ישרה ללא שבירות לעולם */
+.calendar-nav { 
+    display: flex !important; 
+    justify-content: space-between !important; 
+    align-items: center !important; 
+    margin-bottom: 6px !important; 
+    gap: 4px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important; /* 🔥 חוק ברזל: מונע מהחודש והשנה להישבר לשתי שורות במחשב ובמובייל 🔥 */
+}
+
+/* המעטפת הפנימית שמחזיקה את שני הקומבו-בוקס יחד */
+.calendar-nav > div {
+    display: flex !important;
+    flex-direction: row !important; /* כופה סידור אופקי בלבד */
+    align-items: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+}
+
+/* עיצוב רשימות הבחירה של החודש והשנה */
+.calendar-nav select {
+    background: #f4eee1;
+    border: 1px solid #d3cbba;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333 !important;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;    
+    height: 22px !important;          
+    padding: 0 4px !important;        
+    box-sizing: border-box; 
+    display: inline-block !important;
+    width: auto !important; /* מתרחב אוטומטית לפי אורך המילה של החודש כדי שלא ייחתך */
+}
+
+.calendar-nav select:focus {
+    outline: none;
+    border-color: #8c826b;
+}
+
+/* כפתורי החצים של הבא והקודם */
+.calendar-nav button { 
+    background: #e8e2d2; 
+    border: 1px solid #c8bfa9; 
+    font-size: 13px; 
+    cursor: pointer; 
+    padding: 2px 6px !important; 
+    font-weight: bold; 
+    color: #333 !important;
+    border-radius: 4px;
+    height: 22px !important;
+    width: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.calendar-nav button:hover {
+    background: #dbd4c0;
+}
+
+/* גריד הימים */
+.calendar-days-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 3px; 
+    font-size: 11px; 
+    color: #333 !important;
+}
+
+.calendar-day-header { 
+    font-weight: bold; 
+    color: #7c7565 !important; 
+    padding-bottom: 3px; 
+}
+
+.calendar-day-cell { 
+    padding: 4px 0; 
+    cursor: pointer; 
+    border-radius: 4px; 
+    color: #333 !important; 
+    font-weight: 500;
+    background-color: transparent;
+}
+
+.calendar-day-cell:hover:not(.empty) { 
+    background: #ebdcb9 !important; 
+}
+
+.calendar-day-cell.selected { 
+    background: #5a5241 !important; 
+    color: #ffffff !important; 
+    font-weight: bold; 
+}
+
+.calendar-day-cell.empty { 
+    cursor: default; 
+    background: none !important;
+}
+
+
+    /* ===== עיצוב רספונסיבי מאוחד ובינלאומי למובייל (768px ומטה) - דף תשלום מרכזי ===== */
+    @media screen and (max-width: 768px) {
+        body {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 10px !important;
+            box-sizing: border-box !important;
+            overflow-x: hidden !important;
+        }
+
+        .container {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 15px 10px !important;
+            margin: 10px 0 !important;
+            box-sizing: border-box !important;
+            border-radius: 6px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 15px !important;
+        }
+
+        h1 {
+            width: 100% !important;
+            text-align: center !important;
+            font-size: 24px !important;
+            margin: 0 0 15px 0 !important;
+            padding: 12px !important;
+            box-sizing: border-box !important;
+        }
+
+        h2 {
+            font-size: 20px !important;
+        }
+
+        section {
+            width: 100% !important;
+            padding: 12px 0 !important;
+            margin-bottom: 5px !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+
+        /* כפיית רוחב מלא ויישור טקסט דינמי לשדות וללייבלים במובייל (RTL/LTR חלקה) */
+        label {
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            font-size: 15px !important;
+            /* text-align: start נצמד אוטומטית לימין בשפות RTL ולשמאל בשפות LTR (מתאים לכל 30 השפות!) */
+            text-align: start !important;
+            margin: 0 0 2px 0 !important;
+            display: block !important;
+            font-weight: bold !important;
+        }
+
+        /* כפיית רוחב מלא וגובה נוח על כל תיבות הקלט והסלקט בטופס (מונע זום באייפון) */
+        input, select, .supplier-select {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            height: 44px !important; /* הגדלת שטח ההקלדה בטלפון באופן אחיד */
+            font-size: 16px !important; /* מונע זום אוטומטי מעצבן בדפדפני מובייל */
+            padding: 8px 12px !important;
+            box-sizing: border-box !important;
+            margin: 0 0 10px 0 !important;
+            display: block !important;
+            border-radius: 6px !important;
+            text-align: start !important;
+        }
+
+        /* בידוד מיוחד עבור שדה לוח השנה והתאריך בתוך המעטפת שלו במובייל */
+        input[type="date"] {
+            width: 100% !important;
+            height: 44px !important;
+            font-size: 16px !important;
+            box-sizing: border-box !important;
+            display: block !important;
+            -webkit-appearance: none !important; /* מנטרל עיצובי ברירת מחדל של ספארי מובייל */
+        }
+
+        /* פירוק כל הלחצנים של החשבונית והספקים למבנה אנכי נוח ללחיצה */
+        button, .btn-primary, .btn-secondary {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 46px !important; /* גובה שמן ונוח ללחיצת אצבע */
+            font-size: 16px !important;
+            font-weight: bold !important;
+            margin: 6px 0 !important;
+            padding: 0 10px !important;
+            box-sizing: border-box !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
+        }
+
+        /* יישור שורות של רשויות המס (מע"מ, ביטוח לאומי וכו') למבנה אנכי */
+        .row {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 15px !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .col {
+            width: 100% !important;
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            margin: 0 0 15px 0 !important;
+        }
+        
+        .btn-home {
+            width: 100% !important; /* כפתור חזרה לדף הבית תופס רוחב מלא במובייל לנוחיות מירבית */
+            max-width: 100% !important;
+            display: inline-flex !important;
+            height: 44px !important; /* השוואת גובה לחצן הבית העליון ללחצני הפעולה הגלובליים */
+            margin-bottom: 10px !important;
+            border-radius: 6px !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .Top-btn {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            gap: 10px !important;
+            margin-bottom: 15px !important;
+        }
+
+        /* התאמת רכיבי הטבלה הספציפיים לגלילה רוחבית פנימית במובייל */
+        .table-responsive {
+            width: 100% !important;
+            overflow-x: auto !important; /* מאפשר החלקת אצבע ימינה/שמאלה על הטבלה מבלי לעוות את האתר */
+            -webkit-overflow-scrolling: touch !important;
+            margin-top: 15px !important;
+            box-sizing: border-box !important;
+            display: block !important;
+        }
+
+        table {
+            width: 100% !important;
+            font-size: 13px !important; /* הקטנה קלה של הגופן במובייל להתאמה מושלמת */
+            table-layout: auto !important; /* מאפשר לעמודות להתרחב מעט בגלילה במובייל */
+        }
+
+        th, td {
+            padding: 8px 10px !important;
+            white-space: nowrap !important; /* שומר על מבנה תאים מסודר ללא שבירות שורות מעוותות */
+            text-align: start !important; /* יישור דינמי לפי כיוון השפה המופעלת */
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="Top-btn">
+        <a href="{{ url_for('invoice') }}" class="btn-home btn-invoice" data-i18n="invoice.main_page">דף ראשי</a>
+        <!-- תיקון סגירת הדיב של סרגל הלחצנים העליון -->
+        <button type="button" onclick="clearData()" style="background:#d9534f; color:white; border:none; padding:5px 18px; border-radius:6px; cursor:pointer;" data-i18n="customers.clear_data">
+            נקה מידע
+        </button>
+    </div>
+
+    <h1 data-i18n="page.header">דף תשלום מרכזי</h1>
+
+    <!-- תשלום לספק -->
+    <section id="supplier-payment">
+        <h2 data-i18n="supplier.section_title">תשלום לספק</h2>
+
+        <label data-i18n="supplier.select_label">בחר ספק:</label>
+        <select id="supplierSelect" class="supplier-select" data-bind="supplier.selected">
+            <option value="" disabled selected hidden data-i18n="supplier.placeholder">בחר ספק...</option>
+            {% for s in all_suppliers %}
+                <option value="{{ s.id }}" data-name="{{ s.supplier_name }}" data-number="{{ s.supplier_number }}">
+                    {{ s.supplier_name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <label data-i18n="supplier.number">מספר ספק:</label>
+        <input type="text" id="supplier_number" data-bind="supplier.number">
+
+        <label data-i18n="supplier.amount_label">סכום לתשלום:</label>
+        <input type="number" id="supplierAmount" data-bind="supplier.amount" step="0.01" min="0">
+
+        <label data-i18n="supplier.desc_label">תיאור:</label>
+        <input type="text" id="supplierDescription" data-bind="supplier.description">
+
+        <label data-i18n="supplier.ref_label">אסמכתא:</label>
+        <input type="text" id="supplierRef" data-bind="supplier.reference">
+
+        <button class="btn-primary" data-i18n="supplier.create_link" onclick="createSupplierPaymentLink()">צור קישור תשלום</button>
+        <button class="btn-secondary" data-i18n="supplier.send_whatsapp" onclick="sendSupplierLinkWhatsApp()">שלח בוואטסאפ</button>
+        <button class="btn-secondary" data-i18n="supplier.send_facebook" onclick="sendSupplierLinkFacebook()">שלח בפייסבוק</button>
+    </section>
+
+    <!-- תשלום חשבונית -->
+    <section id="invoice-payment">
+        <h2 data-i18n="invoice.section_title">תשלום עבור חשבונית מס</h2>
+
+        <label data-i18n="invoice.number_label">מספר חשבונית:</label>
+        <input type="text" id="invoiceNumber" data-bind="invoice.number">
+
+        <label data-i18n="invoice.customer_label">שם לקוח:</label>
+        <input type="text" id="invoiceCustomerName" data-bind="invoice.customer">
+
+        <label data-i18n="invoice.amount_label">סכום לתשלום:</label>
+        <input type="number" id="invoiceAmount" data-bind="invoice.amount" step="0.01" min="0">
+
+        <!-- שורת תאריך מאוחדת ומאובטחת (RTL/LTR דינמי) -->
+        <div>
+            <label data-i18n="invoice.due_date_label">תאריך יעד לתשלום:</label>
+            <input type="text" 
+                   id="invoiceDueDate" 
+                   name="due_date"
+                   data-bind="invoice.dueDate"
+                   data-calendar="true" 
+                   required 
+                   readonly
+                   placeholder="YYYY-MM-DD"
+                   style="cursor: pointer;">
+        </div>
+
+        <label data-i18n="invoice.desc_label">תיאור:</label>
+        <input type="text" id="invoiceDescription" data-bind="invoice.description">
+
+        <button class="btn-primary" data-i18n="invoice.pay_now" onclick="payInvoiceNow()">בצע תשלום עכשיו</button>
+        <button class="btn-secondary" data-i18n="invoice.create_link" onclick="createInvoicePaymentLink()">צור קישור תשלום</button>
+        <button class="btn-secondary" data-i18n="invoice.send_whatsapp" onclick="sendInvoiceLinkWhatsApp()">שלח בוואטסאפ</button>
+        <button class="btn-secondary" data-i18n="invoice.send_facebook" onclick="sendInvoiceLinkFacebook()">שלח בפייסבוק</button>
+    </section>
+
+    <!-- תשלום לרשויות -->
+    <section id="authorities-payment">
+        <h2 data-i18n="authorities.section_title">תשלום לרשויות</h2>
+
+        <div class="row">
+            <div class="col">
+                <h3 data-i18n="authorities.tax">מס הכנסה</h3>
+                <button class="btn-primary" onclick="goToIncomeTax()" data-i18n="authorities.go_tax">מעבר לתשלום מס הכנסה</button>
+            </div>
+
+            <div class="col">
+                <h3 data-i18n="authorities.btl">ביטוח לאומי</h3>
+                <button class="btn-primary" onclick="goToBituachLeumi()" data-i18n="authorities.go_btl">מעבר לתשלום ביטוח לאומי</button>
+            </div>
+
+            <div class="col">
+                <h3 data-i18n="authorities.vat">מע"מ</h3>
+                <button class="btn-primary" onclick="goToVAT()" data-i18n="authorities.go_vat">מעבר לתשלום מע"מ</button>
+
+                <label data-i18n="authorities.vat_status">סטטוס מע"מ:</label>
+                <select id="vatBusinessType" data-bind="vat.status" onchange="onVatStatusChange()">
+                    <option value="REGULAR" data-i18n="vat.regular">חייב במע"מ</option>
+                    <option value="PTOR" data-i18n="vat.ptor">עוסק פטור</option>
+                    <option value="EILAT" data-i18n="vat.eilat">אילת (פטור אזורי)</option>
+                </select>
+
+                <div id="vatInfo" data-bind="vat.info"></div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- סיכום תשלומים -->
+    <section id="payments-summary">
+        <h2 data-i18n="summary.section_title">סיכום תשלומים</h2>
+        <p class="small" data-i18n="summary.desc">
+            כאן תוצג רשימת תשלומים אחרונים – לספקים, חשבוניות ורשויות – כולל סטטוס ואישורי תשלום.
+        </p>
+
+        <!-- מעטפת הגנה רספונסיבית שמונעת מהטבלה לצאת מגבולות המסך במובייל -->
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th data-i18n="summary.date">תאריך</th>
+                        <th data-i18n="summary.type">סוג תשלום</th>
+                        <th data-i18n="summary.target">יעד</th>
+                        <th data-i18n="summary.amount">סכום (₪)</th>
+                        <th data-i18n="summary.status">סטטוס</th>
+                        <th data-i18n="summary.ref">מספר אישור</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentsTableBody">
+                    <tr id="noPaymentsRow">
+                        <td colspan="6" style="text-align: center; color: #888; padding: 20px 0;" data-i18n="summary.no_payments">
+                            אין תשלומים להצגה עדיין.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
+
+
+<!-- Keyboard Up Down ניווט חצים אוניברסלי וחכם לכל דף וטופס -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // מאזין גלובלי ללחיצות מקשים על כל הדף
+    document.addEventListener('keydown', function (event) {
+        const key = event.key;
+        const current = event.target;
+
+        // מניעת התנגשות: אם הפוקוס הוא בתוך בחירת חודש/שנה של הלוח שנה - אל תתערב בניווט!
+        if (current.id === 'calMonthSelect' || current.id === 'calYearSelect') return;
+
+        // בודק אם המשתמש נמצא בתוך שדה קלט כלשהו (input, textarea, select)
+        if (!current.matches('input:not([type="hidden"]), textarea, select')) return;
+
+        // מוצא את הטופס (form) הקרוב ביותר שבו השדה נמצא כרגע, או את ה-wrapper שלו
+        const container = current.closest('form') || current.closest('.form-wrapper') || current.closest('.form-container') || document.body;
+        
+        // אוסף את כל השדות הרלוונטיים באותו אזור בלבד
+        const allFields = Array.from(container.querySelectorAll('input:not([type="hidden"]), textarea, select'));
+        
+        // מסנן החוצה את התיבות של הלוח שנה מהרשימה הכללית של השדות
+        const filteredFields = allFields.filter(field => field.id !== 'calMonthSelect' && field.id !== 'calYearSelect');
+
+        const index = filteredFields.indexOf(current);
+        if (index === -1) return;
+
+        // ===== טיפול מיוחד בקומבו-בוקס (SELECT) =====
+        if (current.tagName === 'SELECT') {
+            if (current.size > 1) {
+                if (key === 'Enter' || key === 'Escape') {
+                    current.size = 1;
+                    current.blur();
+                    current.focus();
+                    event.preventDefault();
+                    
+                    if (key === 'Enter' && index < filteredFields.length - 1) {
+                        filteredFields[index + 1].focus();
+                    }
+                }
+                return;
+            }
+
+            if ((key === 'Enter' || key === ' ') && current.size === 1) {
+                current.size = current.options.length;
+                event.preventDefault();
+                return;
+            }
+        }
+
+        // ===== ניווט חצים רגיל ורציף בין כל השדות =====
+        if (key === 'ArrowDown' && index < filteredFields.length - 1) {
+            filteredFields[index + 1].focus();
+            event.preventDefault();
+        }
+        if (key === 'ArrowUp' && index > 0) {
+            filteredFields[index - 1].focus();
+            event.preventDefault();
+        }
+    });
+
+    // הדגשת צבע ויישור פוקוס דינמי לשדות (עובד על כל שדה בדף בכל זמן)
+    document.body.addEventListener('focusin', function (event) {
+        const field = event.target;
+        if (field.matches('input:not([type="hidden"]), textarea, select')) {
+            if (field.id !== 'calMonthSelect' && field.id !== 'calYearSelect') {
+                field.style.backgroundColor = '#e6f7ff'; // צבע הדגשה בהיר
+                field.style.outline = '1px solid #007bff';
+            }
+        }
+    });
+
+    document.body.addEventListener('focusout', function (event) {
+        const field = event.target;
+        if (field.matches('input:not([type="hidden"]), textarea, select')) {
+            field.style.backgroundColor = '';
+            field.style.outline = '';
+            if (field.tagName === 'SELECT') {
+                field.size = 1; // סגירת קומבו בבטחה ביציאה
+            }
+        }
+    });
+
+    // סגירת קומבו-בוקס אוטומטית מיד לאחר שינוי ערך עם העכבר
+    document.body.addEventListener('change', function (event) {
+        const field = event.target;
+        if (field.tagName === 'SELECT' && field.id !== 'calMonthSelect' && field.id !== 'calYearSelect') {
+            field.size = 1;
+            field.blur();
+            field.focus();
+        }
+    });
+});
+</script>
+
+
+<script>
+/* == COMPLETE 30-LANGUAGE LOCAL TRANSLATION DICTIONARY == */
+const currentLang = "{{ _lang }}" || "he";
+
+const I18N = {
+    "he": {
+        "vat.regular.info": "העסק חייב במע\"מ – יש לכלול מע\"מ בחשבוניות ולדווח בהתאם.",
+        "vat.ptor.info": "העסק עוסק פטור – אין לגבות מע\"מ בחשבוניות, אך עדיין יש לדווח לפי החוק.",
+        "vat.eilat.info": "העסק באילת – פטור ממע\"מ על עסקאות באילת בהתאם לחוק."
+    },
+    "en": {
+        "vat.regular.info": "Business is VAT registered – VAT must be added to invoices and reported.",
+        "vat.ptor.info": "Business is VAT exempt – do not charge VAT on invoices, but still report as required.",
+        "vat.eilat.info": "Business in Eilat – VAT exempt on Eilat transactions according to law."
+    },
+    "ar": {
+        "vat.regular.info": "العمل مسجل في ضريبة القيمة المضافة - يجب إضافة الضريبة إلى الفواتير والإبلاغ عنها.",
+        "vat.ptor.info": "العمل معفى من ضريبة القيمة المضافة - لا تقم بتحصيل الضريبة، ولكن يجب الإبلاغ عنها.",
+        "vat.eilat.info": "العمل في إيلات - معفى من ضريبة القيمة المضافة على معاملات إيلات وفقًا للقانون."
+    },
+    "ru": {
+        "vat.regular.info": "Бизнес зарегистрирован как плательщик НДС – НДС должен добавляться в счета и декларироваться.",
+        "vat.ptor.info": "Бизнес освобожден от НДС – НДС в счетах не взимается, но отчетность обязательна.",
+        "vat.eilat.info": "Бизнес в Эйлате – освобожден от НДС на операции в Эйлате в соответствии с законом."
+    },
+    "fr": {
+        "vat.regular.info": "L'entreprise est assujettie à la TVA – la TVA doit être ajoutée aux factures et déclarée.",
+        "vat.ptor.info": "L'entreprise est exonérée de TVA – ne pas facturer la TVA, mais déclarer comme requis.",
+        "vat.eilat.info": "Entreprise à Eilat – exonérée de TVA sur les transactions à Eilat conformément à la loi."
+    },
+    "es": {
+        "vat.regular.info": "La empresa está registrada en el IVA – se debe añadir el IVA a las facturas y declararlo.",
+        "vat.ptor.info": "La empresa está exenta de IVA – no cobrar IVA en las facturas, pero declarar según se requiera.",
+        "vat.eilat.info": "Empresa en Eilat – exenta de IVA en las transacciones de Eilat de acuerdo con la ley."
+    },
+    "de": {
+        "vat.regular.info": "Unternehmen ist MwSt.-registriert – MwSt. muss auf Rechnungen ausgewiesen und gemeldet werden.",
+        "vat.ptor.info": "Unternehmen ist von der MwSt. befreit – keine MwSt. berechnen, aber Meldepflicht besteht.",
+        "vat.eilat.info": "Unternehmen in Eilat – gemäß Gesetz von der MwSt. auf Eilat-Transaktionen befreit."
+    },
+    "it": {
+        "vat.regular.info": "L'azienda è registrata IVA – l'IVA deve essere aggiunta alle fatture e dichiarata.",
+        "vat.ptor.info": "L'azienda è esente IVA – non addebitare l'IVA nelle fatture, ma dichiarare come richiesto.",
+        "vat.eilat.info": "Azienda a Eilat – esente da IVA sulle transazioni a Eilat in conformità alla legge."
+    },
+    "pt": {
+        "vat.regular.info": "A empresa está registada no IVA – o IVA deve ser adicionado às faturas e declarado.",
+        "vat.ptor.info": "A empresa está isenta de IVA – não cobrar IVA nas faturas, mas declarar conforme exigido.",
+        "vat.eilat.info": "Empresa em Eilat – isenta de IVA nas transações em Eilat de acordo com a lei."
+    },
+    "nl": {
+        "vat.regular.info": "Bedrijf is btw-geregistreerd – btw moet aan facturen worden toegevoegd en aangegeven.",
+        "vat.ptor.info": "Bedrijf is vrijgesteld van btw – geen btw berekenen, maar wel rapporteren zoals vereist.",
+        "vat.eilat.info": "Bedrijf in Eilat – btw-vrijgesteld op Eilat-transacties conform de wet."
+    },
+    "zh": {
+        "vat.regular.info": "企业已注册增值税 – 必须在发票中添加增值税并按规定申报。",
+        "vat.ptor.info": "企业免征增值税 – 不要在发票中收取增值税，但仍需按规定报告。",
+        "vat.eilat.info": "埃拉特的企业 – 根据法律规定，免征埃拉特交易的增值税。"
+    },
+    "ja": {
+        "vat.regular.info": "事業は付加価値税（VAT）登録されています。請求書にVATを追加し、申告する必要があります。",
+        "vat.ptor.info": "事業は付加価値税（VAT）を免除されています。請求書でVATを請求しないでください（要申告）。",
+        "vat.eilat.info": "エイラットの事業 – 法律に基づき、エイラットでの取引に対する付加価値税（VAT）が免除されます。"
+    },
+    "ko": {
+        "vat.regular.info": "사업자가 부가세 등록되었습니다 – 청구서에 부가세를 추가하고 신고해야 합니다.",
+        "vat.ptor.info": "사업자가 부가세 면세입니다 – 청구서에 부가세를 부과하지 않으나, 규정대로 신고해야 합니다.",
+        "vat.eilat.info": "에일랏 소재 사업자 – 법률에 따라 에일랏 거래에 대한 부가세가 면제됩니다."
+    },
+    "tr": {
+        "vat.regular.info": "İşletme KDV mükellefidir – faturalara KDV eklenmeli ve beyan edilmelidir.",
+        "vat.ptor.info": "İşletme KDV'den muaftır – faturalarda KDV tahsil edilmez, ancak beyan zorunludur.",
+        "vat.eilat.info": "Eilat'taki işletme – kanuna göre Eilat işlemlerinde KDV'den muaftır."
+    },
+    "pl": {
+        "vat.regular.info": "Firma jest zarejestrowana jako płatnik VAT – należy doliczać VAT do faktur i go raportować.",
+        "vat.ptor.info": "Firma jest zwolniona z VAT – nie naliczać VAT na fakturach, ale raportować zgodnie z wymogami.",
+        "vat.eilat.info": "Firma w Ejlacie – zwolniona z VAT od transakcji w Ejlacie zgodnie z przepisami prawa."
+    },
+    "uk": {
+        "vat.regular.info": "Бізнес зареєстрований як платник ПДВ – ПДВ має додаватися до рахунків та декларуватися.",
+        "vat.ptor.info": "Бізнес звільнений від ПДВ – ПДВ у рахунках не стягується, але звітність є обов'язковою.",
+        "vat.eilat.info": "Бізнес в Ейлаті – звільнений від ПДВ на операції в Ейлаті відповідно до закону."
+    },
+    "ro": {
+        "vat.regular.info": "Compania este înregistrată în scopuri de TVA – TVA trebuie adăugat pe facturi și raportat.",
+        "vat.ptor.info": "Compania este scutită de TVA – nu se percepe TVA pe facturi, dar raportarea este obligatorie.",
+        "vat.eilat.info": "Companie în Eilat – scutită de TVA pentru tranzacțiile din Eilat conform legii."
+    },
+    "el": {
+        "vat.regular.info": "Η επιχείρηση είναι εγγεγραμμένη στο ΦΠΑ – ο ΦΠΑ πρέπει να προστίθεται στα τιμολόγια και να δηλώνεται.",
+        "vat.ptor.info": "Η επιχείρηση απαλλάσσεται από το ΦΠΑ – μην χρεώνετε ΦΠΑ, αλλά η δήλωση είναι υποχρεωτική.",
+        "vat.eilat.info": "Επιχείρηση στο Εϊλάτ – απαλλάσσεται από το ΦΠΑ για συναλλαγές στο Εϊλάτ σύμφωνα με το νόμο."
+    },
+    "hu": {
+        "vat.regular.info": "A vállalkozás ÁFA-regisztrált – az ÁFÁ-t fel kell számítani a számlákon és be kell vallani.",
+        "vat.ptor.info": "A vállalkozás ÁFA-mentes – ne számítson fel ÁFÁ-t, de a bevallási kötelezettség fennáll.",
+        "vat.eilat.info": "Vállalkozás Eilati – a törvény értelmében áfamentes az eilati ügyletek után."
+    },
+    "cs": {
+        "vat.regular.info": "Firma je plátcem DPH – DPH musí být připočteno k fakturám a řádně přiznáno.",
+        "vat.ptor.info": "Firma je osvobozena od DPH – DPH nefakturovat, ale vykazovat dle zákonných požadavků.",
+        "vat.eilat.info": "Firma v Ejlatu – osvobozena od DPH u ejlatských transakcí v souladu se zákonem."
+    },
+    "sv": {
+        "vat.regular.info": "Verksamheten är momsregistrerad – moms måste läggas till på fakturor och redovisas.",
+        "vat.ptor.info": "Verksamheten är momsbefriad – debitera inte moms på fakturor, men rapportera enligt krav.",
+        "vat.eilat.info": "Verksamhet i Eilat – momsbefriad på Eilat-transaktioner i enlighet med lagen."
+    },
+    "th": {
+        "vat.regular.info": "ธุรกิจจดทะเบียนภาษีมูลค่าเพิ่ม – ต้องบวกภาษีมูลค่าเพิ่มในใบแจ้งหนี้และนำส่งภาษีตามกำหนด",
+        "vat.ptor.info": "ธุรกิจได้รับการยกเว้นภาษีมูลค่าเพิ่ม – ห้ามเรียกเก็บภาษีมูลค่าเพิ่ม แต่ยังต้องยื่นรายงานตามกฎหมาย",
+        "vat.eilat.info": "ธุรกิจในไอลัต – ได้รับการยกเว้นภาษีมูลค่าเพิ่มสำหรับการทำธุรกรรมในไอลัตตามกฎหมาย"
+    },
+    "vi": {
+        "vat.regular.info": "Doanh nghiệp đã đăng ký bạt VAT – Phải thêm VAT vào hóa đơn và báo cáo theo quy định.",
+        "vat.ptor.info": "Doanh nghiệp được miễn thuế VAT – Không thu thuế VAT, nhưng vẫn phải báo cáo theo luật.",
+        "vat.eilat.info": "Doanh nghiệp tại Eilat – Được miễn thuế VAT đối với các giao dịch tại Eilat theo luật định."
+    },
+    "id": {
+        "vat.regular.info": "Bisnis terdaftar PPN – PPN harus ditambahkan ke faktur dan dilaporkan sebagaimana mestinya.",
+        "vat.ptor.info": "Bisnis dibebaskan dari PPN – jangan memungut PPN, tetapi tetap laporkan sesuai ketentuan.",
+        "vat.eilat.info": "Bisnis di Eilat – dibebaskan dari PPN untuk transaksi di Eilat sesuai dengan hukum."
+    },
+    "hi": {
+        "vat.regular.info": "व्यवसाय वैट पंजीकृत है – चालान में वैट जोड़ा जाना चाहिए और नियमानुसार रिपोर्ट किया जाना चाहिए।",
+        "vat.ptor.info": "व्यवसाय वैट मुक्त है – चालान पर वैट न लगाएं, लेकिन आवश्यकतानुसार रिपोर्ट अवश्य करें।",
+        "vat.eilat.info": "इलात में व्यवसाय – कानून के अनुसार इलात लेनदेन पर वैट से छूट प्राप्त है।"
+    },
+    "bg": {
+        "vat.regular.info": "Бизнесът е регистриран по ДДС – ДДС трябва да се добавя към фактурите и да се отчита.",
+        "vat.ptor.info": "Бизнесът е освободен от ДДС – не начислявайте ДДС, но отчитането остава задължително.",
+        "vat.eilat.info": "Бизнес в Ейлат – освободен от ДДС за транзакции в Ейлат съгласно закона."
+    },
+    "tl": {
+        "vat.regular.info": "Ang negosyo ay rehistrado sa VAT – ang VAT ay dapat idagdag sa mga invoice at iulat.",
+        "vat.ptor.info": "Ang negosyo ay libre sa VAT – huwag maningil ng VAT sa mga invoice, ngunit iulat pa rin ayon sa kinakailangan.",
+        "vat.eilat.info": "Negosyo sa Eilat – libre sa VAT ang mga transaksyon sa Eilat alinsunod sa batas."
+    },
+    "ms": {
+        "vat.regular.info": "Perniagaan berdaftar VAT – KDV mesti ditambah pada invois dan dilaporkan.",
+        "vat.ptor.info": "Perniagaan dikecualikan VAT – jangan kenakan VAT pada invois, tetapi tetap laporkan seperti yang diperlukan.",
+        "vat.eilat.info": "Perniagaan di Eilat – dikecualikan VAT untuk transaksi di Eilat mengikut undang-undang."
+    },
+    "bn": {
+        "vat.regular.info": "ব্যবসাটি ভ্যাট নিবন্ধিত – চালানে ভ্যাট যোগ করতে হবে এবং রিপোর্ট করতে হবে।",
+        "vat.ptor.info": "ব্যবসাটি ভ্যাট মুক্ত – চালানে ভ্যাট চার্জ করবেন না, তবে প্রয়োজনীয়তা অনুযায়ী রিপোর্ট করুন।",
+        "vat.eilat.info": "আইলাতের ব্যবসা – আইন অনুযায়ী আইলাত লেনদেনের উপর ভ্যাট মুক্ত।"
+    },
+    "fa": {
+        "vat.regular.info": "کسب‌وکار ثبت‌شده مالیات بر ارزش افزوده است – مالیات باید به فاکتورها اضافه و گزارش شود.",
+        "vat.ptor.info": "کسب‌وکار معاف از مالیات بر ارزش افزوده است – مالیات اخذ نکنید، اما گزارش‌دهی الزامی است.",
+        "vat.eilat.info": "کسب‌وکار در ایلات – معاف از مالیات بر ارزش افزوده برای معاملات ایلات طبق قانون."
+    }
+};
+
+/* == DATA MODEL + BINDING == */
+const DATA = {
+    supplier: {
+        selected: "",
+        name: "",
+        number: "",
+        amount: "",
+        description: "",
+        reference: ""
+    },
+    invoice: {
+        number: "",
+        customer: "",
+        amount: "",
+        dueDate: "",
+        description: ""
+    },
+    vat: {
+        status: "REGULAR",
+        info: ""
+    }
+};
+
+document.querySelectorAll("[data-bind]").forEach(el => {
+    const path = el.getAttribute("data-bind");
+    el.addEventListener("input", () => setData(path, el.value));
+});
+
+function setData(path, value) {
+    const parts = path.split(".");
+    let obj = DATA;
+    while (parts.length > 1) obj = obj[parts.shift()];
+    obj[parts[0]] = value;
+
+    if (path === "vat.status") updateVatInfo();
+}
+
+/* == VAT INFO == */
+function updateVatInfo() {
+    const status = DATA.vat.status;
+    const infoEl = document.getElementById("vatInfo");
+    if (!infoEl) return;
+    if (status === "REGULAR") {
+        infoEl.textContent = (I18N[currentLang]["vat.regular.info"] || "העסק חייב במע\"מ.");
+    } else if (status === "PTOR") {
+        infoEl.textContent = (I18N[currentLang]["vat.ptor.info"] || "העסק עוסק פטור.");
+    } else if (status === "EILAT") {
+        infoEl.textContent = (I18N[currentLang]["vat.eilat.info"] || "העסק באילת.");
+    } else {
+        infoEl.textContent = "";
+    }
+}
+
+function onVatStatusChange() {
+    const sel = document.getElementById("vatBusinessType");
+    if (sel) setData("vat.status", sel.value);
+}
+
+/* == PAYMENT LOGIC == */
+let supplierPaymentLink = "";
+let invoicePaymentLink = "";
+
+function createSupplierPaymentLink() {
+    const supplier = DATA.supplier.selected || document.getElementById('supplierSelect').value;
+    const supplierName = DATA.supplier.name;
+    const amount = DATA.supplier.amount || document.getElementById('supplierAmount').value;
+    const desc = DATA.supplier.description || document.getElementById('supplierDescription').value || 'תשלום לספק';
+    const ref = DATA.supplier.reference || document.getElementById('supplierRef').value;
+
+    if (!amount || amount <= 0) {
+        alert(currentLang === 'he' ? 'אנא הזן סכום תקין לתשלום לספק.' : 'Please enter a valid amount.');
+        return;
+    }
+
+    supplierPaymentLink =
+        "https://example.com" + encodeURIComponent(amount) +
+        "&supplier=" + encodeURIComponent(supplierName || supplier) +
+        "&ref=" + encodeURIComponent(ref) +
+        "&desc=" + encodeURIComponent(desc);
+
+    alert((currentLang === 'he' ? 'קישור תשלום לספק נוצר:\n' : 'Supplier payment link created:\n') + supplierPaymentLink);
+}
+
+function sendSupplierLinkWhatsApp() {
+    if (!supplierPaymentLink) {
+        alert('קודם צור קישור תשלום לספק.');
+        return;
+    }
+    // תיקון: נוסף /?text= כדי שהקישור של הספק יעבוד בוואטסאפ
+    const text = encodeURIComponent("שלום, הנה קישור לתשלום לספק:\n" + supplierPaymentLink);
+    window.open("https://wa.me" + text, "_blank");
+}
+
+function sendSupplierLinkFacebook() {
+    if (!supplierPaymentLink) {
+        alert('קודם צור קישור תשלום לספק.');
+        return;
+    }
+    // תיקון: נוסף /?u= לפורמט השיתוף הרשמי של פייסבוק עבור הספק
+    const url = encodeURIComponent(supplierPaymentLink);
+    window.open("https://facebook.com" + url, "_blank");
+}
+
+function createInvoicePaymentLink() {
+    // Safely extract input values from the DATA model bindings or directly from the DOM fallback strings
+    const invoiceNumber = (typeof DATA !== 'undefined' && DATA.invoice && DATA.invoice.number) || (document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value : '');
+    const customerName = (typeof DATA !== 'undefined' && DATA.invoice && DATA.invoice.customer) || (document.getElementById('invoiceCustomerName') ? document.getElementById('invoiceCustomerName').value : '');
+    const amount = (typeof DATA !== 'undefined' && DATA.invoice && DATA.invoice.amount) || (document.getElementById('invoiceAmount') ? document.getElementById('invoiceAmount').value : '');
+    const dueDate = (typeof DATA !== 'undefined' && DATA.invoice && DATA.invoice.dueDate) || (document.getElementById('invoiceDueDate') ? document.getElementById('invoiceDueDate').value : '');
+    const description = (typeof DATA !== 'undefined' && DATA.invoice && DATA.invoice.description) || (document.getElementById('invoiceDescription') ? document.getElementById('invoiceDescription').value : '') || '';
+
+    // Validate the critical requirements before firing the backend request
+    if (!invoiceNumber || !amount || parseFloat(amount) <= 0) {
+        alert('אנא הזן מספר חשבונית וסכום תקין.');
+        return;
+    }
+
+    // Open the navigation window IMMEDIATELY on the click event thread to completely bypass browser popup blocks
+    const newTab = window.open("", "_blank");
+    if (!newTab) {
+        alert('אנא אפשר חלונות קופצים (Popups) בדפדפן כדי להציג את דף התשלום.');
+        return;
+    }
+    
+    // Inject a clean temporary waiting layout into the opened tab context
+    newTab.document.write(`
+        <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 20%; color: #333; direction: rtl;">
+            <h1>טוען דף תשלום מאובטח...</h1>
+            <p style="color: #666;">אנא המתן בזמן שהמערכת מייצרת את רשומת הסליקה בבסיס הנתונים.</p>
+        </div>
+    `);
+
+    // Execute the POST request to pass payload variables securely to your Flask endpoint
+    fetch("/payment/create_link", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({
+            invoice_id: invoiceNumber,
+            customer_name: customerName,
+            amount: parseFloat(amount),
+            due_date: dueDate || null,
+            description: description
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("שרת החזיר קוד שגיאה: " + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Validate that the server actually returned a valid URL tracking parameter string
+        if (data && data.url) {
+            invoicePaymentLink = data.url;
+            
+            // Seamlessly redirect the pre-opened safe viewport container to your dark checkout skin
+            newTab.location.href = data.url;
+        } else {
+            throw new Error("תשובת שרת לא הכילה כתובת קישור תקינה.");
+        }
+    })
+    .catch(err => {
+        // Safe context cleanup: kill the blank empty screen container instantly if Flask chokes or drops a 500 error
+        if (newTab) {
+            newTab.close();
+        }
+        alert('שגיאה ביצירת הקישור בשרת. ודא ששרת הפלאסק רץ והראוט מעודכן.');
+        console.error("❌ Critical Payment Gateway Exception:", err);
+    });
+}
+
+function payInvoiceNow() {
+    // מניעת כפל טאבים: אם הקישור כבר נוצר קודם לכן, נפתח אותו באותו הטאב שכבר פתוח
+    if (invoicePaymentLink) {
+        window.open(invoicePaymentLink, "_self");
+    } else {
+        // אם הקישור לא קיים, נריץ את פונקציית היצירה שפותחת בדיוק טאב אחד בודד
+        createInvoicePaymentLink();
+    }
+}
+
+// ברגע שמשנים ערך בשדות, הלינק הישן נמחק מהזיכרון והשרת ייצר לינק חדש ונקי!
+document.querySelectorAll('#invoiceNumber, #invoiceCustomerName, #invoiceAmount').forEach(el => {
+    if (el) {
+        el.addEventListener('input', () => { invoicePaymentLink = ""; });
+    }
+});
+
+function sendInvoiceLinkWhatsApp() {
+    if (!invoicePaymentLink) {
+        alert('קודם צור קישור תשלום לחשבונית.');
+        return;
+    }
+    // תיקון קריטי: נוסף הלוכסן והפרמטר /?text= כדי שוואטסאפ יזהה את ההודעה
+    const text = encodeURIComponent("שלום, הנה קישור לתשלום עבור חשבונית:\n" + invoicePaymentLink);
+    window.open("https://wa.me" + text, "_blank");
+}
+
+function sendInvoiceLinkFacebook() {
+    if (!invoicePaymentLink) {
+        alert('קודם צור קישור תשלום לחשבונית.');
+        return;
+    }
+    // תיקון קריטי: שונה לכתובת השיתוף הרשמית של פייסבוק עם הפרמטר /sharer.php?u=
+    const url = encodeURIComponent(invoicePaymentLink);
+    window.open("https://facebook.com" + url, "_blank");
+}
+
+function goToIncomeTax() { window.open("https://taxinfo.gov.il", "_blank"); }
+function goToBituachLeumi() { window.open("https://btl.gov.il", "_blank"); }
+function goToVAT() { window.open("https://taxinfo.gov.il", "_blank"); }
+
+/* == SUPPLIER AUTO-FILL == */
+const supplierSelectElement = document.getElementById("supplierSelect");
+if (supplierSelectElement) {
+    supplierSelectElement.addEventListener("change", function () {
+        const selected = this.options[this.selectedIndex];
+        if (!selected) return;
+
+        const supplierId = selected.value;
+        const supplierName = selected.getAttribute("data-name") || "";
+        const supplierNumber = selected.getAttribute("data-number") || "";
+
+        const supplierNumInput = document.getElementById("supplier_number");
+        if (supplierNumInput) supplierNumInput.value = supplierNumber;
+
+        setData("supplier.selected", supplierId);
+        setData("supplier.name", supplierName);
+        setData("supplier.number", supplierNumber);
+    });
+}
+
+/* == SUBMIT PAYMENT PAGE == */
+function submitPaymentPage() {
+    const payload = {
+        supplier_payment: DATA.supplier,
+        invoice_payment: DATA.invoice,
+        authority_payment: { vat_status: DATA.vat.status }
+    };
+
+    fetch("/api/payment_page_submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(res => { alert("הנתונים נשמרו בהצלחה"); })
+    .catch(err => { console.error(err); });
+}
+
+/* INIT */
+updateVatInfo();
+</script>
+
+
+<script>
+function clearData() {
+    window.location.href = "{{ url_for('payment') }}";
+}
+</script>
+
+
+<!-- לוח שנה צף קומפקטי בצבע שמנת סקריפט  -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. קריאה ישירה של השפה הפעילה מתוך ה-Cookie של המערכת שלך
+    const currentLang = document.cookie.split('; ').find(row => row.startsWith('lang='))?.split('=')[1] || localStorage.getItem("lang") || "he";
+
+    // 2. חילוץ שמות החודשים המתורגמים הרשמיים מהדפדפן לפי השפה
+    const translatedMonths = Array.from({ length: 12 }, (_, i) => {
+        return new Intl.DateTimeFormat(currentLang, { month: 'long' }).format(new Date(2026, i, 1));
+    });
+
+    // 3. חילוץ אוטומטי של ימי השבוע המקוצרים מהדפדפן לפי השפה הפעילה (א'-ש' בעברית, Lu-Do בספרדית וכו')
+    const daysWeek = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(2026, 5, 21 + i); // 21 ביוני 2026 הוא יום ראשון
+        return new Intl.DateTimeFormat(currentLang, { weekday: currentLang === 'he' ? 'narrow' : 'short' }).format(date);
+    });
+
+    // 4.  פירוק ידני קשיח ובטוח לפי חוקי ה-main.py שלך - מונע לחלוטין את הקריסה בימים 13-31!
+    function parseDateByLang(dateStr, lang) {
+        if (!dateStr) return null;
+        
+        const parts = dateStr.trim().split('-');
+        if (parts.length !== 3) return null;
+
+        let year, month, day;
+
+        // בדיקה חכמה: אם החלק הראשון הוא באורך 4 ספרות (פורמט בינלאומי גולמי של השרת YYYY-MM-DD)
+        if (parts[0].length === 4) {
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+        } 
+        // פורמט ארה"ב (אנגלית): MM-DD-YYYY
+        else if (lang === "en") {
+            month = parseInt(parts[0], 10) - 1;
+            day = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        } 
+        // פורמט ישראל ואירופה (עברית, ספרדית וכו'): DD-MM-YYYY
+        else {
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            year = parseInt(parts[2], 10);
+        }
+
+        // בדיקת בטיחות קשיחה כדי למנוע יצירת ערכים שבורים
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+            return null;
+        }
+        
+        // מחזיר אובייקט נתונים נקי במקום אובייקט Date מובנה שמתבלבל בין ימים לחודשים
+        return { year, month, day };
+    }
+
+    function formatDateByLang(year, monthIndex, day, lang) {
+        const d = String(day).padStart(2, '0');
+        const m = String(monthIndex + 1).padStart(2, '0');
+        const y = year;
+
+        if (lang === "en") return `${m}-${d}-${y}`; // MM-DD-YYYY
+        if (["zh", "ja", "ko"].includes(lang)) return `${y}-${m}-${d}`; // YYYY-MM-DD
+        return `${d}-${m}-${y}`; // DD-MM-YYYY
+    }
+
+    // 5. יצירה והזרקה אוטומטית של אלמנט הלוח שנה לדף
+    const calendar = document.createElement('div');
+    calendar.id = 'customCalendarPicker';
+    calendar.className = 'custom-calendar-picker';
+    calendar.innerHTML = `
+        <div class="calendar-nav">
+            <button id="calPrevBtn" type="button">&lt;</button>
+            <div style="display: flex; gap: 4px;">
+                <select id="calMonthSelect"></select>
+                <select id="calYearSelect"></select>
+            </div>
+            <button id="calNextBtn" type="button">&gt;</button>
+        </div>
+        <div id="calendarGrid" class="calendar-days-grid"></div>
+    `;
+    document.body.appendChild(calendar);
+
+    const monthSelect = document.getElementById('calMonthSelect');
+    const yearSelect = document.getElementById('calYearSelect');
+    const grid = document.getElementById('calendarGrid');
+    let activeInput = null;
+    
+    let currentDate = new Date();
+    let displayedMonth = currentDate.getMonth();
+    let displayedYear = currentDate.getFullYear();
+
+    function initSelectOptions() {
+        monthSelect.innerHTML = '';
+        translatedMonths.forEach((m, idx) => {
+            monthSelect.innerHTML += `<option value="${idx}">${m}</option>`;
+        });
+
+        yearSelect.innerHTML = '';
+        const currentYearNum = new Date().getFullYear();
+        for (let y = currentYearNum + 10; y >= currentYearNum - 100; y--) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+    }
+
+    function renderCalendar() {
+        grid.innerHTML = '';
+
+        monthSelect.value = displayedMonth;
+        yearSelect.value = displayedYear;
+
+        daysWeek.forEach(d => {
+            grid.innerHTML += `<div class="calendar-day-header">${d}</div>`;
+        });
+
+        const firstDayIndex = new Date(displayedYear, displayedMonth, 1).getDay();
+        const totalDays = new Date(displayedYear, displayedMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            grid.innerHTML += `<div class="calendar-day-cell empty"></div>`;
+        }
+
+        let selectedDay = null;
+        if (activeInput && activeInput.value && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed && parsed.year === displayedYear && parsed.month === displayedMonth) {
+                selectedDay = parsed.day;
+            }
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+            const isSelected = (day === selectedDay) ? 'selected' : '';
+            grid.innerHTML += `<div class="calendar-day-cell ${isSelected}" data-day="${day}">${day}</div>`;
+        }
+
+        grid.querySelectorAll('.calendar-day-cell:not(.empty)').forEach(cell => {
+            cell.onclick = function(e) {
+                e.stopPropagation();
+                if (!activeInput) return;
+
+                const day = parseInt(this.getAttribute('data-day'), 10);
+                activeInput.value = formatDateByLang(displayedYear, displayedMonth, day, currentLang);
+                
+                // שליחת אירועי עדכון מלאים עם bubbles כדי שכל הדף ומנוע הפייתון יזהו את השינוי ב-POST
+                activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                calendar.style.display = 'none';
+            };
+        });
+    }
+
+    monthSelect.addEventListener('change', (e) => {
+        displayedMonth = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    yearSelect.addEventListener('change', (e) => {
+        displayedYear = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    document.getElementById('calPrevBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth--;
+        if (displayedMonth < 0) {
+            displayedMonth = 11;
+            displayedYear--;
+        }
+        renderCalendar();
+    };
+
+    document.getElementById('calNextBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth++;
+        if (displayedMonth > 11) {
+            displayedMonth = 0;
+            displayedYear++;
+        }
+        renderCalendar();
+    };
+
+    // פונקציית פתיחה מאוחדת ומאובטחת שמחשבת מיקום מדויק של הלוח
+    function openCalendar(targetInput) {
+        activeInput = targetInput;
+        initSelectOptions();
+        
+        let today = new Date();
+        displayedMonth = today.getMonth();
+        displayedYear = today.getFullYear();
+        
+        if (activeInput.value && activeInput.value.trim() !== "" && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed) {
+                displayedMonth = parsed.month;
+                displayedYear = parsed.year;
+            }
+        }
+
+        renderCalendar();
+
+        const rect = activeInput.getBoundingClientRect();
+        calendar.style.top = (rect.bottom + window.scrollY) + 'px';
+        calendar.style.left = (rect.left + window.scrollX) + 'px';
+        calendar.style.display = 'block';
+    }
+
+    // הגנה כפולה לפתיחה: מגיב חלק גם בפוקוס (טפסים) וגם בקליק עכבר ישיר (טבלאות וגרידים)
+    document.body.addEventListener('focusin', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            openCalendar(e.target);
+        }
+    });
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openCalendar(e.target);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!calendar.contains(e.target) && activeInput && e.target !== activeInput) {
+            calendar.style.display = 'none';
+        }
+    });
+    
+    calendar.onclick = (e) => e.stopPropagation();
+});
+</script>
+
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    loadLanguage(lang);
+
+    function handleAdd(form) {
+        // 1. Keep your beautiful loader screen showing
+        document.getElementById('loader').style.display = 'block';
+        
+        // 2. Disable the button so the user can't click it twice
+        const btn = form.querySelector('.btn-add');
+        btn.style.opacity = '0.5';
+        btn.disabled = true;
+        
+        return true; 
+    }
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

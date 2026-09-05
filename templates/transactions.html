@@ -1,0 +1,937 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>יומן תנועות כספיות - Transactions</title>
+<style>
+    :root {
+        --excel-border: #d1d1d1;
+        --excel-header: #f2f2f2;
+        --income-green: #28a745;
+        --expense-red: #d9534f;
+        --btn-blue: #007bff;
+
+        /* --- שליטה מלאה בגבהים --- */
+        --search-bar-height: 28px;  
+        --result-row-height: 25px;  
+        
+        /* גדלי גופן להתאמה מושלמת */
+        --search-font-size: 14px;
+        --result-font-size: 14px;
+        
+        --form-radius: 4px;
+        --form-padding: 8px;
+    }
+    
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; padding: 20px; direction: rtl; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+    
+    h1 { text-align: center; color: #333; margin-bottom: 20px; }
+
+    /* --- שורת חיפוש והוספה (Quick Add) --- */
+    .quick-add { 
+        background: #f1f3f5; 
+        padding: 15px; 
+        border-radius: 8px; 
+        margin-bottom: 20px; 
+        display: flex; 
+        gap: 15px; 
+        flex-wrap: wrap; 
+        align-items: flex-end;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .quick-add div { display: flex; flex-direction: column; gap: 2px; flex: 1; margin: 0 !important; }
+    .quick-add label { font-size: 13px; font-weight: bold; color: #555; margin: 0; padding: 0; }
+
+    /* שליטה בגובה שורת החיפוש והקומבו */
+    .quick-add input, .quick-add select { 
+        height: var(--search-bar-height) !important;
+        padding: 0 var(--form-padding); 
+        border: 1px solid #ccc; 
+        border-radius: var(--form-radius);
+        font-size: var(--search-font-size);
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .btn-save { 
+        background: var(--income-green); 
+        color: white; 
+        border: none; 
+        height: var(--search-bar-height) !important; 
+        width: 120px; 
+        border-radius: var(--form-radius); 
+        cursor: pointer; 
+        font-weight: bold; 
+        font-size: var(--search-font-size);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0; 
+    }
+
+    /* --- טבלת תוצאות (Excel Style) --- */
+    .excel-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+    
+    /* גובה כותרת הטבלה */
+    .excel-table th { 
+        background: var(--excel-header); 
+        border: 1px solid var(--excel-border); 
+        height: var(--result-row-height); 
+        font-size: var(--result-font-size);
+        padding: 0 5px;
+        text-align: center;
+    }
+
+    /* שליטה בגובה של כל שורת תוצאה שנוספת */
+    .excel-table tr {
+        height: var(--result-row-height) !important;
+    }
+
+    .excel-table td { 
+        border: 1px solid var(--excel-border); 
+        height: var(--result-row-height) !important;
+        padding: 0 8px; 
+        text-align: center; 
+        font-size: var(--result-font-size);
+        line-height: var(--result-row-height); 
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .type-income { color: var(--income-green); font-weight: bold; }
+    .type-expense { color: var(--expense-red); font-weight: bold; }
+
+    .nav-btns { margin-bottom: 20px; display: flex; gap: 10px; }
+    .btn-nav { text-decoration: none; background: #6c757d; color: white; border-radius: 4px; font-size: 14px; 
+               width: 120px; height: 25px; line-height: 25px; text-align: center; display: inline-block; }
+
+    /* --- שליטה בגובה רכיבי החיפוש --- */
+    .btn-home, .btn-clear, .btn-search, .search-box {
+        height: 30px !important; 
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 0 12px !important; font-size: 13px !important;
+        border-radius: 4px; box-sizing: border-box; vertical-align: middle;
+    }
+
+    .top-bar { display: flex; align-items: center; gap: 10px; background: #fffdf0; padding: 5px 12px; border-radius: 8px; margin-bottom: 20px; justify-content: center; border: 1px solid #fffae0; }
+    .btn-search { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .search-box { border: 1px solid #ced4da; background-color: white; }
+    input[type="text"].search-box { flex-grow: 1; min-width: 250px; }
+
+    /* יישור מספרים פיננסיים */
+    .amount-cell {
+        text-align: end !important; 
+        white-space: nowrap;
+        padding-inline-end: 10px; 
+        font-family: 'Courier New', monospace; 
+    }
+
+
+/* ===== עיצוב שורה מבוטלת ביומן התנועות ===== */
+.transaction-canceled {
+    background-color: rgba(217, 83, 79, 0.08) !important; /* רקע אדמדם עדין מאוד שלא חונק את הטקסט */
+    color: #b94a48 !important; /* צבע טקסט כהה ותואם */
+}
+
+.transaction-canceled input {
+    color: #b94a48 !important;
+}
+
+/* עיצוב ה-X האדום */
+.cancel-x-badge {
+    margin-inline-end: 4px;
+    font-size: 13px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+    /* ===== הגנה ובידוד מוחלט לעיצוב הלוח שנה הצף בשמנת עדינה ===== */
+    .custom-calendar-picker {
+        position: absolute !important; 
+        z-index: 99999 !important; 
+        background-color: #fdfbf7 !important; 
+        border: 1px solid #c2bfae !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.12) !important;
+        padding: 8px !important; 
+        width: 210px !important; 
+        font-family: system-ui, -apple-system, sans-serif !important; 
+        display: none; 
+        text-align: center !important; 
+        direction: ltr !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
+    }
+
+    .calendar-nav { 
+        display: flex !important; 
+        justify-content: space-between !important; 
+        align-items: center !important; 
+        margin-bottom: 6px !important; 
+        gap: 3px !important;
+        width: 100% !important;
+    }
+
+    /* תיקון קשיח לרשימות הבחירה של הלוח שנה - מונע דריסה של הטבלה והמובייל */
+    .calendar-nav select {
+        display: inline-block !important;
+        background: #f4eee1 !important;
+        border: 1px solid #d3cbba !important;
+        font-size: 12px !important;
+        font-weight: bold !important;
+        color: #333 !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        font-family: inherit !important;    
+        height: 24px !important;          
+        padding: 0 4px !important;        
+        box-sizing: border-box !important; 
+    }
+
+    #calMonthSelect { width: 80px !important; min-width: 80px !important; flex: none !important; }
+    #calYearSelect { width: 65px !important; min-width: 65px !important; flex: none !important; }
+
+    .calendar-nav button { 
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #e8e2d2 !important; 
+        border: 1px solid #c8bfa9 !important; 
+        font-size: 13px !important; 
+        cursor: pointer !important; 
+        padding: 0 8px !important; 
+        height: 24px !important;
+        font-weight: bold !important; 
+        color: #333 !important;
+        border-radius: 4px !important;
+        box-sizing: border-box !important;
+    }
+
+    .calendar-nav button:hover { background: #dbd4c0 !important; }
+
+    .calendar-days-grid { 
+        display: grid !important; 
+        grid-template-columns: repeat(7, 1fr) !important; 
+        gap: 3px !important; 
+        font-size: 11px !important; 
+        color: #333 !important;
+        width: 100% !important;
+    }
+
+    .calendar-day-header { 
+        display: block !important;
+        font-weight: bold !important; 
+        color: #7c7565 !important; 
+        padding-bottom: 3px !important; 
+        text-align: center !important;
+    }
+
+    .calendar-day-cell { 
+        display: block !important;
+        padding: 4px 0 !important; 
+        cursor: pointer !important; 
+        border-radius: 4px !important; 
+        color: #333 !important; 
+        font-weight: 500 !important;
+        background-color: transparent !important;
+        text-align: center !important;
+    }
+
+    .calendar-day-cell:hover:not(.empty) { background: #ebdcb9 !important; }
+    .calendar-day-cell.selected { background: #5a5241 !important; color: #ffffff !important; font-weight: bold !important; }
+    .calendar-day-cell.empty { cursor: default !important; background: none !important; }
+
+
+/* ===== עיצוב רספונסיבי מאוחד ובינלאומי למובייל (768px ומטה) - דף תנועות כספיות ===== */
+@media screen and (max-width: 768px) {
+    body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .container {
+        padding: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 1. פירוק שורת הסרגל העליון (תפריטי החודש, השנה והחיפוש) למובייל */
+    .top-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        padding: 10px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .top-bar form {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .btn-home, .btn-clear, .btn-search, .search-box, input[type="text"].search-box {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 36px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 2. פירוק שורת כפתורי הניווט (דף ראשי, דו"ח רווח והפסד, קטגוריות) */
+    .nav-btns {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+
+    .btn-nav {
+        width: 100% !important;
+        height: 36px !important;
+        line-height: 36px !important;
+        margin: 0 !important;
+    }
+
+    /* 3. פירוק טופס ההוספה המהירה (Quick Add) למבנה אנכי מסודר */
+    .quick-add {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .quick-add div {
+        width: 100% !important;
+        flex: none !important;
+    }
+
+    .quick-add label {
+        text-align: start !important;
+        margin-bottom: 2px !important;
+    }
+
+    .quick-add input, 
+    .quick-add select,
+    .quick-add .file-upload-wrapper,
+    .btn-save {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 34px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+    }
+
+    .file-upload-wrapper {
+        margin-top: 5px !important;
+    }
+
+    .btn-save {
+        margin-top: 10px !important;
+    }
+
+    /* 4. פירוק והפיכת טבלת האקסל הרחבה לכרטיסים רספונסיביים חכמים */
+    .excel-table thead { 
+        display: none !important; 
+    }
+
+    .excel-table,
+    .excel-table tbody {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* הפיכת כל שורה (תנועה) לכרטיס לבן צף ומרווח בטלפון */
+    .excel-table tr.mobile-card-row {
+        display: block !important;
+        background: #fff !important;
+        margin-bottom: 20px !important; 
+        padding: 12px !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--excel-border) !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+        height: auto !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* סידור האלמנטים שורה-שורה בתוך הכרטיס בסנכרון מלא לכיוון השפה הנוכחית */
+    .excel-table td:not(.custom-calendar-picker td) {
+        display: flex !important;
+        /* משנה כיוון אוטומטית: ימין-שמאל בעברית, שמאל-ימין באנגלית! */
+        flex-direction: row !important; 
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 8px 4px !important;
+        border: none !important; /* מעיף את קווי הטבלה המציקים מהמובייל */
+        border-bottom: 1px solid #f0f0f0 !important;
+        height: auto !important; 
+        width: 100% !important;
+        box-sizing: border-box !important;
+        text-align: start !important;
+    }
+
+    .excel-table td:last-child { 
+        border-bottom: none !important; 
+    }
+
+    /* הגנה מיוחדת על תא התאריך בטבלה כדי שאינפוט הלוח שנה לא ייפגע במובייל */
+    .excel-table td input[data-calendar="true"] {
+        width: auto !important;
+        max-width: 150px !important;
+        height: 28px !important;
+        background: #fdfbf7 !important; /* נותן לשדה תאריך רקע עדין במובייל שיהיה ברור שזה כפתור */
+        border: 0.5px solid var(--excel-border) !important;
+        border-radius: 4px !important;
+        padding: 0 5px !important;
+    }
+
+    /* הזרקת שם השדה הדינמי מה-data-label - נצמד אוטומטית לצד הנכון לפי השפה הפעילה */
+    .excel-table td:not(.custom-calendar-picker td)::before {
+        content: attr(data-label) ":";
+        font-weight: bold !important;
+        color: var(--btn-blue) !important;
+        font-size: 13px !important;
+        white-space: nowrap !important;
+        margin-inline-end: 10px !important; /* שומר על מרווח חכם מהטקסט */
+    }
+
+    /* תיקון מיוחד ליישור הסכומים והמע"מ בתוך כרטיס המובייל */
+    .amount-cell {
+        text-align: start !important;
+        padding-inline-end: 0 !important;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+    <form method="get" action="/transactions" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <select id="searchMonth" name="month" class="search-box" onchange="this.form.submit()">
+            <option value="" data-i18n="invoice.all_months">כל החודשים</option>
+            {% for i in range(1,13) %}
+                {% set val = "%02d"|format(i) %}
+                <option value="{{ val }}" data-i18n-month="{{ i-1 }}" {% if selected_month == val %}selected{% endif %}>
+                    {{ months[i-1] }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select id="searchYear" name="year" class="search-box" onchange="this.form.submit()">
+            {% for year in years %}
+                <option value="{{ year }}" {% if selected_year == year|string %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="button" class="btn-clear" onclick="window.location='/transactions'" data-i18n="transactions.clear">נקה</button>
+        <input type="text" id="searchInput" name="q" class="search-box" data-i18n-placeholder="transactions.search_placeholder" placeholder="חיפוש ..." value="{{ search }}">
+        <button type="submit" class="btn-search" data-i18n="invoice.search_btn">חפש</button>
+    </form>
+</div>
+
+<div class="container">
+    <div class="nav-btns">
+        <a href="{{ url_for('invoice') }}" class="btn-nav" data-i18n="invoice.main_page">🏠 דף ראשי</a>
+        <a href="{{ url_for('profit') }}" class="btn-nav" style="background: var(--btn-blue);" data-i18n="invoice.back_to_profit">📊 דו"ח רווח והפסד</a>
+        <a href="{{ url_for('categories') }}" class="btn-nav" style="background: #f39c12;" data-i18n="go_categories_page">📁 קטגוריות</a>
+    </div>
+
+    <h1 data-i18n="transactions.title">יומן תנועות כספיות</h1>
+
+    <form action="/transaction/add" method="POST" enctype="multipart/form-data" class="quick-add">
+        <div class="form-group">
+            <label data-i18n="transactions.date">תאריך</label>
+            <input type="text" 
+                   name="date" 
+                   id="transaction_date_input" 
+                   data-calendar="true" 
+                   required 
+                   value="{{ today | lang_date }}" 
+                   readonly 
+                   style="width: 145px; height: 30px; padding: 5px 10px; border: 1px solid #ccc; border-radius: 14px; background: #fff; cursor: pointer; box-sizing: border-box; font-weight: bold;">
+        </div>
+
+        <div>
+            <label data-i18n="transactions.description">תיאור</label>
+            <input type="text" name="description" data-i18n-placeholder="transactions.desc_placeholder" placeholder="למשל: תשלום שרתים" required style="width: 220px;">
+        </div>
+
+        <div>
+            <label data-i18n="transactions.type">סוג</label>
+            <select name="type" id="transaction_type" style="width: 100px;" onchange="autoCalculateVat()">
+                <option value="expense" data-i18n="transactions.expense">הוצאה ⬇️</option>
+                <option value="income" data-i18n="transactions.income">הכנסה ⬆️</option>
+            </select>
+        </div>
+
+        <div>
+            <label data-i18n="transactions.category_label">קטגוריה</label>
+            <select name="category" id="category" style="width: 165px;">
+                <option value="" selected data-i18n="categories.select_placeholder">-- בחר קטגוריה --</option>
+                {% if business_categories %}
+                   {% set unique_names = [] %}
+                   {% for key, name in business_categories.items() %}
+                        {% if name not in unique_names %}
+                            {% if unique_names.append(name) %}{% endif %}
+                            <option value="{{ key }}">{{ name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <option disabled selected data-i18n="categories.no_data">לא הוגדרו קטגוריות...</option>
+                {% endif %}
+            </select>
+        </div>
+
+        <div>
+            <label data-i18n="transactions.amount">סכום</label>
+            <input type="number" step="0.01" id="transaction_amount" name="amount" placeholder="0.00" required style="width: 95px;" oninput="autoCalculateVat()">
+        </div>
+
+        <div>
+            <label data-i18n="vat_label">מע"מ</label>
+            <input type="number" step="0.01" id="vat_exp_amount" name="vat_amount" placeholder="0.00" value="0.00" style="width: 80px;">
+        </div>
+
+        <div class="file-upload-wrapper" style="position: relative; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid #000; border-radius: 8px; background: #fff; cursor: pointer; box-sizing: border-box; margin-top: 15px; padding: 5px 12px; min-height: 26px; max-width: 160px; overflow: hidden;">
+            <span data-i18n="transactions.add_file" style="font-size: 13px; font-weight: bold; color: #000; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; width: 100%; text-align: center;">
+                📎קובץ +
+            </span>
+            <input type="file" name="attachment" accept="image/*,application/pdf" 
+                   style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2;" 
+                   onchange="const s = this.parentElement.querySelector('span'); this.parentElement.style.background='#000'; s.style.color='#fff'; s.removeAttribute('data-i18n'); s.innerText = (localStorage.getItem('lang') === 'he') ? '✓ מוכן' : '✓ Ready';">
+        </div>
+
+        <button type="submit" class="btn-save" data-i18n="transactions.add_btn" style="width: 110px; margin-top: 20px;">הוסף +</button>
+    </form>
+
+    <table class="excel-table">
+        <thead>
+            <tr>
+                <th data-i18n="transactions.date">תאריך</th>
+                <th data-i18n="transactions.description">תיאור</th>
+                <th data-i18n="transactions.category">קטגוריה</th>
+                <th data-i18n="transactions.type">סוג</th>
+                <th data-i18n="transactions.amount">סכום</th>
+                <th data-i18n="vat_label">מע"מ</th> 
+                <th data-i18n="transactions.profit_col" style="color: green;">רווח גולמי</th> 
+                <th data-i18n="transactions.source">מקור</th>
+                <th style="width: 40px;">📎</th>
+                <th data-i18n="transactions.actions">פעולות</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in transactions %}
+            {# 💡 מזהה אם מדובר בחשבונית מבוטלת על בסיס זה שיש לה מזהה חשבונית והסכום שלה אופס ל-0 #}
+            {% set is_canceled = (t.invoice_id and t.amount == 0) %}
+            <tr class="mobile-card-row {% if is_canceled %}transaction-canceled{% endif %}">
+                <!-- תאריך -->
+                <td data-label="תאריך" style="width: 100px !important; min-width: 100px !important; position: relative; padding: 0;">
+                    <input type="text" 
+                           name="date" 
+                           id="transactions_date_input_{{ loop.index }}" 
+                           data-calendar="true" 
+                           readonly 
+                           value="{{ t.date | lang_date if t.date else '' }}" 
+                           placeholder="---"
+                           style="width: 100% !important; min-width: 100% !important; height: 30px; padding: 0 10px; border: none; background: transparent; box-sizing: border-box; cursor: pointer; font-size: inherit; font-family: inherit; color: inherit; text-align: center; font-weight: bold; display: block !important;">
+                </td>
+                
+                <!-- עמודה 2: תיאור מוצר / חשבונית -->
+                <td data-label="תיאור" style="text-align: right;">
+                    {% if t.invoice_id %}
+                        <a href="{{ url_for('invoice_view', invoice_id=t.invoice_id) }}">
+                            {# 💡 הפיקס: הזרקת ❌ אדום אם החשבונית מבוטלת #}
+                            {% if is_canceled %}<span class="cancel-x-badge">❌</span>{% endif %}
+                            <span data-i18n="transactions.invoice">חשבונית</span> 
+                            <span>#{{ t.invoice_id }}</span>
+                        </a>
+                    {% else %}
+                        <span class="trans-text" data-translations='{{ t.description | tojson | safe }}'>
+                            {{ trans_i18n_list.get(t.id, t.description) }}
+                        </span>
+                    {% endif %}
+                </td>
+                
+                <!-- קטגוריה -->
+                <td data-label="קטגוריה">
+                    {% set cid = t.category_id | string %}
+                    {% if cid in business_categories %}{{ business_categories[cid] }}{% else %}{{ t.category or '---' }}{% endif %}
+                </td>
+                
+                <!-- סוג -->
+                <td data-label="סוג" class="{{ 'type-income' if t.type == 'income' }} {{ 'type-expense' if t.type == 'expense' }}">
+                    {% if t.type == 'income' %}
+                        <span data-i18n="transactions.income">הכנסה</span> ⬆️
+                    {% else %}
+                        <span data-i18n="transactions.expense">הוצאה</span> ⬇️
+                    {% endif %}
+                </td>
+                
+                <!-- סכום -->
+                <td data-label="סכום" class="amount-cell" dir="ltr" style="font-weight: bold;">
+                    {{ t.amount | currency }}
+                </td>
+                
+                <!-- מע"מ -->
+                <td data-label="מע"מ" class="amount-cell" dir="ltr" style="font-weight: bold; text-align: center;">
+                    {#  אם החשבונית מבוטלת (is_canceled), אנחנו נועלים את המע"מ על 0.00 #}
+                    {% if is_canceled %}
+                        <span style="color: #999;">0.00 ₪</span>
+                    {% else %}
+                        {% set current_vat = vat_amounts_list.get(t.id, 0.0) %}
+                        {% if t.type == 'income' %}
+                            <span style="color: #007bff;">
+                                {{ current_vat | currency if current_vat > 0 else '0.00 ₪' }}
+                            </span>
+                        {% else %}
+                            <span style="color: #fd7e14;">
+                                {% if current_vat > 0 %}
+                                    -{{ current_vat | currency }}
+                                {% else %}
+                                    0.00 ₪
+                                {% endif %}
+                            </span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+
+                <!-- רווח גולמי -->
+                <td data-label="רווח" class="amount-cell" dir="ltr" style="color: #27ae60; font-weight: bold;">
+                    {% if t.type == 'income' %}
+                        {% set cost = costs_at_time.get(t.id, 0) %}
+                        {% set profit = t.amount - cost %}
+                        {{ profit | currency }}
+                    {% else %}
+                        <span style="color: #999;">--</span>
+                    {% endif %}
+                </td>
+
+                <!-- עמודה 8: מקור החשבונית -->
+                <td data-label="מקור">
+                    {% if t.invoice_id %}
+                        <a href="{{ url_for('invoice_view', invoice_id=t.invoice_id) }}">
+                            {# 💡 הפיקס: הזרקת ❌ אדום גם בעמודת המקור #}
+                            {% if is_canceled %}<span class="cancel-x-badge">❌</span>{% endif %}
+                            <span data-i18n="transactions.invoice">חשבונית</span> 
+                            <span>#{{ t.invoice_id }}</span>
+                        </a>
+                    {% else %}
+                        <span data-i18n="transactions.manual" style="color: #888;">✍️ ידני</span>
+                    {% endif %}
+                </td>
+                
+                <td data-label="קובץ" style="text-align: center; width: 40px;">
+                    {% if t.attachment_path %}
+                        <a href="{{ url_for('static', filename='uploads/' + t.attachment_path) }}" target="_blank">🖼️</a>
+                    {% else %}-{% endif %}
+                </td>
+
+                <td data-label="פעולות">
+                    <form action="{{ url_for('delete_transaction', id=t.id) }}" method="POST" style="display:inline;">
+                        <button type="submit" style="border:none; background:none; color:#e74c3c; cursor:pointer; font-size: 1.2rem;" 
+                                onclick="return confirm(localStorage.getItem('lang') === 'he' ? 'בטוח שברצונך למחוק?' : 'Are you sure you want to delete?')">
+                            🗑️
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+/**
+ * חישוב אוטומטי של המע"מ כברירת מחדל (הצעה למשתמש) - לפי שפת המערכת ועם אפשרות עריכה מלאה
+ */
+function autoCalculateVat() {
+    const typeSelect = document.getElementById('transaction_type');
+    const amountInput = document.getElementById('transaction_amount');
+    const vatInput = document.getElementById('vat_exp_amount');
+    
+    if (!typeSelect || !amountInput || !vatInput) return;
+
+    // אם סוג התנועה הוא לא הוצאה ולא הכנסה ידנית - מאפסים
+    if (typeSelect.value !== 'expense' && typeSelect.value !== 'income') {
+        vatInput.value = "0.00";
+        return;
+    }
+
+    const totalAmount = parseFloat(amountInput.value) || 0;
+    if (totalAmount === 0) {
+        vatInput.value = "0.00";
+        return;
+    }
+
+    //  התיקון הגלובלי: זיהוי אוטומטי של אחוז ההצעה לפי שפת האפליקציה (אנגלית = 6%, עברית = 18%)
+    const currentLang = localStorage.getItem("lang") || "he";
+    const vatRate = currentLang === "en" ? 6.0 : 18.0;
+    
+    // חישוב המע"מ מתוך הסכום הכולל (סכום כולל מע"מ - חילור רטרואקטיבי)
+    const rateFactor = vatRate / 100;
+    const subTotal = totalAmount / (1 + rateFactor);
+    const calculatedVat = totalAmount - subTotal;
+
+    // מציגים את החישוב כברירת מחדל, אך המשתמש יכול למחוק/לשנות ל-0 במידת הצורך!
+    vatInput.value = calculatedVat.toFixed(2);
+}
+</script>
+
+
+<!-- לוח שנה צף קומפקטי בצבע שמנת סקריפט  -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. קריאה ישירה של השפה הפעילה מתוך ה-Cookie של המערכת שלך
+    const currentLang = document.cookie.split('; ').find(row => row.startsWith('lang='))?.split('=')[1] || localStorage.getItem("lang") || "he";
+
+    // 2. חילוץ שמות החודשים המתורגמים הרשמיים מהדפדפן לפי השפה
+    const translatedMonths = Array.from({ length: 12 }, (_, i) => {
+        return new Intl.DateTimeFormat(currentLang, { month: 'long' }).format(new Date(2026, i, 1));
+    });
+
+    // 3. חילוץ אוטומטי של ימי השבוע המקוצרים מהדפדפן לפי השפה הפעילה (א'-ש' בעברית, Lu-Do בספרדית וכו')
+    const daysWeek = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(2026, 5, 21 + i); // 21 ביוני 2026 הוא יום ראשון
+        return new Intl.DateTimeFormat(currentLang, { weekday: currentLang === 'he' ? 'narrow' : 'short' }).format(date);
+    });
+
+    // 4.  פירוק ידני קשיח ובטוח לפי חוקי ה-main.py שלך - מונע לחלוטין את הקריסה בימים 13-31!
+    function parseDateByLang(dateStr, lang) {
+        if (!dateStr) return null;
+        
+        const parts = dateStr.trim().split('-');
+        if (parts.length !== 3) return null;
+
+        let year, month, day;
+
+        // בדיקה חכמה: אם החלק הראשון הוא באורך 4 ספרות (פורמט בינלאומי גולמי של השרת YYYY-MM-DD)
+        if (parts[0].length === 4) {
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+        } 
+        // פורמט ארה"ב (אנגלית): MM-DD-YYYY
+        else if (lang === "en") {
+            month = parseInt(parts[0], 10) - 1;
+            day = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        } 
+        // פורמט ישראל ואירופה (עברית, ספרדית וכו'): DD-MM-YYYY
+        else {
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            year = parseInt(parts[2], 10);
+        }
+
+        // בדיקת בטיחות קשיחה כדי למנוע יצירת ערכים שבורים
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+            return null;
+        }
+        
+        // מחזיר אובייקט נתונים נקי במקום אובייקט Date מובנה שמתבלבל בין ימים לחודשים
+        return { year, month, day };
+    }
+
+    function formatDateByLang(year, monthIndex, day, lang) {
+        const d = String(day).padStart(2, '0');
+        const m = String(monthIndex + 1).padStart(2, '0');
+        const y = year;
+
+        if (lang === "en") return `${m}-${d}-${y}`; // MM-DD-YYYY
+        if (["zh", "ja", "ko"].includes(lang)) return `${y}-${m}-${d}`; // YYYY-MM-DD
+        return `${d}-${m}-${y}`; // DD-MM-YYYY
+    }
+
+    // 5. יצירה והזרקה אוטומטית של אלמנט הלוח שנה לדף
+    const calendar = document.createElement('div');
+    calendar.id = 'customCalendarPicker';
+    calendar.className = 'custom-calendar-picker';
+    calendar.innerHTML = `
+        <div class="calendar-nav">
+            <button id="calPrevBtn" type="button">&lt;</button>
+            <div style="display: flex; gap: 4px;">
+                <select id="calMonthSelect"></select>
+                <select id="calYearSelect"></select>
+            </div>
+            <button id="calNextBtn" type="button">&gt;</button>
+        </div>
+        <div id="calendarGrid" class="calendar-days-grid"></div>
+    `;
+    document.body.appendChild(calendar);
+
+    const monthSelect = document.getElementById('calMonthSelect');
+    const yearSelect = document.getElementById('calYearSelect');
+    const grid = document.getElementById('calendarGrid');
+    let activeInput = null;
+    
+    let currentDate = new Date();
+    let displayedMonth = currentDate.getMonth();
+    let displayedYear = currentDate.getFullYear();
+
+    function initSelectOptions() {
+        monthSelect.innerHTML = '';
+        translatedMonths.forEach((m, idx) => {
+            monthSelect.innerHTML += `<option value="${idx}">${m}</option>`;
+        });
+
+        yearSelect.innerHTML = '';
+        const currentYearNum = new Date().getFullYear();
+        for (let y = currentYearNum + 10; y >= currentYearNum - 100; y--) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+    }
+
+    function renderCalendar() {
+        grid.innerHTML = '';
+
+        monthSelect.value = displayedMonth;
+        yearSelect.value = displayedYear;
+
+        daysWeek.forEach(d => {
+            grid.innerHTML += `<div class="calendar-day-header">${d}</div>`;
+        });
+
+        const firstDayIndex = new Date(displayedYear, displayedMonth, 1).getDay();
+        const totalDays = new Date(displayedYear, displayedMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            grid.innerHTML += `<div class="calendar-day-cell empty"></div>`;
+        }
+
+        let selectedDay = null;
+        if (activeInput && activeInput.value && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed && parsed.year === displayedYear && parsed.month === displayedMonth) {
+                selectedDay = parsed.day;
+            }
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+            const isSelected = (day === selectedDay) ? 'selected' : '';
+            grid.innerHTML += `<div class="calendar-day-cell ${isSelected}" data-day="${day}">${day}</div>`;
+        }
+
+        grid.querySelectorAll('.calendar-day-cell:not(.empty)').forEach(cell => {
+            cell.onclick = function(e) {
+                e.stopPropagation();
+                if (!activeInput) return;
+
+                const day = parseInt(this.getAttribute('data-day'), 10);
+                activeInput.value = formatDateByLang(displayedYear, displayedMonth, day, currentLang);
+                
+                // שליחת אירועי עדכון מלאים עם bubbles כדי שכל הדף ומנוע הפייתון יזהו את השינוי ב-POST
+                activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                calendar.style.display = 'none';
+            };
+        });
+    }
+
+    monthSelect.addEventListener('change', (e) => {
+        displayedMonth = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    yearSelect.addEventListener('change', (e) => {
+        displayedYear = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    document.getElementById('calPrevBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth--;
+        if (displayedMonth < 0) {
+            displayedMonth = 11;
+            displayedYear--;
+        }
+        renderCalendar();
+    };
+
+    document.getElementById('calNextBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth++;
+        if (displayedMonth > 11) {
+            displayedMonth = 0;
+            displayedYear++;
+        }
+        renderCalendar();
+    };
+
+    // פונקציית פתיחה מאוחדת ומאובטחת שמחשבת מיקום מדויק של הלוח
+    function openCalendar(targetInput) {
+        activeInput = targetInput;
+        initSelectOptions();
+        
+        let today = new Date();
+        displayedMonth = today.getMonth();
+        displayedYear = today.getFullYear();
+        
+        if (activeInput.value && activeInput.value.trim() !== "" && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed) {
+                displayedMonth = parsed.month;
+                displayedYear = parsed.year;
+            }
+        }
+
+        renderCalendar();
+
+        const rect = activeInput.getBoundingClientRect();
+        calendar.style.top = (rect.bottom + window.scrollY) + 'px';
+        calendar.style.left = (rect.left + window.scrollX) + 'px';
+        calendar.style.display = 'block';
+    }
+
+    // הגנה כפולה לפתיחה: מגיב חלק גם בפוקוס (טפסים) וגם בקליק עכבר ישיר (טבלאות וגרידים)
+    document.body.addEventListener('focusin', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            openCalendar(e.target);
+        }
+    });
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openCalendar(e.target);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!calendar.contains(e.target) && activeInput && e.target !== activeInput) {
+            calendar.style.display = 'none';
+        }
+    });
+    
+    calendar.onclick = (e) => e.stopPropagation();
+});
+</script>
+
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    if (typeof loadLanguage === "function") {
+        loadLanguage(lang);
+    }
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
