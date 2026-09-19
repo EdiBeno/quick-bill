@@ -1,0 +1,1061 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול לקוחות</title>
+    <script>
+        function clearData() {
+            fetch('/clear_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Refresh the page
+                } else {
+                    alert('Failed to clear data: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while clearing data');
+            });
+        }
+    </script>
+<style>
+/* Wrapper that adds 4cm spacing on both sides */
+.form-wrapper {
+    padding-left: 4cm;
+    padding-right: 4cm;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Container of all columns */
+.form-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Each column */
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 33%;
+}
+
+/* Each row inside a column */
+.form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Labels */
+.form-row label {
+    width: 35%;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Inputs */
+.form-row input,
+.form-row select {
+    width: 60%;
+    height: 0.6cm;
+    padding: 3px 6px;
+    font-size: 1em;
+    font-weight: bold;
+    border: 1px solid #999;
+    border-radius: 4px;
+    direction: rtl;
+}
+
+/* Full-width message row */
+.full-width-row {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.full-width-row label {
+    width: 2cm;
+    font-weight: bold;
+}
+
+.full-width-row input {
+    width: calc(100% - 2.5cm);
+    height: 0.9cm;
+    font-size: 1.1em;
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding-right: 8px;
+}
+
+/* Buttons */
+button {
+    cursor: pointer;
+    border: none;
+    background-color: #0078d4;
+    color: white;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #005fa3;
+}
+
+
+/* ===== שורת כפתורי לקוח אוניברסלית ומיושרת כמו סרגל פלדה ===== */
+.global-action-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 15px !important;            /* רווח אחיד וקבוע בין כל 5 הרכיבים */
+    margin-top: 25px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-wrap: nowrap !important;    /* מונע מהם להישבר ולרדת שורות בשפות ארוכות */
+}
+
+/* בסיס אחיד לכל כפתורי המערכת - מחסל את ה"דו רה מי" לתמיד */
+.btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    height: 36px !important;          /* גובה קבוע אחיד קשיח לכל הכלים בשורה */
+    padding: 0 15px !important;       /* ריפוד צדדי אחיד */
+    box-sizing: border-box !important;
+    white-space: nowrap !important;   /* מונע מהטקסט להישבר ל-2 שורות בשפות ארוכות */
+    text-overflow: ellipsis !important; /* דוחף 3 נקודות (...) באלגנטיות אם המילה ארוכה מדי */
+    overflow: hidden !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    border: none !important;
+    color: white !important;
+}
+
+/* רוחב וצבעים קבועים לכל כפתור בנפרד למניעת עיוותים */
+.btn-save { width: 140px !important; background-color: #28a745 !important; }
+.btn-save:hover { background-color: #218838 !important; }
+
+.btn-nav { width: 170px !important; background-color: #0078d4 !important; }
+.btn-nav:hover { background-color: #005fa3 !important; }
+
+.btn-search-submit { width: 90px !important; background-color: #6c757d !important; }
+.btn-search-submit:hover { background-color: #5a6268 !important; }
+
+.btn-clear-data { width: 120px !important; background-color: #dc3545 !important; }
+.btn-clear-data:hover { background-color: #bd2130 !important; }
+
+.btn-customer-data { width: 140px !important; background-color: #17a2b8 !important; }
+.btn-customer-data:hover { background-color: #138496 !important; }
+
+/* סידור טופס החיפוש הפנימי */
+.search-customer-form {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.search-customer-label {
+    font-weight: bold !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+    color: #333 !important;
+}
+
+.search-customer-select {
+    height: 36px !important;          /* תואם בול לגובה של כל הכפתורים! */
+    width: 180px !important;          /* רווח קבוע ונעול לקומבו-בוקס */
+    font-size: 13px !important;
+    font-weight: bold !important;
+    border: 1px solid #999 !important;
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+    padding: 0 5px !important;
+}
+
+/* עיצוב אחיד לאוברליי הטעינה שלא ישבור את העמוד */
+#loadingOverlay {
+    font-weight: bold !important;
+    font-size: 13px !important;
+    color: #856404 !important;
+    background-color: #fff3cd !important;
+    border: 1px solid #ffeeba !important;
+    padding: 0 10px !important;
+    height: 36px !important;
+    display: none; /* נשאר מוסתר ומוצג רק בזמן תרגום דרך ה-JS שלך */
+    align-items: center !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+}
+
+
+/* נטרול כל הכפתורים עד שהתרגום מסיים */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+
+/* ===== עיצוב לוח שנה צף קומפקטי בצבע שמנת שמתאים לסקריפט לוח שנה צף===== */
+.custom-calendar-picker {
+    position: absolute; 
+    z-index: 9999; 
+    background-color: #fdfbf7 !important; /* צבע שמנת עדין */
+    border: 1px solid #c2bfae; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    padding: 8px; 
+    width: 210px; /* קטן וקומפקטי יותר */
+    font-family: system-ui, -apple-system, sans-serif; 
+    display: none; 
+    text-align: center; 
+    direction: ltr !important;
+    border-radius: 6px;
+}
+
+/* ניווט עליון - תפריט בחירה מהיר */
+.calendar-nav { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 6px; 
+    gap: 3px;
+}
+
+/* עיצוב רשימות הבחירה של החודש והשנה */
+.calendar-nav select {
+    background: #f4eee1;
+    border: 1px solid #d3cbba;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333 !important;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;    
+    height: 22px;          
+    padding: 0 4px;        
+    box-sizing: border-box; 
+}
+
+.calendar-nav select:focus {
+    outline: none;
+    border-color: #8c826b;
+}
+
+.calendar-nav button { 
+    background: #e8e2d2; 
+    border: 1px solid #c8bfa9; 
+    font-size: 13px; 
+    cursor: pointer; 
+    padding: 2px 6px; 
+    font-weight: bold; 
+    color: #333 !important;
+    border-radius: 4px;
+}
+
+.calendar-nav button:hover {
+    background: #dbd4c0;
+}
+
+/* גריד הימים */
+.calendar-days-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 3px; 
+    font-size: 11px; 
+    color: #333 !important;
+}
+
+.calendar-day-header { 
+    font-weight: bold; 
+    color: #7c7565 !important; 
+    padding-bottom: 3px; 
+}
+
+.calendar-day-cell { 
+    padding: 4px 0; 
+    cursor: pointer; 
+    border-radius: 4px; 
+    color: #333 !important; 
+    font-weight: 500;
+    background-color: transparent;
+}
+
+.calendar-day-cell:hover:not(.empty) { 
+    background: #ebdcb9 !important; 
+}
+
+.calendar-day-cell.selected { 
+    background: #5a5241 !important; 
+    color: #ffffff !important; 
+    font-weight: bold; 
+}
+
+.calendar-day-cell.empty { 
+    cursor: default; 
+    background: none !important;
+}
+
+
+/* ===== עיצוב רספונסיבי מאוחד ובינלאומי למובייל (768px ומטה) - דף לקוח ===== */
+@media screen and (max-width: 768px) {
+    body {
+        /* מאפשר לתגית ה-html הראשית של הג'ינג'ה לקבוע את כיוון הדף דינמית */
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .form-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .form-container {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 15px !important;
+        width: 100% !important;
+    }
+
+    .form-column {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .form-row {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        /* start נצמד אוטומטית לימין בשפות RTL ולשמאל בשפות LTR (מתאים לכל 30 השפות!) */
+        align-items: start !important;
+        justify-content: flex-start !important;
+        margin-bottom: 10px !important;
+        gap: 4px !important;
+    }
+
+    /* כפיית רוחב מלא ויישור דינמי ללייבלים */
+    .form-row label {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        font-size: 16px !important;
+        margin: 0 0 2px 0 !important;
+        text-align: start !important;
+        display: block !important;
+    }
+
+    /* כפיית רוחב מלא וגובה נוח על כל תיבות הקלט והסלקט בטופס */
+    .form-row input,
+    .form-row select,
+    .form-row div[style*="position: relative"] {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        height: 34px !important;
+        font-size: 16px !important;
+        padding: 6px 10px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    /* בידוד מיוחד עבור שדה התאריך השקוף בתוך הדיב האבסולוטי במובייל */
+    .form-row div[style*="position: relative"] input {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .full-width-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: start !important;
+        width: 100% !important;
+        gap: 4px !important;
+    }
+
+    .full-width-row label {
+        width: 100% !important;
+        text-align: start !important;
+        font-size: 16px !important;
+    }
+
+    .full-width-row input,
+    .full-width-row textarea {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        box-sizing: border-box !important;
+        padding: 8px !important;
+    }
+
+    /* שורת כפתורי הפעולה הגלובלית - מפרק את ה-flex של המחשב לבלוקים אנכיים במובייל */
+    .global-action-bar {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        gap: 10px !important;
+        margin-top: 20px !important;
+        flex-wrap: wrap !important;
+    }
+
+    /* התאמת 5 כפתורי הפעולה והקישורים לרוחב מלא ונוח ללחיצה במובייל */
+    .btn-action,
+    .global-action-bar a,
+    .global-action-bar a button,
+    .global-action-bar form:not(.search-customer-form),
+    .global-action-bar form button {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 44px !important; 
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .global-action-bar form:not(.search-customer-form) {
+        width: 100% !important;
+        height: 44px !important;
+    }
+
+    /* פירוק שורת טופס חיפוש הלקוחות במובייל */
+    .search-customer-form {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        height: auto !important; 
+        gap: 8px !important; 
+    }
+
+    /* הפיכת הלייבל של החיפוש לזהה בעיצוב במובייל */
+    .search-customer-label {
+        width: 100% !important;
+        text-align: start !important;
+        font-size: 14px !important;
+        padding: 2px 0 !important;
+    }
+
+    /*  התאמת ה-Select של החיפוש - שימוש ב-block רגיל עם padding כדי שלא יתעוות */
+    .search-customer-select {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 44px !important;
+        box-sizing: border-box !important;
+        display: block !important; 
+        margin: 0 !important;
+        padding: 10px !important; 
+        font-size: 16px !important; 
+        border-radius: 4px;
+    }
+
+    /*  מוודא שהכפתור החסר יפרס ל-100% ויוצג מיד מתחת לסלקט */
+    .search-customer-form .btn-search-submit {
+        display: inline-flex !important;
+        width: 100% !important;
+        height: 44px !important;
+        margin-top: 4px !important; 
+    }
+
+    /* תיקון מיוחד לאוברליי הטעינה במובייל */
+    #loadingOverlay {
+        width: 100% !important;
+        height: 44px !important;
+        justify-content: center !important;
+    }
+
+    /* כותרת ראשית */
+    h1 {
+        width: 100% !important;
+        text-align: center !important;
+        font-size: 26px !important;
+        margin: 0 0 15px 0 !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* ביטול flex מכל אלמנט פנימי בטופס החיפוש - למעט הסלקט והכפתור עצמו */
+    form[action*="search_customer"] *[style*="display:flex"]:not(.search-customer-select):not(.btn-search-submit) {
+        display: block !important;
+        width: 100% !important;
+    }
+</style>
+
+</head>
+<body>
+
+<div class="container">
+    <div class="column1"></div>
+    <div class="column2">
+
+        <!-- TITLE -->
+        <h1 data-i18n="customer.add_or_update" style="text-align: center;">הוסף או עדכן לקוח</h1>
+
+<form action="{{ url_for('customer') }}" method="POST" id="customer">
+    <input type="hidden" id="customer_id" name="customer_id" value="{{ customer.id if customer and customer.id is not none else '' }}">
+
+    <div style="height: 0.1cm;"></div>
+
+<div class="form-wrapper">
+
+    <div class="form-container">
+
+        <!-- COLUMN 1 -->
+        <div class="form-column">
+            <div class="form-row">
+            <label data-i18n="customer.date">תאריך</label>
+            <input type="text" 
+                   name="date" 
+                   id="customer_date_input" 
+                   data-calendar="true" 
+                   required 
+                   value="{{ today | lang_date }}" 
+                   readonly 
+                   style="width: 62%; height: 30px; padding: 0 10px; border: 0.5px solid #444; border-radius: 1px; background: #fff; box-sizing: border-box; cursor: pointer;">
+            </div>        
+
+            <div class="form-row">
+                <label for="customer_name" data-i18n="customer.name">שם הלקוח:</label>
+                <input type="text" id="customer_name" name="customer_name" required
+                       value="{% if customer_i18n and customer_i18n.name is not none %}{{ customer_i18n.name }}{% elif customer and customer.customer_name is not none %}{{ customer.customer_name }}{% else %}{% endif %}">
+            </div>
+
+            <div class="form-row">
+                <label for="id_number" data-i18n="customer.id_number">מספר זהות / ח.פ:</label>
+                <input type="text" id="id_number" name="id_number" value="{{ customer.id_number if customer and customer.id_number is not none else '' }}">
+            </div>
+        </div>
+
+        <!-- COLUMN 2 -->
+        <div class="form-column">
+            <div class="form-row">
+                <label for="address" data-i18n="customer.address">כתובת:</label>
+                <input type="text" id="address" name="address"
+                       value="{% if customer_i18n and customer_i18n.address is not none %}{{ customer_i18n.address }}{% elif customer and customer.address is not none %}{{ customer.address }}{% else %}{% endif %}">
+            </div>
+
+            <div class="form-row">
+                <label for="city" data-i18n="customer.city">עיר:</label>
+                <input type="text" id="city" name="city"
+                       value="{% if customer_i18n and customer_i18n.city is not none %}{{ customer_i18n.city }}{% elif customer and customer.city is not none %}{{ customer.city }}{% else %}{% endif %}">
+            </div>
+
+            <div class="form-row">
+                <label for="postal_code" data-i18n="customer.postal_code">מיקוד:</label>
+                <input type="text" id="postal_code" name="postal_code" value="{{ customer.postal_code if customer and customer.postal_code is not none else '' }}">
+            </div>
+        </div>
+
+        <!-- COLUMN 3 -->
+        <div class="form-column">
+            <div class="form-row">
+                <label for="phone" data-i18n="customer.phone">טלפון:</label>
+                <input type="text" id="phone" name="phone" value="{{ customer.phone if customer and customer.phone is not none else '' }}">
+            </div>
+
+            <div class="form-row">
+                <label for="email" data-i18n="customer.email">מייל:</label>
+                <input type="text" id="email" name="email" required value="{{ customer.email if customer and customer.email is not none else '' }}">
+            </div>
+
+          <div class="form-row">
+              <label for="contract_status" data-i18n="customer.contract_status">סוג חוזה:</label>
+
+              <select id="contract_status" name="contract_status" style="width: 8.7cm; height: 0.8cm;">
+
+              <option value="contract_personal"
+                data-i18n="customer.contract_personal"
+                {% if customer and customer.contract_status == "contract_personal" %}selected{% endif %}>
+            אישי
+           </option>
+
+           <option value="contract_business"
+                data-i18n="customer.contract_business"
+                {% if customer and customer.contract_status == "contract_business" %}selected{% endif %}>
+            התקשרות
+        </option>
+       </select>
+     </div>
+    </div>
+
+    </div>
+
+    <!-- FULL WIDTH MESSAGE -->
+    <div class="full-width-row">
+        <label for="message" data-i18n="customer.notes" style="font-size: 1em; font-weight: bold; margin-bottom: 0.01px;">הערות:</label>
+        <textarea id="message" name="message" rows="5" style="width: 39.75cm; height: 1.5cm; font-size: 21px; font-weight: bold; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">{% if customer_i18n and customer_i18n.message is not none %}{{ customer_i18n.message }}{% elif customer and customer.message is not none %}{{ customer.message }}{% else %}{% endif %}</textarea>
+    </div>
+
+    <div style="height: 4.1cm;"></div>
+
+    <!-- ALL BUTTONS SECTION  -->
+    <div class="global-action-bar">
+
+        <!-- 1. כפתור שמירה (סוגר את ה-form הראשי של הלקוח) -->
+        <button type="submit" data-i18n="customer.save" class="btn-action btn-save">
+                שמירת נתונים
+            </button>
+        </form>
+
+        <!-- 2. כפתור עבור לדף הראשי -->
+        <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+            <button type="button" data-i18n="customer.main_page" class="btn-action btn-nav">
+                עבור לדף הראשי
+            </button>
+        </a>
+
+        <!-- 3. טופס חיפוש לקוח (משולב חלק בשורה באותו הגובה בדיוק) -->
+        <form method="POST" action="{{ url_for('search_customer') }}" class="search-customer-form">
+            <label for="search_name" data-i18n="customer.search" class="search-customer-label">חיפוש שם לקוחות:</label>
+            <select id="search_name" name="search_name" class="search-customer-select">
+                <option value="" data-i18n="customer.search_name">בחר שם לקוח</option>
+                {% for c in all_customers %}
+                    {% set loop_key = c.local_id if c.local_id is not none else c.id %}
+                    <option value="{{ c.customer_name }}">
+                    {{ customer_i18n_list.get(loop_key, {}).get('name', c.customer_name) }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="submit" data-i18n="customer.search_button" class="btn-action btn-search-submit">חיפוש</button>
+        </form>
+
+        <!-- דיב טעינת תרגום - נשמר במבנה המקורי שלו -->
+        <div id="loadingOverlay" data-i18n="loading.translation">⏳ מבצע תרגום... אנא המתן...</div>
+
+        <!-- 4. טופס נקה מידע לקוח -->
+        <form method="POST" action="{{ url_for('clear_search_results_customer') }}" style="margin: 0; padding: 0; display: flex; align-items: center;">
+            <button type="submit" data-i18n="customer.clear" class="btn-action btn-clear-data">נקה מידע</button>
+        </form>
+
+    </div>
+</div> 
+
+
+<!-- Keyboard Up Down ניווט חצים אוניברסלי וחכם לכל דף וטופס -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // מאזין גלובלי ללחיצות מקשים על כל הדף
+    document.addEventListener('keydown', function (event) {
+        const key = event.key;
+        const current = event.target;
+
+        // מניעת התנגשות: אם הפוקוס הוא בתוך בחירת חודש/שנה של הלוח שנה - אל תתערב בניווט!
+        if (current.id === 'calMonthSelect' || current.id === 'calYearSelect') return;
+
+        // בודק אם המשתמש נמצא בתוך שדה קלט כלשהו (input, textarea, select)
+        if (!current.matches('input:not([type="hidden"]), textarea, select')) return;
+
+        // מוצא את הטופס (form) הקרוב ביותר שבו השדה נמצא כרגע, או את ה-wrapper שלו
+        const container = current.closest('form') || current.closest('.form-wrapper') || current.closest('.form-container') || document.body;
+        
+        // אוסף את כל השדות הרלוונטיים באותו אזור בלבד
+        const allFields = Array.from(container.querySelectorAll('input:not([type="hidden"]), textarea, select'));
+        
+        // מסנן החוצה את התיבות של הלוח שנה מהרשימה הכללית של השדות
+        const filteredFields = allFields.filter(field => field.id !== 'calMonthSelect' && field.id !== 'calYearSelect');
+
+        const index = filteredFields.indexOf(current);
+        if (index === -1) return;
+
+        // ===== טיפול מיוחד בקומבו-בוקס (SELECT) =====
+        if (current.tagName === 'SELECT') {
+            if (current.size > 1) {
+                if (key === 'Enter' || key === 'Escape') {
+                    current.size = 1;
+                    current.blur();
+                    current.focus();
+                    event.preventDefault();
+                    
+                    if (key === 'Enter' && index < filteredFields.length - 1) {
+                        filteredFields[index + 1].focus();
+                    }
+                }
+                return;
+            }
+
+            if ((key === 'Enter' || key === ' ') && current.size === 1) {
+                current.size = current.options.length;
+                event.preventDefault();
+                return;
+            }
+        }
+
+        // ===== ניווט חצים רגיל ורציף בין כל השדות =====
+        if (key === 'ArrowDown' && index < filteredFields.length - 1) {
+            filteredFields[index + 1].focus();
+            event.preventDefault();
+        }
+        if (key === 'ArrowUp' && index > 0) {
+            filteredFields[index - 1].focus();
+            event.preventDefault();
+        }
+    });
+
+    // הדגשת צבע ויישור פוקוס דינמי לשדות (עובד על כל שדה בדף בכל זמן)
+    document.body.addEventListener('focusin', function (event) {
+        const field = event.target;
+        if (field.matches('input:not([type="hidden"]), textarea, select')) {
+            if (field.id !== 'calMonthSelect' && field.id !== 'calYearSelect') {
+                field.style.backgroundColor = '#e6f7ff'; // צבע הדגשה בהיר
+                field.style.outline = '1px solid #007bff';
+            }
+        }
+    });
+
+    document.body.addEventListener('focusout', function (event) {
+        const field = event.target;
+        if (field.matches('input:not([type="hidden"]), textarea, select')) {
+            field.style.backgroundColor = '';
+            field.style.outline = '';
+            if (field.tagName === 'SELECT') {
+                field.size = 1; // סגירת קומבו בבטחה ביציאה
+            }
+        }
+    });
+
+    // סגירת קומבו-בוקס אוטומטית מיד לאחר שינוי ערך עם העכבר
+    document.body.addEventListener('change', function (event) {
+        const field = event.target;
+        if (field.tagName === 'SELECT' && field.id !== 'calMonthSelect' && field.id !== 'calYearSelect') {
+            field.size = 1;
+            field.blur();
+            field.focus();
+        }
+    });
+});
+</script>
+
+
+  <!-- פופאפ הודעה מבצע תרגום עד שמסיים -->
+<script>
+function lockUI() {
+    const lang = localStorage.getItem("lang") || "he";
+
+    const messages = {
+        "he": "⏳ מבצע תרגום... אנא המתן...",
+        "en": "⏳ Translating... Please wait...",
+        "fr": "⏳ Traduction en cours... Veuillez patienter...",
+        "es": "⏳ Traduciendo... Por favor espera...",
+        "de": "⏳ Übersetzung läuft... Bitte warten...",
+        "ru": "⏳ Выполняется перевод... Пожалуйста, подождите...",
+        "ar": "⏳ جارٍ الترجمة... يرجى الانتظار...",
+        "zh": "⏳ 正在翻译... 请稍候...",
+        "ja": "⏳ 翻訳中... お待ちください...",
+        "hi": "⏳ अनुवाद हो रहा है... कृपया प्रतीक्षा करें...",
+        "pt": "⏳ Traduzindo... Por favor, aguarde...",
+        "it": "⏳ Traduzione in corso... Attendere prego...",
+        "nl": "⏳ Vertalen... Even geduld aub...",
+        "sv": "⏳ Översätter... Vänta...",
+        "tr": "⏳ Çeviri yapılıyor... Lütfen bekleyin...",
+        "ko": "⏳ 번역 중... 잠시만 기다려주세요...",
+        "pl": "⏳ Tłumaczenie... Proszę czekać...",
+        "uk": "⏳ Виконується переклад... Зачекайте...",
+        "fa": "⏳ در حال ترجمه... لطفاً صبر کنید...",
+        "ro": "⏳ Se traduce... Vă rugăm așteptați...",
+        "cs": "⏳ Probíhá překlad... Počkejte prosím...",
+        "el": "⏳ Μετάφραση σε εξέλιξη... Παρακαλώ περιμένετε...",
+        "th": "⏳ กำลังแปล... กรุณารอสักครู่...",
+        "vi": "⏳ Đang dịch... Vui lòng chờ...",
+        "bn": "⏳ অনুবাদ হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন...",
+        "id": "⏳ Menerjemahkan... Harap tunggu...",
+        "ms": "⏳ Menterjemah... Sila tunggu...",
+        "tl": "⏳ Isinasalin... Mangyaring maghintay...",
+        "hu": "⏳ Fordítás folyamatban... Kérjük, várjon...",
+        "bg": "⏳ Превежда се... Моля, изчакайте..."
+    };
+
+    document.getElementById("loadingOverlay").innerText =
+        messages[lang] || messages["en"];
+
+    document.getElementById("loadingOverlay").style.display = "flex";
+}
+</script>
+
+
+<!-- לוח שנה צף קומפקטי בצבע שמנת סקריפט  -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. קריאה ישירה של השפה הפעילה מתוך ה-Cookie של המערכת שלך
+    const currentLang = document.cookie.split('; ').find(row => row.startsWith('lang='))?.split('=')[1] || localStorage.getItem("lang") || "he";
+
+    // 2. חילוץ שמות החודשים המתורגמים הרשמיים מהדפדפן לפי השפה
+    const translatedMonths = Array.from({ length: 12 }, (_, i) => {
+        return new Intl.DateTimeFormat(currentLang, { month: 'long' }).format(new Date(2026, i, 1));
+    });
+
+    // 3. חילוץ אוטומטי של ימי השבוע המקוצרים מהדפדפן לפי השפה הפעילה (א'-ש' בעברית, Lu-Do בספרדית וכו')
+    const daysWeek = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(2026, 5, 21 + i); // 21 ביוני 2026 הוא יום ראשון
+        return new Intl.DateTimeFormat(currentLang, { weekday: currentLang === 'he' ? 'narrow' : 'short' }).format(date);
+    });
+
+    // 4.  פירוק ידני קשיח ובטוח לפי חוקי ה-main.py שלך - מונע לחלוטין את הקריסה בימים 13-31!
+    function parseDateByLang(dateStr, lang) {
+        if (!dateStr) return null;
+        
+        const parts = dateStr.trim().split('-');
+        if (parts.length !== 3) return null;
+
+        let year, month, day;
+
+        // בדיקה חכמה: אם החלק הראשון הוא באורך 4 ספרות (פורמט בינלאומי גולמי של השרת YYYY-MM-DD)
+        if (parts[0].length === 4) {
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+        } 
+        // פורמט ארה"ב (אנגלית): MM-DD-YYYY
+        else if (lang === "en") {
+            month = parseInt(parts[0], 10) - 1;
+            day = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        } 
+        // פורמט ישראל ואירופה (עברית, ספרדית וכו'): DD-MM-YYYY
+        else {
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            year = parseInt(parts[2], 10);
+        }
+
+        // בדיקת בטיחות קשיחה כדי למנוע יצירת ערכים שבורים
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+            return null;
+        }
+        
+        // מחזיר אובייקט נתונים נקי במקום אובייקט Date מובנה שמתבלבל בין ימים לחודשים
+        return { year, month, day };
+    }
+
+    function formatDateByLang(year, monthIndex, day, lang) {
+        const d = String(day).padStart(2, '0');
+        const m = String(monthIndex + 1).padStart(2, '0');
+        const y = year;
+
+        if (lang === "en") return `${m}-${d}-${y}`; // MM-DD-YYYY
+        if (["zh", "ja", "ko"].includes(lang)) return `${y}-${m}-${d}`; // YYYY-MM-DD
+        return `${d}-${m}-${y}`; // DD-MM-YYYY
+    }
+
+    // 5. יצירה והזרקה אוטומטית של אלמנט הלוח שנה לדף
+    const calendar = document.createElement('div');
+    calendar.id = 'customCalendarPicker';
+    calendar.className = 'custom-calendar-picker';
+    calendar.innerHTML = `
+        <div class="calendar-nav">
+            <button id="calPrevBtn" type="button">&lt;</button>
+            <div style="display: flex; gap: 4px;">
+                <select id="calMonthSelect"></select>
+                <select id="calYearSelect"></select>
+            </div>
+            <button id="calNextBtn" type="button">&gt;</button>
+        </div>
+        <div id="calendarGrid" class="calendar-days-grid"></div>
+    `;
+    document.body.appendChild(calendar);
+
+    const monthSelect = document.getElementById('calMonthSelect');
+    const yearSelect = document.getElementById('calYearSelect');
+    const grid = document.getElementById('calendarGrid');
+    let activeInput = null;
+    
+    let currentDate = new Date();
+    let displayedMonth = currentDate.getMonth();
+    let displayedYear = currentDate.getFullYear();
+
+    function initSelectOptions() {
+        monthSelect.innerHTML = '';
+        translatedMonths.forEach((m, idx) => {
+            monthSelect.innerHTML += `<option value="${idx}">${m}</option>`;
+        });
+
+        yearSelect.innerHTML = '';
+        const currentYearNum = new Date().getFullYear();
+        for (let y = currentYearNum + 10; y >= currentYearNum - 100; y--) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+    }
+
+    function renderCalendar() {
+        grid.innerHTML = '';
+
+        monthSelect.value = displayedMonth;
+        yearSelect.value = displayedYear;
+
+        daysWeek.forEach(d => {
+            grid.innerHTML += `<div class="calendar-day-header">${d}</div>`;
+        });
+
+        const firstDayIndex = new Date(displayedYear, displayedMonth, 1).getDay();
+        const totalDays = new Date(displayedYear, displayedMonth + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            grid.innerHTML += `<div class="calendar-day-cell empty"></div>`;
+        }
+
+        let selectedDay = null;
+        if (activeInput && activeInput.value && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed && parsed.year === displayedYear && parsed.month === displayedMonth) {
+                selectedDay = parsed.day;
+            }
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+            const isSelected = (day === selectedDay) ? 'selected' : '';
+            grid.innerHTML += `<div class="calendar-day-cell ${isSelected}" data-day="${day}">${day}</div>`;
+        }
+
+        grid.querySelectorAll('.calendar-day-cell:not(.empty)').forEach(cell => {
+            cell.onclick = function(e) {
+                e.stopPropagation();
+                if (!activeInput) return;
+
+                const day = parseInt(this.getAttribute('data-day'), 10);
+                activeInput.value = formatDateByLang(displayedYear, displayedMonth, day, currentLang);
+                
+                // שליחת אירועי עדכון מלאים עם bubbles כדי שכל הדף ומנוע הפייתון יזהו את השינוי ב-POST
+                activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                calendar.style.display = 'none';
+            };
+        });
+    }
+
+    monthSelect.addEventListener('change', (e) => {
+        displayedMonth = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    yearSelect.addEventListener('change', (e) => {
+        displayedYear = parseInt(e.target.value);
+        renderCalendar();
+    });
+
+    document.getElementById('calPrevBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth--;
+        if (displayedMonth < 0) {
+            displayedMonth = 11;
+            displayedYear--;
+        }
+        renderCalendar();
+    };
+
+    document.getElementById('calNextBtn').onclick = (e) => {
+        e.stopPropagation();
+        displayedMonth++;
+        if (displayedMonth > 11) {
+            displayedMonth = 0;
+            displayedYear++;
+        }
+        renderCalendar();
+    };
+
+    // פונקציית פתיחה מאוחדת ומאובטחת שמחשבת מיקום מדויק של הלוח
+    function openCalendar(targetInput) {
+        activeInput = targetInput;
+        initSelectOptions();
+        
+        let today = new Date();
+        displayedMonth = today.getMonth();
+        displayedYear = today.getFullYear();
+        
+        if (activeInput.value && activeInput.value.trim() !== "" && activeInput.value !== "---") {
+            const parsed = parseDateByLang(activeInput.value, currentLang);
+            if (parsed) {
+                displayedMonth = parsed.month;
+                displayedYear = parsed.year;
+            }
+        }
+
+        renderCalendar();
+
+        const rect = activeInput.getBoundingClientRect();
+        calendar.style.top = (rect.bottom + window.scrollY) + 'px';
+        calendar.style.left = (rect.left + window.scrollX) + 'px';
+        calendar.style.display = 'block';
+    }
+
+    // הגנה כפולה לפתיחה: מגיב חלק גם בפוקוס (טפסים) וגם בקליק עכבר ישיר (טבלאות וגרידים)
+    document.body.addEventListener('focusin', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            openCalendar(e.target);
+        }
+    });
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target.matches('input[data-calendar="true"]')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openCalendar(e.target);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!calendar.contains(e.target) && activeInput && e.target !== activeInput) {
+            calendar.style.display = 'none';
+        }
+    });
+    
+    calendar.onclick = (e) => e.stopPropagation();
+});
+</script>
+
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    if (typeof loadLanguage === "function") {
+        loadLanguage(lang);
+    }
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
