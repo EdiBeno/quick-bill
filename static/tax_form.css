@@ -1,0 +1,63 @@
+/* ====== MAIN TABLE ====== */
+.main-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 20px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    direction: rtl;
+    table-layout: auto;
+}
+
+.main-table th,
+.main-table td {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ====== DAYS TABLE FIXED WIDTH ====== */
+.inner-days-table {
+    border-collapse: collapse;
+    width: max-content; /* חשוב! */
+    table-layout: fixed;
+}
+
+.inner-days-table th,
+.inner-days-table td {
+    width: 110px; /* קובע רוחב אחיד לכל עמודה */
+    min-width: 110px;
+    max-width: 110px;
+    padding: 4px;
+    border: 1px solid #bbb;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ====== DAYS WRAPPER ====== */
+.inner-days-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid #ccc;
+}
+
+/* ====== COLORS ====== */
+.employee-row:nth-child(odd) td { background: #f2f2f2; }
+.employee-row:nth-child(even) td { background: #fff9cc; }
+
+.inner-days-table tbody tr:nth-child(odd) td { background: #f2f2f2; }
+.inner-days-table tbody tr:nth-child(even) td { background: #fff9cc; }
+
+/* ====== HEADERS ====== */
+.main-table th {
+    background: #000;
+    color: #fff;
+}
+
+.inner-days-table th {
+    background: #333;
+    color: #fff;
+}
