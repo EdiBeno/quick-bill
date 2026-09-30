@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סימולטור נקודות זיכוי</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='contact_form.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סימולטור נקודות זיכוי</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='contact_form.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<style>
+/* ===== עיצוב רספונסיבי מאוחד ובינלאומי למובייל (768px ומטה) - דף עובד ===== */
+@media screen and (max-width: 768px) {
+    h1 {
+        margin-left: 0 !important;
+        text-align: center !important;
+    }
+    .long-child-label {
+        white-space: normal !important;
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 8px !important;
+    }
+    form > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        gap: 5px;
+        margin-bottom: 10px;
+    }
+    form input[type="text"] {
+        width: 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+    }
+    div[style*="display: flex"] {
+        flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
+        gap: 10px !important;
+    }
+}
+</style>
+
+</head>
+<body>
+  <div class="container">
+    <div class="header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1px;">
+
+      <a href="{{ url_for('index') }}" style="text-decoration: none;">
+        <button type="button" style="font-weight: bold; width: 4cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center;">
+          עבור לדף הראשי
+        </button>
+      </a>
+
+    <!-- Contact Form -->
+    <a href="{{ url_for('contact_form') }}" style="text-decoration: none;">
+        <button type="button"  style="font-weight: bold; width: 3.5cm; height: 0.5cm; font-size: 17px; background:#1E90FF; color:white; padding:3px 6px; border: 2px solid black; border-radius:5px; display: flex; align-items: center; justify-content: center;">
+                הוסף איש קשר
+        </button>
+    </a>
+
+<h1 style="margin-left: 810px; text-align: center;">סימולטור נקודות זיכוי</h1>
+</div>
+
+<form method="POST" action="{{ url_for('tax_credit_simulator') }}">
+
+    <!-- Empty row after -->
+    <div style="height: 0.01cm;"></div>
+
+    <div>
+        <label>תושב ישראל:</label>
+        <input type="checkbox" name="is_israeli_resident" {% if request.form.get('is_israeli_resident') %}checked{% endif %}>
+    </div>
+    <div>
+        <label>מין:</label>
+        <input type="radio" name="gender" value="male" {% if request.form.get('gender') == 'male' %}checked{% endif %}> זכר
+        <input type="radio" name="gender" value="female" {% if request.form.get('gender') == 'female' %}checked{% endif %}> נקבה
+    </div>
+    <div>
+        <label>אישה זכאית לתוספת של 0.5 נקודות זיכוי.</label>
+    </div>
+    <div>
+        <label>נער/נערה בגיל 16-18:</label>
+        <input type="checkbox" name="is_teenager" {% if request.form.get('is_teenager') %}checked{% endif %}>
+        <label>זכאים לתוספת של 1 נקודות זיכוי.</label>
+    </div>
+    <div>
+        <label>נשוי/נשואה:</label>
+        <input type="radio" name="is_married" value="yes" {% if request.form.get('is_married') == 'yes' %}checked{% endif %}> נשוי
+        <input type="radio" name="is_married" value="no" {% if request.form.get('is_married') == 'no' %}checked{% endif %}> נשואה
+        <label> על פי רישומי משרד הפנים.</label>
+    </div>
+    <div>
+        <label>בני זוג שאחד מהם "יחיד מוטב" ולאחד מבני הזוג אין הכנסה:</label>
+        <input type="checkbox" name="is_special_situation" {% if request.form.get('is_special_situation') %}checked{% endif %}>
+        <label>"יחיד מוטב" - יחיד שהוא או בן זוגו הגיע לגיל הפרישה, או שהוא או שבן זוגו, עיוור או נכה כמשמעותם בסעיף 9 (5) (א).</label>
+    </div>
+    <div>
+        <label>אם אין ילדים - זכאי/ת ל -1 נקודת זיכוי.</label>
+        <label>אם יש ילדים - זכאית ל -0.5 נקודות זיכוי.</label>
+        <input type="radio" name="has_children" value="no" {% if request.form.get('has_children') == 'no' %}checked{% endif %}> אין ילדים
+        <input type="radio" name="has_children" value="yes" {% if request.form.get('has_children') == 'yes' %}checked{% endif %}> יש ילדים
+    </div>
+    <div>
+        <label>נשואה לאלמן שיש לו ילדים (עד גיל 18):</label>
+        <input type="radio" name="married_to_widower" value="yes" {% if request.form.get('married_to_widower') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="married_to_widower" value="no" {% if request.form.get('married_to_widower') == 'no' %}checked{% endif %}> לא
+    </div>
+    <div>
+        <label>הורה החי בנפרד, ויש לו ילד בחזקתו, ואינו מקיים משק בית משותף:</label>
+        <input type="radio" name="single_parent" value="yes" {% if request.form.get('single_parent') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="single_parent" value="no" {% if request.form.get('single_parent') == 'no' %}checked{% endif %}> לא
+        <label>זכאי/ת ל -1 נקודת זיכוי.</label>
+    </div>
+    <div>
+        <label>הורה החי בנפרד, ויש לו ילד בחזקתו, ומקיים משק בית משותף:</label>
+        <input type="radio" name="separate_household" value="yes" {% if request.form.get('separate_household') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="separate_household" value="no" {% if request.form.get('separate_household') == 'no' %}checked{% endif %}> לא
+    </div>
+    <div>
+        <label>הורה יחיד:</label>
+        <input type="radio" name="single_parent_no_spouse" value="yes" {% if request.form.get('single_parent_no_spouse') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="single_parent_no_spouse" value="no" {% if request.form.get('single_parent_no_spouse') == 'no' %}checked{% endif %}> לא
+        <label>זכאי/ת ל -1 נקודת זיכוי.</label>
+        <label>הילד רשום במרשם האוכלוסין ללא פרטי ההורה השני, או שההורה השני של הילד נפטר.</label>
+    </div>
+    <div>
+        <label>הורה המשלם מזונות בגין ילדים שאינם בחזקתו/ה:</label>
+        <input type="radio" name="paying_child_support" value="yes" {% if request.form.get('paying_child_support') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="paying_child_support" value="no" {% if request.form.get('paying_child_support') == 'no' %}checked{% endif %}> לא
+        <label>זכאי/ת ל -1 נקודת זיכוי.</label>
+    </div>
+    <div>
+        <label>גבר/ אישה הנשואים בשנית ומשלמים מזונות לבן/ת הזוג לשעבר:</label>
+        <input type="radio" name="remarried_paying_alimony" value="yes" {% if request.form.get('remarried_paying_alimony') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="remarried_paying_alimony" value="no" {% if request.form.get('remarried_paying_alimony') == 'no' %}checked{% endif %}> לא
+        <label>בגין תשלום המזונות, זכאי/ת ל- 1 נקודת זיכוי.</label>
+    </div>
+
+    <!-- Empty row after -->
+    <div style="height: 0.2cm;"></div>
+
+    <div>
+        <label class="long-child-label" style="font-weight: bold; white-space: nowrap; background-color: lightblue;">
+            נקודות זיכוי בגין ילדים שבחזקת ההורה יש לרשום את מספר הילדים באותו גיל יילוד - ילד בשנת לידתו:    בוגר - ילד בשנה בה מלאו לו 18:</label><br>
+    </div>
+    <div>
+        <label>אישה בשנת הלידה רשאית לדחות נקודת זיכוי אחת בלבד לשנת המס שאחרי הלידה.</label><br>
+        <label>* ניוד נקודות בגין היילוד/ים</label>
+        <input type="radio" name="transfer_points_newborn" value="yes" {% if request.form.get('transfer_points_newborn') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="transfer_points_newborn" value="no" {% if request.form.get('transfer_points_newborn') == 'no' %}checked{% endif %}> לא
+    </div>
+    <div>
+        <label>* האם נויידו נקודות משנת המס הקודמת</label>
+        <input type="radio" name="points_from_prev_year" value="yes" {% if request.form.get('points_from_prev_year') == 'yes' %}checked{% endif %}> כן
+        <input type="radio" name="points_from_prev_year" value="no" {% if request.form.get('points_from_prev_year') == 'no' %}checked{% endif %}> לא
+    </div>
+
+
+    <div>
+        <label>יילוד (ילד בשנת לידתו):</label>
+        <input type="text" name="newborn_count" value="{{ request.form.get('newborn_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 3.67cm; font-weight: bold; text-align: center;">
+        <label>2.5 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>ימלאו לו 1 בשנת מס:</label>
+        <input type="text" name="age_1_count" value="{{ request.form.get('age_1_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center;">
+        <label>4.5 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>ימלאו לו 2 בשנת מס:</label>
+        <input type="text" name="age_2_count" value="{{ request.form.get('age_2_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center;">
+        <label>4.5 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>ימלאו לו 3 בשנת מס:</label>
+        <input type="text" name="age_3_count" value="{{ request.form.get('age_3_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center;">
+        <label>3.5 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>ימלאו לו 4 בשנת מס:</label>
+        <input type="text" name="age_4_count" value="{{ request.form.get('age_4_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center;">
+        <label>2.5 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>ימלאו לו 5 בשנת מס:</label>
+        <input type="text" name="age_5_count" value="{{ request.form.get('age_5_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center;">
+        <label>2.5 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>ימלאו לו 6-17 בשנת מס:</label>
+        <input type="text" name="age_6_17_count" value="{{ request.form.get('age_6_17_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 3.57cm; font-weight: bold; text-align: center;">
+        <label>2 נקודות זיכוי</label>
+    </div>
+    <div>
+        <label>בוגר (ילד בשנה בה מלאו לו 18):</label>
+        <input type="text" name="age_18_count" value="{{ request.form.get('age_18_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 2.17cm; font-weight: bold; text-align: center;">
+        <label>0.5 נקודות זיכוי</label>
+    </div>
+
+        <div>
+        <label class="long-child-label" style="font-weight: bold; white-space: nowrap; background-color: lightblue;">
+          נקודות זיכוי בגין ילדים שאינם בחזקת ההורה יש לרשום את מספר הילדים באותו גיל יילוד - ילד בשנת לידתו:</label><br>
+        </div>
+        <div>
+           <label>יילוד (ילד בשנת לידתו):</label>
+            <!-- תוקן: שדות לחיצים מסוג text עם שם ייחודי no_custody למניעת דריסות -->
+            <input type="text" name="no_custody_newborn_count" value="{{ request.form.get('no_custody_newborn_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 3.67cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>2.5 נקודות זיכוי</label>
+        </div>
+        <div>
+            <label>ימלאו לו 1 בשנת מס:</label>
+            <input type="text" name="no_custody_age_1_count" value="{{ request.form.get('no_custody_age_1_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>4.5 נקודות זיכוי</label>
+        </div>
+        <div>
+            <label>ימלאו לו 2 בשנת מס:</label>
+            <input type="text" name="no_custody_age_2_count" value="{{ request.form.get('no_custody_age_2_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>4.5 נקודות זיכוי</label>
+        </div>
+        <div>
+            <label>ימלאו לו 3 בשנת מס:</label>
+            <input type="text" name="no_custody_age_3_count" value="{{ request.form.get('no_custody_age_3_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>3.5 נקודות זיכוי</label>
+        </div>
+        <div>
+            <label>ימלאו לו 4 בשנת מס:</label>
+            <input type="text" name="no_custody_age_4_count" value="{{ request.form.get('no_custody_age_4_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>2.5 נקודות זיכוי</label>
+        </div>
+        <div>
+            <label>ימלאו לו 5 בשנת מס:</label>
+            <input type="text" name="no_custody_age_5_count" value="{{ request.form.get('no_custody_age_5_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 4.25cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>2.5 נקודות זיכוי</label>
+        </div>
+        <div>
+            <label>ימלאו לו 6-17 בשנת מס:</label>
+            <input type="text" name="no_custody_age_6_17_count" value="{{ request.form.get('no_custody_age_6_17_count', '0') }}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');" style="width: 3.57cm; font-weight: bold; text-align: center; display: inline-block; align-items: center;">
+            <label>1 נקודות זיכוי</label>
+        </div>
+
+        <!-- Empty row after -->
+        <div style="height: 0.1cm;"></div>
+
+        <div style="display: flex; gap: 16px; align-items: center; margin-top: 10px;">
+            <label style="font-size: 21px; display: inline-block;">
+                תוצאות חישוב מספר נקודות הזיכוי שלך :
+            </label>
+            <input type="text" name="total_tax_credits" id="total_tax_credits" value="{{ tax_credits if tax_credits is not none else '' }}" readonly style="width: 3.6cm; font-size: 16px; background-color: lightyellow; display: inline-block; align-items: center; text-align: center; font-weight: bold; border: 1px solid #444;">
+        </div>
+
+        <!-- Calculate & Reset Buttons -->
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button type="submit" style="font-weight: bold; width: 4cm; height: 0.5cm; font-size: 17px; display: flex; align-items: center; justify-content: center; border: 2px solid black; cursor: pointer;">
+                חשב נקודות זיכוי
+            </button>
+            
+            <!-- תוקן הרמטית: מנקה את תוצאת החישוב, מחזיר את כל שדות הילדים ל-0, ומבטל את כל הסימונים בטופס -->
+            <button type="button" onclick="
+                document.getElementById('total_tax_credits').value = '';
+                document.querySelectorAll('form input[type=\'text\']').forEach(i => { if(i.name.includes('count')) i.value = '0'; });
+                document.querySelectorAll('form input[type=\'number\']').forEach(i => i.value = '0');
+                document.querySelectorAll('form input[type=\'checkbox\']').forEach(i => i.checked = false);
+                document.querySelectorAll('form input[type=\'radio\']').forEach(i => i.checked = false);
+            " style="font-weight: bold; width: 4cm; height: 0.5cm; font-size: 17px; background-color: #f8f9fa; color: black; display: flex; align-items: center; justify-content: center; border: 2px solid black; cursor: pointer;">
+                נקה טופס
+            </button>
+        </div>
+
+    </div>
+</form>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

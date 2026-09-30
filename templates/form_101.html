@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טופס 101</title>
+  <script src="{{ url_for('static', filename='formulas.js') }}?v={{ time.time() }}" defer></script>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+
+/* ===== TOP BUTTONS ===== */
+.top-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* שתי עמודות */
+    gap: 10px;
+    z-index: 9999;
+    width: 8.2cm; /* מספיק לשתי עמודות של כפתורים */
+}
+
+/* כפתורים */
+.top-buttons button {
+    font-weight: bold;
+    font-size: 17px;
+    cursor: pointer;
+    width: 100%; /* מתאים לגריד */
+    height: 0.6cm;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+    transition: 0.2s ease-in-out;
+}
+
+.top-buttons button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0,0,0,0.35);
+}
+
+.top-buttons button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ===== Hide buttons when printing ===== */
+@media print {
+    .top-buttons {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+/* ===== A4 PAGE ===== */
+@page {
+    margin: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    direction: rtl;
+    margin: 0;
+    padding: 0;
+}
+
+.form-container {
+    position: relative;
+    width: 800px;
+    height: 1071px;
+    background-size: cover;
+    background-repeat: no-repeat;
+    margin: 20px auto;
+    border: none; /* ניקוי מסגרת */
+}
+
+/* הדפסה — שמירה על הרקע */
+@media print {
+    .form-container {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        background-color: white !important;
+        background-size: 100% 100% !important;
+        background-repeat: no-repeat !important;
+        background-position: -25px -120px !important;
+    }
+}
+
+    /* ===== PDF & EMAIL HIDER (CRITICAL) ===== */
+    {% if is_pdf %}
+    .top-buttons, 
+    .add-btn-container, 
+    .btn-remove, 
+    .remove-child-btn, 
+    .add-child-btn,
+    button,
+    input[type="submit"],
+    .upload-btn {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .container {
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    body { background-color: white !important; }
+    {% endif %}
+
+    /* ===== PRINT STYLE (For Browser Print) ===== */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+
+         .top-buttons, button, .add-btn-container { 
+            display: none !important; 
+        }
+
+        @page { 
+            margin: 0; 
+        }
+    }
+
+
+/* הוספת ילדים פורם 101 */
+#children-section {
+    border: 1px solid #ddd;
+    margin-bottom: 20px;
+    direction: rtl;
+}
+
+.section-header {
+    background-color: #d9edf7; /* הכחול מהתמונה */
+    padding: 10px;
+    font-weight: bold;
+}
+
+.child-row {
+    border: 1px solid #eee;
+    margin: 15px;
+    padding: 15px;
+    position: relative;
+}
+
+.child-title {
+    display: flex;
+    justify-content: space-between;
+    color: #a94442; /* הצבע האדום מהתמונה */
+    font-weight: bold;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 10px;
+}
+
+.child-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+}
+
+.input-group label { display: block; font-size: 13px; }
+.input-group input { width: 100%; padding: 5px; border: 1px solid #ccc; }
+
+.child-checkboxes {
+    margin-top: 10px;
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+}
+
+.remove-child-btn {
+    background: #d9534f;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.add-btn-container { padding: 10px; text-align: left; }
+.add-child-btn { background: #5cb85c; color: white; border: none; padding: 8px 15px; border-radius: 4px; }
+
+.btn-remove {
+    background-color: #d9534f; /* אדום */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    float: left; /* כדי שיהיה בצד שמאל כמו בתמונה */
+}
+
+.btn-remove:hover {
+    background-color: #c9302c;
+}
+
+
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f9; margin: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        
+        .header-year { background-color: #e9f0f5; padding: 5px 15px; border-bottom: 2px solid #cbd5e0; margin-bottom: 20px; font-weight: bold; }
+        
+        section { border: 1px solid #b3d7ff; border-radius: 5px; margin-bottom: 25px; overflow: hidden; }
+        h2 { background-color: #d1e7ff; margin: 0; padding: 10px; font-size: 16px; color: #333; }
+        
+        .form-row { display: flex; flex-wrap: wrap; padding: 15px; gap: 15px; }
+        .field { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
+        
+        label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #444; }
+        input, input[type="date"], input[type="tel"], input[type="email"], select {
+            padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
+        }
+        
+        .sub-label { font-size: 11px; color: #888; margin-top: 2px; }
+        .required { color: red; margin-right: 3px; }
+        
+        /* התאמה למבנה של חלק ב' - שדות כפולים */
+        .field-half { flex: 0 0 48%; }
+        
+        .upload-btn { background-color: #5cb85c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; display: inline-block; width: fit-content; }
+        .note { font-size: 11px; color: #666; padding: 0 15px 15px; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<!-- ===== TOP BUTTONS (FRONT PAGE) ===== -->
+<div class="top-buttons">
+
+    <!-- Go to Main Page -->
+    <a href="{{ url_for('index') }}" style="text-decoration:none;">
+        <button type="button" style="background-color:#007bff; color:white;">
+            עבור לדף הראשי
+        </button>
+    </a>
+
+    <!-- Print Form -->
+    <button type="button" onclick="window.print()" class="no-print" style="width: 4cm; height: 0.6cm; font-size: 17px; background-color:#28a745; color:white;">
+        הדפס טופס 101
+    </button>
+
+    <!-- Save Form -->
+    <button type="button" id="save101Btn" style="background-color:#007bff; color:white;"> 
+        שמור טופס 101
+    </button>
+
+    <!--1Clear Form 101 -->
+    <form method="POST" action="{{ url_for('clear_form101') }}" style="display:inline;">
+    <button type="submit" style="background-color:#dc3545; color:white;">
+        נקה טופס 101
+    </button>
+  </form>
+
+</div>
+
+<div class="container">
+    <div class="header-year">שנת המס: 2026</div>
+
+<!-- ===== FORM STARTS HERE ===== -->
+<form id="form101" method="POST" action="/form_101" enctype="multipart/form-data">
+    <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
+    <input type="hidden" name="month" value="{{ selected_month }}">
+    <input type="hidden" name="year" value="{{ selected_year }}">
+    <input type="hidden" name="signature_data" id="signature_data">
+        
+        <!-- חלק א: פרטי המעסיק (מגיע מ-company_data בשרת) -->
+        <section>
+            <h2>א. פרטי המעסיק</h2>
+            <div class="form-row">
+                <div class="field"><label>שם</label><input type="text" name="employer_name" value="{{ form_data.companyName }}"></div>
+                <div class="field"><label>כתובת</label><input type="text" name="employer_address" value="{{ form_data.companyAddress }}"></div>
+                <div class="field"><label>מספר טלפון</label><input type="tel" name="employer_phone" value="{{ form_data.companyPhone }}"></div>
+                <div class="field"><label>מספר תיק ניכויים</label><input type="text" name="tax_file_num" value="{{ form_data.taxFileNumber }}"></div>
+            </div>
+        </section>
+
+        <!-- חלק ב: פרטי העובד/ת -->
+        <section>
+            <h2>ב. פרטי העובד/ת</h2>
+            <div class="form-row">
+                <div class="field field-half">
+                    <label>שם פרטי <span class="required">*</span></label>
+    <input type="text" name="first_name" 
+           value="{{ form_data.employee_name.split(' ')[0] if form_data.employee_name else '' }}" required>
+                    <span class="sub-label">ע"פ הרשום בת"ז</span>
+                </div>
+                <div class="field field-half">
+                    <label>שם משפחה <span class="required">*</span></label>
+    <input type="text" name="last_name" 
+           value="{{ form_data.employee_name.split(' ')[1:] | join(' ') if form_data.employee_name and ' ' in form_data.employee_name else '' }}" required>
+                    <span class="sub-label">ע"פ הרשום בת"ז</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field field-half">
+                    <label>זיהוי לפי <span class="required">*</span></label>
+                    <div>
+                        <input type="radio" name="id_type" value="id" checked> תעודת זהות
+                        <input type="radio" name="id_type" value="passport"> דרכון (עבור אזרח זר)
+                    </div>
+                </div>
+                <div class="field field-half">
+                    <label>מספר זהות <span class="required">*</span></label>
+                    <input type="text" name="id_number" value="{{ form_data.id_number }}" required>
+                    <span class="sub-label">ע"פ הרשום בת"ז</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field field-half">
+                    <label>צילום תעודת זהות וספח</label>
+        <button type="button" class="upload-btn" onclick="document.getElementById('id_upload').click();">➕ צרף קבצים</button>
+        
+        <!-- השדה האמיתי שבוחר את הקבצים - הוא נסתר (display: none) -->
+        <input type="file" id="id_upload" name="id_files" multiple style="display: none;" onchange="showSelectedFiles(this)">
+        
+        <!-- מקום להצגת שמות הקבצים שנבחרו (חשוב כדי שהמשתמש ידע שזה עבד) -->
+        <div id="file-list" style="font-size: 12px; color: #555; margin-top: 5px; font-weight: bold;"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+    <div class="field field-half">
+        <label>תאריך לידה <span class="required">*</span></label>
+        <!-- השתמשנו ב-date_of_birth כפי שמופיע ב-DB שלך -->
+        <input type="date" name="date_of_birth" value="{{ form_data.date_of_birth }}" required>
+    </div>
+    <div class="field field-half">
+        <label>תאריך עלייה</label>
+        <input type="date" name="aliyah_date" value="{{ form_data.aliyah_date }}">
+    </div>
+            </div>
+
+            <div class="form-row">
+    <div class="field">
+        <label>ישוב <span class="required">*</span></label>
+        <input type="text" name="city" value="{{ form_data.city }}" required>
+    </div>
+    <div class="field">
+        <label>רחוב <span class="required">*</span></label>
+        <!-- המפתח address ב-Python מכיל את שם הרחוב המפוצל -->
+        <input type="text" name="street" value="{{ form_data.address }}" required>
+    </div>
+    <div class="field">
+        <label>מספר בית <span class="required">*</span></label>
+        <!-- המפתח house_number ב-Python מכיל את המספר המפוצל -->
+        <input type="text" name="house_num" value="{{ form_data.house_number }}" required>
+    </div>
+    <div class="field">
+        <label>מיקוד</label>
+        <input type="text" name="zip_code" value="{{ form_data.zip_code }}">
+    </div>
+            </div>
+
+            <div class="form-row">
+    <div class="field field-half">
+        <label>מספר טלפון נייד <span class="required">*</span></label>
+        <!-- מקושר ל-mobile_phone מה-Python -->
+        <input type="tel" name="mobile_phone" value="{{ form_data.mobile_phone }}" required>
+    </div>
+    <div class="field field-half">
+        <label>מספר טלפון</label>
+        <!-- מקושר ל-home_phone מה-Python -->
+        <input type="tel" name="home_phone" value="{{ form_data.home_phone }}">
+    </div>
+            </div>
+            
+            <div class="note">
+                יש להכניס מספר טלפון נייד או מספר טלפון. במידה ויש לך רק מספר טלפון שאינו נייד, יש לרשום אותו תחת מספר טלפון.
+            </div>
+
+            <div class="form-row">
+                <div class="field"><label>כתובת דואר אלקטרוני <span class="required">*</span></label><input type="email" name="email" value="{{ form_data.email }}" required></div>
+            </div>
+        </section>
+
+    <section>
+    <div class="form-row">
+                <!-- מין - ברירת מחדל זכר -->
+                <div class="field">
+                        <label>מין <span class="required">*</span></label>
+                        <div class="radio-group">
+                                <label class="radio-item">
+                                        <input type="radio" name="gender_status" value="זכר" {{ 'checked' if form_data.gender_status == 'זכר' or not form_data.gender_status }}> זכר
+                                </label>
+                                <label class="radio-item">
+                                        <input type="radio" name="gender_status" value="נקבה" {{ 'checked' if form_data.gender_status == 'נקבה' }}> נקבה
+                                </label>
+                        </div>
+                </div>
+
+                <!-- מצב משפחתי - התאמה לערכים בעברית מה-DB -->
+                <div class="field">
+                        <label>מצב משפחתי <span class="required">*</span></label>
+                        <div class="radio-group">
+                                <label class="radio-item"><input type="radio" name="marital_status" value="רווק/ה" {{ 'checked' if form_data.marital_status == 'רווק/ה' }}> רווק/ה</label>
+                                <label class="radio-item"><input type="radio" name="marital_status" value="נשוי/אה" {{ 'checked' if form_data.marital_status == 'נשוי/אה' }}> נשוי/אה</label>
+                                <label class="radio-item"><input type="radio" name="marital_status" value="גרוש/ה" {{ 'checked' if form_data.marital_status == 'גרוש/ה' }}> גרוש/ה</label>
+                                <label class="radio-item"><input type="radio" name="marital_status" value="אלמן/ה" {{ 'checked' if form_data.marital_status == 'אלמן/ה' }}> אלמן/ה</label>
+                                <label class="radio-item"><input type="radio" name="marital_status" value="פרוד/ה" {{ 'checked' if form_data.marital_status == 'פרוד/ה' }}> פרוד/ה</label>
+                        </div>
+                </div>
+
+                <!-- תושב ישראל - ברירת מחדל כן -->
+                <div class="field">
+                        <label>תושב ישראל <span class="required">*</span></label>
+                        <div class="radio-group">
+                                <label class="radio-item">
+                                        <input type="radio" name="resident_status" value="כן" {{ 'checked' if form_data.resident_status == 'כן' or not form_data.resident_status }}> כן
+                                </label>
+                                <label class="radio-item">
+                                        <input type="radio" name="resident_status" value="לא" {{ 'checked' if form_data.resident_status == 'לא' }}> לא
+                                </label>
+                        </div>
+                </div>
+
+                <!-- חבר קיבוץ - ברירת מחדל לא -->
+                <div class="field">
+                        <label>חבר קיבוץ / מושב שיתופי <span class="required">*</span></label>
+                        <div class="radio-group">
+                                <label class="radio-item">
+                                        <input type="radio" name="kibbutz_member_status" value="כן" {{ 'checked' if form_data.kibbutz_member_status == 'כן' }}> כן
+                                </label>
+                                <label class="radio-item">
+                                        <input type="radio" name="kibbutz_member_status" value="לא" {{ 'checked' if form_data.kibbutz_member_status == 'לא' or not form_data.kibbutz_member_status }}> לא
+                                </label>
+                        </div>
+                </div>
+
+                <!-- חבר בקופת חולים - ברירת מחדל כן -->
+                <div class="field">
+                        <label>חבר בקופת חולים <span class="required">*</span></label>
+                        <div class="radio-group">
+                                <label class="radio-item">
+                        <input type="radio" name="hmo_member_exists" value="כן" 
+                        {{ 'checked' if form_data.hmo_member and form_data.hmo_member != "" }}> כן
+                                </label>
+                                <label class="radio-item">
+                        <input type="radio" name="hmo_member_exists" value="לא" 
+                        {{ 'checked' if not form_data.hmo_member or form_data.hmo_member == "" }}> לא
+                                </label>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- חלק ג: פרטים על ילדים -->
+<section id="children-section">
+    <div class="section-header">
+        ג. פרטים על ילדיי שבשנת המס טרם מלאו להם 19 שנה
+    </div>
+    
+    <!-- הדיב הזה חייב להיות קיים כדי שה-JS יזריק לתוכו ילדים -->
+    <div id="children-container"></div>
+
+    <div class="add-btn-container" style="padding: 15px; text-align: left;">
+        <button type="button" class="add-child-btn" onclick="addChild()">✚ הוסף ילד</button>
+    </div>
+</section>
+
+    <!-- חלק ד: פרטים על הכנסותיי ממעסיק זה -->
+    <section>
+        <h2>ד. פרטים על הכנסותיי ממעסיק זה</h2>
+        <div class="form-row">
+            <div class="field" style="flex: 2;">
+                <label>אני מקבל/ת <span class="required">*</span> <span class="info-icon">?</span></label>
+                <div class="form-row" style="padding: 0; border: none;">
+                    <div class="checkbox-group" style="flex: 1;">
+                        <label class="checkbox-item"><input type="checkbox" name="income_type" value="monthly"> משכורת חודש</label>
+                        <label class="checkbox-item"><input type="checkbox" name="income_type" value="daily"> שכר עבודה (עובד יומי)</label>
+                    </div>
+                    <div class="checkbox-group" style="flex: 1;">
+                        <label class="checkbox-item"><input type="checkbox" name="income_type" value="additional"> משכורת בעד משרה נוספת</label>
+                        <label class="checkbox-item"><input type="checkbox" name="income_type" value="pension"> קצבה</label>
+                    </div>
+                    <div class="checkbox-group" style="flex: 1;">
+                        <label class="checkbox-item"><input type="checkbox" name="income_type" value="partial"> משכורת חלקית</label>
+                        <label class="checkbox-item"><input type="checkbox" name="income_type" value="scholarship"> מלגה</label>
+                    </div>
+                </div>
+            </div>
+            <div class="field" style="flex: 1;">
+                <label>תאריך תחילת העבודה בשנת המס <span class="required">*</span> <span class="info-icon">?</span></label>
+                <input type="date" name="start_date">
+            </div>
+        </div>
+    </section>
+
+    <!-- חלק ה: פרטים על הכנסות אחרות -->
+    <section>
+        <h2>ה. פרטים על הכנסות אחרות</h2>
+        <div class="form-row">
+            <div class="field">
+                <label>יש לך הכנסות אחרות? <span class="required">*</span></label>
+                <div class="radio-group">
+                    <label class="radio-item">
+                        <input type="radio" name="other_income" value="none"> 
+                        אין לי הכנסות אחרות ממשכורת (משכורת חודש, בעד משרה נוספת, משכורת חלקית, שכר עבודה), מקצבה וממלגה
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="other_income" value="exists"> 
+                        יש לי הכנסות נוספות כמפורט להלן
+                    </label>
+                </div>
+            </div>
+        </div>
+    </section>
+
+<!-- חלק ו: פרטים על בן/בת הזוג -->
+<section id="section-v-spouse">
+    <div class="section-header" style="background-color: #d1e7ff; padding: 10px; font-weight: bold; border-bottom: 1px solid #b3d7ff;">
+        ו. פרטים על בן/בת הזוג
+    </div>
+
+    <!-- ההודעה הצהובה -->
+    <div id="spouse-locked-msg" style="padding: 20px; text-align: center; background-color: #fff9db; border: 1px solid #ffec99; margin: 10px;">
+        חלק זה רלוונטי רק אם הינך נשוי/אה
+    </div>
+
+    <!-- הטבלה המלאה (3 שורות) -->
+    <div id="spouse-table-content" style="display: none; padding: 20px;">
+        <div class="spouse-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; direction: rtl;">
+            
+            <!-- שורה 1 -->
+            <div class="field">
+                <label>שם פרטי <span class="required">*</span></label>
+                <input type="text" name="spouse_first_name" style="width: 100%;">
+            </div>
+            <div class="field">
+                <label>שם משפחה <span class="required">*</span></label>
+                <input type="text" name="spouse_last_name" style="width: 100%;">
+            </div>
+
+            <!-- שורה 2 -->
+            <div class="field">
+                <label>זיהוי לפי <span class="required">*</span></label>
+                <div style="display: flex; gap: 15px; margin-top: 5px;">
+                    <label style="font-weight: normal;"><input type="radio" name="spouse_id_type" value="id" checked> תעודת זהות</label>
+                    <label style="font-weight: normal;"><input type="radio" name="spouse_id_type" value="passport"> דרכון (עבור אזרח זר)</label>
+                </div>
+            </div>
+            <div class="field">
+                <label>מספר זהות <span class="required">*</span></label>
+                <input type="text" name="spouse_id_number" style="width: 100%;">
+            </div>
+
+            <!-- שורה 3 - החדשה לפי התמונה -->
+            <div class="field">
+                <label>תאריך לידה <span class="required">*</span></label>
+                <input type="date" name="spouse_dob" style="width: 100%;">
+            </div>
+            <div class="field">
+                <label>תאריך עליה</label>
+                <input type="date" name="spouse_aliyah_date" style="width: 100%;">
+            </div>
+
+            <!-- שורה 4 - הכנסה (מתחת לתאריכים) -->
+            <div class="field" style="grid-column: span 2;">
+                <label>הכנסה <span class="required">*</span></label>
+                <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                    <label style="font-weight: normal;"><input type="radio" name="spouse_income" value="none"> אין לבן/בת הזוג כל הכנסה</label>
+                    <label style="font-weight: normal;"><input type="radio" name="spouse_income" value="has_income"> יש לבן/בת הזוג הכנסה</label>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+
+
+    <!-- חלק ז: שינויים במהלך השנה -->
+    <section>
+        <h2>ז. שינויים במהלך השנה</h2>
+        <div style="background-color: #fffdf0; padding: 15px; margin: 15px; border: 1px solid #f9ebbe; border-radius: 4px; font-size: 13px; line-height: 1.6;">
+            חלק זה, המופיע בטופס 101 המודפס, אינו רלוונטי מכיוון שמדובר בטופס ממוחשב.<br>
+            על כל שינוי שיחול בפרטים שמילאת בטופס, יש להודיע למעסיק עד שבוע ימים מתאריך השינוי, ע"י מילוי טופס חדש במערכת זו או בכל אמצעי שהמעסיק מאפשר.
+        </div>
+    </section>
+
+    <!-- חלק ח: בקשת פטור או זיכוי ממס -->
+    <section>
+        <h2>
+            <span>ח. אני מבקש/ת פטור או זיכוי ממס מהסיבות הבאות</span>
+            <span class="info-icon">?</span>
+        </h2>
+        
+        <div style="padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+            
+            <!-- סעיף 1 -->
+            <label style="display: flex; align-items: center; padding: 15px; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" name="exemption_1">
+                    <span>1. אני תושב/ת ישראל</span>
+                </div>
+                <span class="info-icon">?</span>
+            </label>
+
+            <!-- סעיף 2 -->
+            <label style="display: flex; align-items: center; padding: 15px; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer;">
+                <input type="checkbox" name="exemption_2" style="margin-left: 10px;">
+                <span>2. אני נכה 100% / עיוור/ת לצמיתות</span>
+            </label>
+
+            <!-- סעיף 3 -->
+            <label style="display: flex; align-items: center; padding: 15px; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" name="exemption_3">
+                    <span>3. אני תושב/ת קבוע/ה ביישוב מזכה. אני ובני משפחתי מדרגה ראשונה, מתגוררים ביישוב ואין לי "מרכז חיים" נוסף.</span>
+                </div>
+                <span class="info-icon">?</span>
+            </label>
+
+            <!-- סעיף 4 -->
+            <label style="display: flex; align-items: center; padding: 15px; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" name="exemption_4">
+                    <span>4. אני עולה חדש/ה</span>
+                </div>
+                <span class="info-icon">?</span>
+            </label>
+
+        </div>
+    </section>
+
+    <section>
+            <!-- סעיף 5 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_5">
+                    <span>5. בגין בן/בת זוגי המתגורר/ת עימי ואין לו/לה הכנסות בשנת המס</span>
+                    <span class="info-icon">?</span>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    רק אם העובד/ת או בן/בת הזוג הגיע/ה לגיל פרישה או שהוא/היא נכה או עיוור/ת עפ"י סעיף 9(5) לפקודה.
+                </div>
+            </div>
+
+            <!-- סעיף 6 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_6">
+                    <span>6. אני הורה במשפחה חד הורית החי בנפרד</span>
+                    <span class="info-icon">?</span>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    ימולא רק ע"י הורה כאמור החי בנפרד ומבקש נקודות זיכוי עבור ילדיו, הנמצאים בחזקתו ובגינם מקבל קצבת ילדים מהמוסד לביטוח לאומי (בהתאם לסעיף 7 להלן) ואינו מנהל משק בית משותף עם יחיד/ה אחרת.
+                </div>
+            </div>
+
+            <!-- סעיף 7 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_7">
+                    <span>7. בגין ילדי שבחזקתי המפורטים בחלק ג'</span>
+                    <span class="info-icon">?</span>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    ימולא רק ע"י הורה במשפחה חד הורית שמקבל את קצבת הילדים בגינם, או ע"י אשה נשואה או ע"י הורה יחיד.
+                </div>
+            </div>
+
+            <!-- סעיף 8 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_8">
+                    <span>8. בגין ילדי</span>
+                    <span class="info-icon">?</span>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    ימולא ע"י הורה (למעט הורה אשר סימן בפסקה 7 לעיל), אשה לא נשואה שילדיה אינם בחזקתה וכן הורה יחיד.
+                </div>
+            </div>
+
+            <!-- סעיף 9 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_9">
+                    <span>9. אני הורה יחיד לילדי שבחזקתי (המפורטים בסעיף 7 ו-8 לעיל)</span>
+                    <span class="info-icon">?</span>
+                </label>
+            </div>
+
+            <!-- סעיף 10 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_10">
+                    <span>10. בגין ילדי שאינם בחזקתי המפורטים בחלק ג ואני משתתף/ת בכלכלתם</span>
+                    <span class="info-icon">?</span>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    ימולא ע"י הורה החי בנפרד, שאינו זכאי לנקודות זיכוי בגין ילדיו, אשר המציא פס"ד המחייב אותו בתשלום מזונות.
+                </div>
+            </div>
+
+            <!-- סעיף 11 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_11">
+                    <span>11. אני הורה לילדים עם מוגבלות שטרם מלאו להם 19 שנים, בגינם אני מקבל/ת גמלת ילד נכה מהמוסד לביטוח לאומי</span>
+                    <span class="info-icon">?</span>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    בן זוגי אינו מקבל נקודות זיכוי אלה, לילדי, בגינו אני מבקש את נקודות הזיכוי, אין הכנסות בשנה הנוכחית.
+                </div>
+
+        </div>
+    </section>
+
+    <section>
+            <!-- סעיף 12 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-weight: bold;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="exemption_12">
+                        <span>12. בגין מזונות לבן/בת זוגי לשעבר</span>
+                        <span class="info-icon">?</span>
+                    </div>
+                </label>
+                <div style="font-size: 12px; color: #777; margin-top: 8px; margin-right: 25px;">
+                    ימולא ע"י מי שנישא בשנית.
+                </div>
+            </div>
+
+            <!-- סעיף 13 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_13">
+                    <span>13. מלאו לי או לבן/בת זוגי 16 שנים וטרם מלאו לי או לבן/בת זוגי 18 שנים בשנת המס.</span>
+                    <span class="info-icon">?</span>
+                </label>
+            </div>
+
+            <!-- סעיף 14 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_14">
+                    <span>14. אני חייל/ת משוחרר/ת / שירתתי בשירות לאומי.</span>
+                    <span class="info-icon">?</span>
+                </label>
+            </div>
+
+            <!-- סעיף 15 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_15">
+                    <span>15. בגין סיום לימודים לתואר אקדמי, סיום התמחות או סיום לימודי מקצוע.</span>
+                    <span class="info-icon">?</span>
+                </label>
+            </div>
+
+            <!-- סעיף 16 -->
+            <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold;">
+                    <input type="checkbox" name="exemption_16">
+                    <span>16. שירתתי כלוחם/לוחמת מילואים בשנת המס הקודמת.</span>
+                </label>
+            </div>
+
+    </section>
+
+    <section>        
+<!-- חלק ט: תיאום מס -->
+<section style="margin-bottom: 20px;">        
+    <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+        <h2 style="background-color: #d1e7ff; margin: 0; padding: 10px; font-size: 15px; color: #0056b3;">ט. תיאום מס</h2>
+        <div style="padding: 15px; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" name="tax_coordination" {% if form_data.tax_coordination %}checked{% endif %}>
+            <span style="font-size: 14px; font-weight: bold;">צירוף/עריכת תיאום מס</span>
+        </div>
+    </div>
+</section>
+
+<!-- הצהרה וחתימה -->
+<section style="margin-bottom: 20px;">        
+    <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+        <h2 style="background-color: #d1e7ff; margin: 0; padding: 10px; font-size: 15px; color: #0056b3;">*. הצהרה</h2>
+        <div style="padding: 20px; line-height: 1.8; font-size: 14px;">
+            <p style="margin: 0; font-weight: bold;">אני מצהיר/ה כי הפרטים שמסרתי בטופס זה הינם מלאים ונכונים. ידוע לי שהשמטה או מסירת פרטים לא נכונים הינה עבירה על פקודת מס הכנסה.</p>
+            <p style="margin: 5px 0;">אני מתחייב/ת להודיע למעסיק על כל שינוי שיחול בפרטיי האישיים ובפרטים דלעיל תוך שבוע ימים מתאריך השינוי.</p>
+            
+            <!-- חתימה + תאריך באותה שורה -->
+            <div style="margin-top: 20px; display: flex; align-items: center; gap: 50px; flex-wrap: nowrap;">
+
+                <!-- חתימת המבקש -->
+                <label style="font-weight: bold; white-space: nowrap;">
+                    חתימת המבקש/ת <span style="color:red;">*</span>
+                </label>
+
+        <!-- תאריך באותה שורה -->
+                <div style="display: inline-block;">
+                    <label style="font-weight: bold; font-size: 13px;">תאריך</label>
+                    <input type="date"
+                           name="signature_date"
+                           value="{{ form_data.get('signature_date','') }}"
+                           style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 160px; font-weight: bold;">
+                </div>
+            </div>
+                
+                {% if is_email %}
+                    <!-- מה שיופיע במייל: תמונת החתימה בלבד -->
+                    <div style="margin-top: 10px; border-bottom: 2px solid #000; width: 300px; min-height: 100px;">
+                        {% if form_data.signature_data %}
+                            <img src="{{ form_data.signature_data }}" style="width: 250px; height: auto;">
+                        {% else %}
+                            <span style="color:red;">לא סופקה חתימה</span>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <!-- מה שיופיע בדפדפן: אזור ציור החתימה -->
+                    <div style="border: 1px solid #ccc; background: #fafafa; margin-top: 10px; position: relative; height: 180px; width: 100%;">
+                        <canvas id="signature-pad" width="600" height="180" style="width: 100%; height: 100%; cursor: crosshair; touch-action: none;"></canvas>
+                        <input type="hidden" name="signature_data" id="signature_data">
+                        
+                        <button type="button" onclick="clearSignature()" style="position: absolute; bottom: 10px; right: 10px; background: white; border: 1px solid #ccc; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">✎ נקה חתימה</button>
+                        <div style="position: absolute; bottom: 10px; left: 10px; font-size: 11px; color: #888;">ניתן לחתום בעזרת העכבר או עם האצבע</div>
+                    </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- חלק תחתון: כפתורים (יוצגו רק בדפדפן ולא במייל) -->      
+{% if not is_email %}
+<div class="no-print" style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 40px; margin-top: 40px; align-items: flex-start; direction: rtl; border: none !important; outline: none !important;">
+
+    <div style="display: flex; flex-direction: column;">
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div style="font-weight: bold; font-size: 13px; text-align: center;">שלח את הטופס באימייל:</div>
+        
+        <div>
+            <label style="font-size: 13px; font-weight: bold;">אימייל מעסיק *</label>
+            <input type="email" name="employer_email" required value="{{ form_data.employer_email or '' }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+
+        <div>
+            <label style="font-size: 13px; font-weight: bold;">אימייל עובד *</label>
+            <input type="email" name="employee_email" required value="{{ form_data.email or '' }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+
+        <button type="submit" onclick="document.getElementById('signature_data').value = document.getElementById('signature-pad').toDataURL();" 
+                style="width: 105%; background-color: #337ab7; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px;">
+            שלח טופס חתום
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- סקריפט פרטים על ילדיי שבשנת המס  הוספת ילדים -->
+<script>
+// פונקציה להוספת ילד
+function addChild() {
+    const container = document.getElementById('children-container');
+    if (!container) return; // הגנה אם הקונטיינר לא קיים
+
+    const currentCount = container.querySelectorAll('.child-row').length + 1;
+    
+    const childHtml = `
+        <div class="child-row">
+            <div class="child-title">
+                <!-- כפתור ה-X עם פונקציה מובנית -->
+                <button type="button" class="btn-remove" onclick="handleRemoveChild(this)">✖</button>
+                <span class="child-label">ילד ${currentCount}</span>
+            </div>
+            
+            <div class="child-inputs">
+                <div class="input-group">
+                    <label><span class="required">*</span> שם</label>
+                    <input type="text" name="child_name[]" required>
+                </div>
+                <div class="input-group">
+                    <label><span class="required">*</span> מספר זהות</label>
+                    <input type="text" name="child_id[]" required>
+                </div>
+                <div class="input-group">
+                    <label><span class="required">*</span> תאריך לידה</label>
+                    <input type="date" name="child_dob[]" required>
+                </div>
+            </div>
+            
+            <div class="child-checkboxes">
+                <label><input type="checkbox" name="child_custody[]"> הילד נמצא בחזקתי</label>
+                <label><input type="checkbox" name="child_allowance[]"> אני מקבל/ת בגינו קצבת ילדים</label>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', childHtml);
+}
+
+// פונקציית המחיקה - שיניתי שם ליתר ביטחון
+function handleRemoveChild(buttonElement) {
+    // מוצא את השורה (child-row) שבה נמצא הכפתור
+    const rowToDelete = buttonElement.closest('.child-row');
+    if (rowToDelete) {
+        rowToDelete.remove();
+        // מעדכן את המספור (ילד 1, ילד 2...) לכל השאר
+        updateChildLabels();
+    }
+}
+
+function updateChildLabels() {
+    const allLabels = document.querySelectorAll('.child-label');
+    allLabels.forEach((label, index) => {
+        label.innerText = 'ילד ' + (index + 1);
+    });
+}
+</script>
+
+<!-- סקריפט בודק את המצב המשפחתי  -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusRadios = document.querySelectorAll('input[name="marital_status"]');
+    const msg = document.getElementById('spouse-locked-msg');
+    const table = document.getElementById('spouse-table-content');
+
+    function toggleSpouse() {
+        let isMarried = false;
+        statusRadios.forEach(radio => {
+            // בודק אם נבחר 'נשוי/אה' או ערך דומה
+            if (radio.checked && (radio.value === 'נשוי/אה' || radio.value === 'נשוי' || radio.value === 'married')) {
+                isMarried = true;
+            }
+        });
+
+        if (isMarried) {
+            msg.style.display = 'none';
+            table.style.display = 'block';
+        } else {
+            msg.style.display = 'block';
+            table.style.display = 'none';
+        }
+    }
+
+    statusRadios.forEach(radio => radio.addEventListener('change', toggleSpouse));
+    toggleSpouse(); // בדיקה ראשונית
+});
+</script>
+
+
+<!-- סקריפט קטן להצגת שמות הקבצים שנבחרו -->
+<script>
+function showSelectedFiles(input) {
+    const fileList = document.getElementById('file-list');
+    if (input.files.length > 0) {
+        const names = Array.from(input.files).map(f => f.name).join(', ');
+        fileList.innerHTML = "📎 צורפו: " + names;
+    } else {
+        fileList.innerHTML = "";
+    }
+}
+</script>
+
+<script>
+    // לוגיקה בסיסית לחתימה (למטרות תצוגה)
+    const canvas = document.getElementById('signature-pad');
+    const ctx = canvas.getContext('2d');
+    const sigInput = document.getElementById('signature_data');
+    let writing = false;
+
+    // התאמת רזולוציה
+    function resizeCanvas() {
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        ctx.scale(ratio, ratio);
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000';
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    function startDrawing(e) {
+        writing = true;
+        const pos = getMousePos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        e.preventDefault(); // מונע גלילה בנייד בזמן חתימה
+    }
+
+    function draw(e) {
+        if (!writing) return;
+        const pos = getMousePos(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        e.preventDefault();
+    }
+
+    function stopDrawing() {
+        if (writing) {
+            writing = false;
+            // שמירת החתימה כטקסט (Base64) לתוך השדה הנסתר
+            sigInput.value = canvas.toDataURL("image/png");
+        }
+    }
+
+    // עכבר
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', stopDrawing);
+
+    // טאץ'
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing);
+
+    function clearSignature() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        sigInput.value = '';
+    }
+</script>
+
+</div>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

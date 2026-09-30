@@ -1,0 +1,514 @@
+{% set _lang = (lang | default('he')) %}
+<!DOCTYPE html>
+<html lang="{{ _lang }}" dir="{{ 'rtl' if _lang in ['he','ar','fa','ur'] else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="company.title">ניהול פרטי חברה</title>
+
+    <script>
+        function validateForm() {
+            var form = document.getElementById('company-form');
+            var inputs = form.querySelectorAll('input[required]');
+            var errorMessage = '';
+            
+            inputs.forEach(function(input) {
+                if (!input.value) {
+                    errorMessage += 'Please fill out the ' + input.name + ' field.<br>';
+                }
+            });
+            
+            if (errorMessage) {
+                document.getElementById('error-message').innerHTML = errorMessage;
+            } else {
+                form.submit();
+            }
+        }
+    </script>
+
+<style>
+/* ===== WRAPPER המונע הצטמצמות או התרחבות שורות ===== */
+.form-wrapper {
+    padding-left: 4cm;
+    padding-right: 4cm;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ===== 3 COLUMNS LAYOUT ===== */
+.form-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 15px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 33%;
+}
+
+/* ===== ROWS ===== */
+.form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.form-row label {
+    width: 35%;
+    font-weight: bold;
+    font-size: 1.1em;
+    white-space: nowrap;
+}
+
+.form-row input,
+.form-row select {
+    width: 62% !important; /* הגדלה קלה בהתאם לצילום המסך */
+    height: 30px !important;
+    padding: 3px 6px;
+    font-size: 14px;
+    font-weight: bold;
+    border: 1px solid #999;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* ===== שורת כפתורים אוניברסלית מורחבת ונעולה כמו סרגל פלדה ===== */
+.global-action-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 15px !important;              /* רווח נעול קבוע בין שלושת הכפתורים */
+    margin-top: 35px !important;
+    padding-left: 4cm !important;     /* יישור מושלם עם קו השדות העליון */
+    padding-right: 4cm !important;    /* יישור מושלם עם קו השדות העליון */
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-wrap: nowrap !important;      /* חסימת שבירת שורות בשפות ארוכות כמו אוקראינית */
+}
+
+/* בסיס קשיח ואחיד שמונע משחקי גבהים וגדלים */
+.btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    height: 36px !important;            /* גובה קבוע קשיח ואחיד לכל הכלים בשורה */
+    padding: 0 15px !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;     /* מונע מהטקסט להישבר */
+    text-overflow: ellipsis !important;   /* דוחף 3 נקודות (...) באלגנטיות אם המילה ארוכה מדי */
+    overflow: hidden !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    border: none !important;
+    color: white !important;
+    text-decoration: none !important;
+}
+
+/* רוחב מורחב, צבעים קבועים ואיזון מוחלט לכל כפתור בנפרד למניעת עיוותים ושבירות במחשב */
+.btn-nav { 
+    width: 240px !important;            /* רוחב מורחב ענק וברור לכפתור דף ראשי */
+    background-color: #0078d4 !important; 
+}
+.btn-nav:hover { background-color: #005fa3 !important; }
+
+.btn-clear-data { 
+    width: 220px !important;            /* רוחב מורחב ומאוזן לכפתור נקה מידע */
+    background-color: #dc3545 !important; 
+}
+.btn-clear-data:hover { background-color: #bd2130 !important; }
+
+.btn-save { 
+    width: 220px !important;            /* רוחב מורחב ומאוזן לכפתור עדכן ושמור */
+    background-color: #28a745 !important; 
+}
+.btn-save:hover { background-color: #218838 !important; }
+
+/* עיצוב אחיד לאוברליי הטעינה הגלובלי (מגן מסך חסימת תרגום) */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    font-size: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+
+/* ===== עיצוב רספונסיבי מאוחד למובייל (768px ומטה) ===== */
+@media screen and (max-width: 768px) {
+    body {
+        /* מאפשר לתגית ה-html הגלובלית לקבוע כיווניות, תוך כפיית רוחב מלא ומניעת בריחה ימינה ושמאלה */
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .form-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .form-container {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 15px !important;
+        width: 100% !important;
+    }
+
+    .form-column {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .form-row {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        /* start נצמד אוטומטית לימין ב-RTL ולשמאל ב-LTR (מותאם בול ל-30 השפות במערכת) */
+        align-items: start !important;
+        justify-content: flex-start !important;
+        margin-bottom: 10px !important;
+        gap: 4px !important;
+    }
+
+    /* כפיית רוחב מלא ויישור דינמי ללייבלים של שדות החברה */
+    .form-row label {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        font-size: 16px !important;
+        margin: 0 0 2px 0 !important;
+        text-align: start !important;
+        display: block !important;
+    }
+
+    /* כפיית רוחב מלא וגובה נוח ללחיצה על כל תיבות הקלט (Inputs) והסלקט (Select) של החברה */
+    .form-row input,
+    .form-row select {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        height: 34px !important;
+        font-size: 16px !important;
+        padding: 6px 10px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    /* שורת הלוגו או הערות רחבות */
+    .full-width-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: start !important;
+        width: 100% !important;
+        gap: 4px !important;
+    }
+
+    .full-width-row label {
+        width: 100% !important;
+        text-align: start !important;
+        font-size: 16px !important;
+    }
+
+    .full-width-row input,
+    .full-width-row textarea {
+        width: 100% !important;
+        height: auto !important;
+        font-size: 16px !important;
+        box-sizing: border-box !important;
+        padding: 8px !important;
+    }
+
+    /* שורת כפתורי הפעולה הגלובלית - מפרק את ה-flex הקיים לבלוקים אנכיים נוחים ללחיצה במובייל */
+    .global-action-bar {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        padding-left: 0 !important;   /* ביטול של ה-4 ס"מ של המחשב במצב מובייל */
+        padding-right: 0 !important;  /* ביטול של ה-4 ס"מ של המחשב במצב מובייל */
+        width: 100% !important;
+        gap: 10px !important;
+        margin-top: 20px !important;
+        flex-wrap: wrap !important;
+    }
+
+    /* התאמת כפתורי הפעולה, הקישורים והטפסים של דף החברה לרוחב מלא של 100% במובייל */
+    .btn-action,
+    .global-action-bar a,
+    .global-action-bar a button,
+    .global-action-bar form,
+    .global-action-bar form button {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 44px !important;      /* גובה קבוע, יציב ונוח ללחיצה בטלפונים */
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* תיקון לדיב גמיש כללי שלא ישבור את המבנה בטלפון */
+    div[style*="display: flex"] {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* כותרת ראשית של דף הגדרות חברה */
+    h1 {
+        width: 100% !important;
+        text-align: center !important;
+        font-size: 26px !important;
+        margin: 0 0 15px 0 !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+    }
+}
+</style>
+
+</head>
+<body>
+<div class="container">
+    <div class="column1"></div>
+    <div class="column2">
+
+        <!-- TITLE -->
+        <h1 style="text-align: center;">
+            <span data-i18n="company.add_or_update">הוסף או עדכן פרטי חברה</span>
+        </h1>
+
+        <form action="{{ url_for('company') }}" method="POST" id="company-form">
+            <input type="hidden" id="company_id" name="company_id" value="{{ company.id if company else '' }}">
+
+            <div style="height: 0.1cm;"></div>
+
+            <div class="form-wrapper">
+                <div class="form-container">
+
+                    <!-- COLUMN 1 -->
+                    <div class="form-column">
+                        <div class="form-row">
+                            <label for="name">
+                                <span data-i18n="company.name">שם החברה:</span>
+                            </label>
+                            <input type="text" id="name" name="name" value="{{ company.name if company else '' }}" required>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="company_id_number">
+                                <span data-i18n="company.company_id">ח.פ./ע.מ.:</span>
+                            </label>
+                            <input type="text" id="company_id_number" name="company_id_number" value="{{ company_db.company_id_number if company_db else '' }}" required>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="deduction_file">
+                                <span data-i18n="company.deduction_file">תיק ניכויים:</span>
+                            </label>
+                            <input type="text" id="deduction_file" name="deduction_file" value="{{ company.deduction_file if company else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 2 -->
+                    <div class="form-column">
+                        <div class="form-row">
+                            <label for="address">
+                                <span data-i18n="company.address">כתובת:</span>
+                            </label>
+                            <input type="text" id="address" name="address" value="{{ company.address if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="city">
+                                <span data-i18n="company.city">עיר:</span>
+                            </label>
+                            <input type="text" id="city" name="city" value="{{ company.city if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="postal_code">
+                                <span data-i18n="company.postal_code">מיקוד:</span>
+                            </label>
+                            <input type="text" id="postal_code" name="postal_code" value="{{ company.postal_code if company else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 3 -->
+                    <div class="form-column">
+                        <div class="form-row">
+                            <label for="phone">
+                                <span data-i18n="company.phone">טלפון:</span>
+                            </label>
+                            <input type="text" id="phone" name="phone" value="{{ company.phone if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="email">
+                                <span data-i18n="company.email">מייל:</span>
+                            </label>
+                            <input type="text" id="email" name="email" value="{{ company.email if company else '' }}">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="logo">
+                                <span data-i18n="company.logo">לוגו (URL):</span>
+                            </label>
+                            <input type="text" id="logo" name="logo" value="{{ company.logo if company else '' }}">
+            </div>
+        </div>
+
+    </div>
+</form>   
+
+<!-- ERROR MESSAGE -->
+<div id="error-message" style="color: red; text-align: center; margin-top: 10px;"></div>
+
+    <div style="height: 4.1cm;"></div>
+
+    <!-- BUTTONS -->
+<!-- שורת כפתורים אוניברסלית מורחבת ומיושרת כמו סרגל פלדה -->
+<div class="global-action-bar">
+
+    <!-- 1. כפתור מעבר לדף הראשי (רחב וברור) -->
+    <a href="{{ url_for('invoice') }}" style="text-decoration: none;">
+        <button type="button" data-i18n="company.main_page" class="btn-action btn-nav">
+            עבור לדף הראשי
+        </button>
+    </a>
+
+    <!-- 2. טופס וכפתור נקה מידע חברה -->
+    <form method="POST" action="{{ url_for('clear_company_results') }}" style="margin: 0; padding: 0;">
+        <button type="submit" data-i18n="company.clear" class="btn-action btn-clear-data">
+            נקה מידע
+        </button>
+    </form>
+
+    <!-- 3. כפתור שמירה ועדכון מורחב -->
+    <button type="button" onclick="validateForm()" data-i18n="company.save" class="btn-action btn-save">
+        עדכן ושמור
+    </button>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formBody = document.getElementById('company-form');
+    if (formBody) {
+        const allFields = Array.from(formBody.querySelectorAll('input, textarea, select'));
+
+        formBody.addEventListener('keydown', function (event) {
+            const key = event.key;
+            const current = event.target;
+            const index = allFields.indexOf(current);
+
+            if (index === -1) return;
+
+            // אם השדה הוא select ונלחץ חץ למטה — נפתח את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowDown') {
+                current.size = current.options.length; // פותח את כל האפשרויות
+                event.preventDefault();
+                return;
+            }
+
+            // אם השדה הוא select ונלחץ חץ למעלה — סוגר את הרשימה
+            if (current.tagName === 'SELECT' && key === 'ArrowUp') {
+                current.size = 1;
+                event.preventDefault();
+                return;
+            }
+
+            // ניווט רגיל בין שדות
+            if (key === 'ArrowDown' && index < allFields.length - 1) {
+                allFields[index + 1].focus();
+                event.preventDefault();
+            }
+            if (key === 'ArrowUp' && index > 0) {
+                allFields[index - 1].focus();
+                event.preventDefault();
+            }
+        });
+
+        // הדגשה כששדה נבחר
+        allFields.forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.backgroundColor = '#e6f7ff';
+                field.style.outline = '1px solid #007bff';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כברירת מחדל
+                }
+            });
+            field.addEventListener('blur', () => {
+                field.style.backgroundColor = '';
+                field.style.outline = '';
+                if (field.tagName === 'SELECT') {
+                    field.size = 1; // סגור את הרשימה כשמאבדים פוקוס
+                }
+            });
+        });
+    }
+});
+</script>
+
+  <!-- Translate language -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const btn = document.getElementById("generateCompanyBtn");
+
+    if (btn) {
+        btn.onclick = function () {
+            btn.innerText = "..."; 
+
+            fetch("/admin/generate_company", {
+                method: "POST"
+            })
+            .then(() => {
+                location.reload();
+            })
+            .catch(() => {
+                location.reload();
+            });
+        };
+    }
+});
+</script>
+
+  <!-- Translate language -->
+<script src="/static/lang.js"></script>
+<script>
+    const lang = localStorage.getItem("lang") || "he";
+    if (typeof loadLanguage === "function") {
+        loadLanguage(lang);
+    }
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>

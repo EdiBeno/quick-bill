@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ריכוז נתוני שכר ומיסים - Database</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='tax_form.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 20px; }
+        .container { max-width: 100%; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .main-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .main-table th { background: #333; color: white; padding: 12px; text-align: center; position: sticky; top: 0; }
+        .main-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        .employee-row { background-color: #e9ecef; font-weight: bold; border-top: 3px solid #007bff; }
+        .inner-days-table-wrapper { padding: 15px; border: 1px solid #007bff; margin: 10px; border-radius: 5px; }
+        .inner-days-table { width: 100%; border-collapse: collapse; }
+        .inner-days-table th { background: #6c757d; color: white; font-size: 12px; padding: 6px; }
+        .inner-days-table td { border: 1px solid #dee2e6; padding: 5px; font-size: 11px; }
+        .btn-main { background-color: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ריכוז נתוני שכר ומיסים מתוך בסיס הנתונים</h1>
+
+    <div class="button-container" style="margin-bottom: 20px;">
+        <a href="{{ url_for('index') }}">
+            <button type="button" class="btn-main">חזרה לדף הראשי</button>
+        </a>
+    </div>
+
+    <div class="main-table-wrapper">
+        <table class="main-table">
+            <thead>
+                <tr>
+                    <th>מספר עובד</th>
+                    <th>חודש</th>
+                    <th>שם עובד</th>
+                    <th>ברוטו</th>
+                    <th>נטו לתשלום</th>
+                    <th>עלות מעסיק</th>
+                    <th>מס הכנסה</th>
+                    <th>ביטוח לאומי</th>
+                    <th>ברוטו שנתי</th>
+                    <th>מס שנתי</th>
+                    <th>יתרת חופש</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for entry in employees %}
+                <tr class="employee-row">
+                    <td>{{ entry.employee_id or entry.id or '---' }}</td>
+                    
+                    <td style="color: #0056b3;">
+                        {% if entry.month_result %}
+                            {{ entry.month_result }}
+                        {% elif entry.date and entry.date|length > 7 %}
+                            {{ entry.date[3:] }}
+                        {% else %}
+                            {{ entry.date or '---' }}
+                        {% endif %}
+                    </td>
+                    
+                    <td>{{ entry.employee_name or 'ללא שם' }}</td>
+                    
+                    <td>{{ entry.gross_salary or '0.00' }}</td>
+                    <td style="color: green;">{{ entry.net_payment or '0.00' }}</td>
+                    <td>{{ entry.total_salary_cost or '0.00' }}</td>
+                    <td>{{ entry.income_tax or '0.00' }}</td>
+                    <td>{{ entry.national_insurance_deductions or '0.00' }}</td>
+
+                    <td>{{ entry.gross_taxable_yearly or '0.00' }}</td>
+                    <td>{{ entry.income_tax_yearly or '0.00' }}</td>
+                    <td>{{ entry.vacation_balance_yearly or '0' }}</td>
+                </tr>
+
+                <tr class="days-row">
+                    <td colspan="11">
+                        <div class="inner-days-table-wrapper">
+                            <h4 style="margin-top: 0; color: #007bff;">📋 פירוט ימי עבודה - {{ entry.employee_name }}</h4>
+                            <table class="inner-days-table">
+                                <thead>
+                                    <tr>
+                                        <th>יום</th>
+                                        <th>תאריך</th>
+                                        <th>התחלה</th>
+                                        <th>סיום</th>
+                                        <th>שעות</th>
+                                        <th>רגילות</th>
+                                        <th>125%</th>
+                                        <th>150%</th>
+                                        <th>שבת/חג</th>
+                                        <th>מחלה</th>
+                                        <th>חופש</th>
+                                        <th>חוסר</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for row in entry.hours_data %}
+                                    {# הפרדה לוגית: מציגים רק ימים ששייכים לחודש של ה-entry הנוכחי #}
+                                    {% set current_m = entry.month_result.split('/')[0]|string|zfill(2) if entry.month_result else '' %}
+                                    {% if not current_m or row.employeeMonth == current_m %}
+                                    <tr>
+                                        <td>{{ row.day or '' }}</td>
+                                        <td>{{ row.date_day or row.date or '' }}</td>
+                                        <td>{{ row.start_time or '' }}</td>
+                                        <td>{{ row.end_time or '' }}</td>
+                                        <td>{{ row.hours_calculated or '0' }}</td>
+                                        <td>{{ row.hours_calculated_regular_day or '0' }}</td>
+                                        <td>{{ row.extra_hours125_regular_day or '0' }}</td>
+                                        <td>{{ row.extra_hours150_regular_day or '0' }}</td>
+                                        <td>{{ row.hours_holidays_day or '0' }}</td>
+                                        <td>{{ row.sick_day or '' }}</td>
+                                        <td>{{ row.day_off or '' }}</td>
+                                        <td>{{ row.missing_work_day or '0' }}</td>
+                                    </tr>
+                                    {% endif %}
+                                {% else %}
+                                    <tr><td colspan="12" style="text-align: center;">אין נתוני שעות לחודש זה</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
