@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טופס 126 – דוח שנתי על ניכויים</title>
+  <script src="{{ url_for('static', filename='formulas.js') }}?v={{ time.time() }}" defer></script>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+  <style>
+
+/* ===== TOP BUTTONS ===== */
+.top-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;             /* שונה מגריד של 2 עמודות לטור אנכי אחד */
+    flex-direction: column;    /* מסדר את הכפתורים שורה אחר שורה באנכי */
+    gap: 10px;
+    z-index: 9999;
+    width: 4.1cm;              /* רוחב צר של עמודה אחת - נשאר בפינה הימנית ולא נוגע בטופס */
+}
+
+/* כפתורים */
+.top-buttons button {
+    font-weight: bold;
+    font-size: 17px;
+    cursor: pointer;
+    width: 100%;               /* מתאים לרוחב הטור החדש */
+    height: 0.6cm;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+    transition: 0.2s ease-in-out;
+}
+
+.top-buttons button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0,0,0,0.35);
+}
+
+.top-buttons button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+    /* ===== buttons For XML Json ===== */
+    .button-126 {
+      background: #0078ff;
+      color: white;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      margin: 0px;
+      font-size: 15px;
+      min-height: 0.6cm; 
+      width: 4cm;       
+      transition: 0.2s;
+    }
+    .button-126:hover {
+       background: #005fcc;
+    }
+    .output-box {
+      background: #f4f4f4;
+      padding: 15px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+/* ===== Hide buttons when printing ===== */
+@media print {
+
+    .top-buttons {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    h1 {
+        font-size: 18px !important;
+        margin-bottom: 10px !important;
+    }
+
+    table th, table td {
+        width: 85px !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        font-size: 0.75rem !important;
+        padding: 0px !important;
+    }
+
+    /* Reduce gap between items */
+    .signature-row {
+        gap: 20px !important;
+    }
+
+    /* Make all inputs/selects narrower */
+    .signature-row input,
+    .signature-row select {
+        width: 110px !important;
+    }
+
+    table {
+        table-layout: fixed !important;
+        width: 85px !important;
+    }
+}
+
+/* ===== A4 PAGE ===== */
+@page {
+    margin: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    direction: rtl;
+    margin: 0;
+    padding: 0;
+}
+
+.form-container {
+    position: relative;
+    width: 1140px;
+    height: 1100px;
+    background-size: cover;
+    background-repeat: no-repeat;
+    margin: 20px auto;
+    border: none; /* ניקוי מסגרת */
+}
+
+
+    body {
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      text-align: right;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px 25px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+    .row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 8px;
+    }
+    .field label {
+      font-size: 0.85rem;
+      margin-bottom: 3px;
+    }
+    .field input, .field select {
+      padding: 5px 6px;
+      font-size: 0.9rem;
+    }
+    .row .field {
+      flex: 1;
+      min-width: 180px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 0.85rem;
+    }
+    table thead {
+      background: #e8f0fe;
+    }
+    table th, table td {
+      border: 1px solid #ccc;
+      padding: 4px 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .summary-item {
+      border: 1px solid #ddd;
+      padding: 8px;
+      background: #fafafa;
+    }
+    .summary-item label {
+      font-size: 0.85rem;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .summary-item input {
+      width: 90%;
+      padding: 4px 6px;
+      font-size: 0.9rem;
+    }
+    .buttons {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .buttons button {
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .section-title {
+      margin-top: 20px;
+      margin-bottom: 8px;
+      font-weight: bold;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 4px;
+    }
+
+    /* שליטה על רוחב בטבלת העובדים בלבד */
+    .employees-table-wrapper table input {
+        width: 120px;     /* שנה למה שאתה רוצה */
+        box-sizing: border-box;
+    }
+
+    /* אם אתה רוצה רוחב שונה לכל עמודה */
+    .employees-table-wrapper td:nth-child(1) input { width: 140px; } /* שם עובד */
+    .employees-table-wrapper td:nth-child(2) input { width: 120px; } /* ת"ז */
+    .employees-table-wrapper td:nth-child(3) input { width: 120px; } /* ברוטו */
+    .employees-table-wrapper td:nth-child(4) input { width: 120px; } /* מס הכנסה */
+    .employees-table-wrapper td:nth-child(5) input { width: 120px; } /* ביטוח לאומי */
+    .employees-table-wrapper td:nth-child(6) input { width: 120px; } /* בריאות */
+    .employees-table-wrapper td:nth-child(7) input { width: 120px; } /* ניכויים */
+    .employees-table-wrapper td:nth-child(8) input { width: 120px; } /* מספר חודשי עבודה */
+
+/* ==================== התאמה רספונסיבית לניידים (Mobile) בלבד ==================== */
+@media (max-width: 1350px) {
+    .top-buttons {
+        position: static !important;   /* מבטל את הציפה הצידית רק בנייד */
+        margin: 20px auto !important;  /* ממרכז את הכפתורים מעל הטופס */
+        width: 90% !important;         /* פריסה רחבה לרוחב הטלפון */
+        max-width: 480px !important;   
+        display: flex !important;
+        flex-direction: column !important; 
+        gap: 10px !important;
+    }
+
+    .top-buttons button {
+        width: 100% !important;        
+        height: 46px !important;       /* כפתורים שמנמנים ונוחים לאצבע */
+        font-size: 16px !important;    
+    }
+    
+    .top-buttons a, .top-buttons form {
+        display: block !important;
+        width: 100% !important;
+    }
+    
+    .form-container {
+        margin: 10px auto !important;  
+        overflow-x: auto !important;   /* גלילה רוחבית עדינה לטופס שלא ייחתך בנייד */
+    }
+}
+  </style>
+</head>
+<body>
+
+<!-- ===== TOP BUTTONS (FRONT PAGE) ===== -->
+<div class="top-buttons">
+
+<!-- Flash Messages Popup -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div id="flash-popup" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
+                 background-color: #28a745; color: white; padding: 15px 30px; border-radius: 8px; 
+                 box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 9999; font-weight: bold; 
+                 display: flex; align-items: center; gap: 15px; direction: rtl;">
+                
+                <span>✅ {{ message }}</span>
+                
+                <button onclick="this.parentElement.style.display='none'" 
+                        style="background: none; border: none; color: white; cursor: pointer; font-size: 20px; line-height: 1;">
+                    &times;
+                </button>
+            </div>
+
+            <script>
+                // Auto-hide after 4 seconds
+                setTimeout(() => {
+                    const popup = document.getElementById('flash-popup');
+                    if (popup) {
+                        popup.style.opacity = '0';
+                        popup.style.transition = 'opacity 0.5s ease';
+                        setTimeout(() => popup.remove(), 500);
+                    }
+                }, 4000);
+            </script>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+    <!-- Go to Main Page -->
+    <a href="{{ url_for('index') }}" style="text-decoration:none;">
+        <button type="button" style="background-color:#007bff; color:white;">
+            עבור לדף הראשי
+        </button>
+    </a>
+
+    <!-- Print Form -->
+    <button type="button" onclick="window.print()" style="background-color:#28a745; color:white;">
+        הדפס טופס 126
+    </button>
+
+    <!-- SAVE BUTTON: Connected to the main form below -->
+    <button type="submit" form="form126" style="background-color:#28a745; color:white; font-weight:bold;">
+        שמור טופס 126
+    </button>
+
+    <!-- Clear Form -->
+    <form method="POST" action="{{ url_for('clear_form126') }}" style="display:inline;">
+        <button type="submit" style="background-color:#dc3545; color:white;">
+            נקה טופס 126
+        </button>
+    </form>
+
+    <!-- Download XML -->
+    <form method="GET" action="{{ url_for('download_xml_126', year=employeeYear) }}" style="display:inline;">
+        <button type="submit" style="background-color:#007bff; color:white;">
+            הורד קובץ XML
+        </button>
+    </form>
+
+    <!-- Check Error 126 To Tax Office Requst  -->
+    <form method="POST" action="/send_126_to_tax" style="display:inline;">
+        <button type="submit" style="background-color:#6c757d; color:white;">
+            בדוק שגיאות 
+        </button>
+
+      <div style="height: 0.3cm;"></div>
+
+    <!-- Send Form 126 To Tax Office Requst  -->
+        <button type="submit" style="background-color:#007bff; color:white;">
+            שדר לרשות המיסים
+        </button>
+    </form>
+
+</div>
+
+<form id="form126" method="POST" action="/submit126">
+    <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
+    <input type="hidden" name="month" value="{{ selected_month }}">
+    <input type="hidden" name="year" value="{{ selected_year }}">
+
+  <div class="container">
+
+    <h1>טופס 126 – דוח שנתי על ניכויים ממשכורת ותשלומים אחרים</h1>
+
+    <!-- שנת מס + סוג דוח -->
+    <div class="row">
+      <div class="field">
+        <label>שנת מס</label>
+        <input type="number" 
+               name="reportYear"
+               id="reportYear"
+               value="{{ form_data.get('reportYear','') }}">
+      </div>
+
+      <div class="field">
+        <label>סוג דוח</label>
+        <select name="reportType" id="reportType">
+          <option value="רגיל">רגיל</option>
+          <option value="מתקן">מתקן</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- פרטי מעסיק -->
+    <div class="section-title">פרטי מעסיק</div>
+
+    <div class="row">
+      <div class="field">
+        <label>מספר תיק ניכויים</label>
+        <input type="text"
+               name="taxFileNumber"
+               id="taxFileNumber"
+               value="{{ form_data.get('taxFileNumber','') }}">
+      </div>
+
+      <div class="field">
+        <label>ח.פ / עוסק</label>
+        <input type="text"
+               name="companyId"
+               id="companyId"
+               value="{{ form_data.get('companyId','') }}">
+      </div>
+
+      <div class="field">
+        <label>שם מעסיק</label>
+        <input type="text"
+               name="companyName"
+               id="companyName"
+               value="{{ form_data.get('companyName','') }}">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>כתובת</label>
+        <input type="text"
+               name="companyAddress"
+               id="companyAddress"
+               value="{{ form_data.get('companyAddress','') }}">
+      </div>
+
+      <div class="field">
+        <label>טלפון</label>
+        <input type="text"
+               name="employerPhone"
+               id="employerPhone"
+               value="{{ form_data.get('companyPhone','') }}">
+      </div>
+    </div>
+
+   <div class="employees-table-wrapper">
+    <!-- טבלת עובדים -->
+    <div class="section-title">טבלת עובדים – נתונים שנתיים</div>
+
+  <table>
+      <thead>
+        <tr>
+          <th>שם עובד</th>
+          <th>ת"ז</th>
+          <th>שכר ברוטו שנתי</th>
+          <th>מס הכנסה שנוכה</th>
+          <th>ביטוח לאומי עובד</th>
+          <th>ביטוח בריאות עובד</th>
+          <th>ניכויי עובד</th>
+          <th>מספר חודשי עבודה</th> 
+        </tr>
+      </thead>
+
+      <tbody id="employeesTableBody">
+    {% for emp in employees %}
+    <tr>
+        <td>
+            <input type="text"
+                   name="fullName_{{ emp.id }}"
+                   value="{{ emp.employee_name }}">
+        </td>
+
+        <td>
+            <input type="text"
+                   name="idNumber_{{ emp.id }}"
+                   value="{{ emp.id_number }}">
+        </td>
+
+        <td>
+            <input type="text"
+                   name="grossSalary_{{ emp.id }}"
+                   value="{{ form_data.get('grossSalary_' ~ emp.id, '0.0') }}">
+        </td>
+
+        <td>
+            <input type="number"
+                   name="incomeTax_{{ emp.id }}"
+                   value="{{ form_data.get('incomeTax_' ~ emp.id, '0.0') }}">
+        </td>
+
+        <td>
+            <input type="number"
+                   name="nationalInsurance_{{ emp.id }}"
+                   value="{{ form_data.get('nationalInsurance_' ~ emp.id, '0.0') }}">
+        </td>
+
+         <td>
+             <input type="number"
+                    name="healthInsurance_{{ emp.id }}"
+                    value="{{ form_data.get('healthInsurance_' ~ emp.id, '0.0') }}">
+         </td>
+
+            <td>
+             <input type="number"
+                    name="pensionDeduction_{{ emp.id }}"
+                    value="{{ form_data.get('pensionDeduction_' ~ emp.id, '0.0') }}">
+         </td>
+
+            <td>
+             <input type="number"
+                    name="monthsWorked_{{ emp.id }}"
+                    value="{{ form_data.get('monthsWorked_' ~ emp.id, '0') }}"
+                    readonly>
+         </td>
+
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+    <!-- סיכומים -->
+    <div class="section-title">סיכומים שנתיים</div>
+
+    <div class="summary-grid">
+      <div class="summary-item">
+        <label>מספר עובדים שדווחו</label>
+        <input type="text" name="NumEmployees" id="NumEmployees" value="{{ form_data.get('NumEmployees','') }}">
+      </div>
+
+      <div class="summary-item">
+        <label>סה"כ שכר ברוטו</label>
+        <input type="text" name="grossSalary" id="grossSalary" value="{{ form_data.get('grossSalary','') }}">
+      </div>
+
+      <div class="summary-item">
+        <label>סה"כ מס הכנסה</label>
+        <input type="text" name="incomeTax" id="incomeTax" value="{{ form_data.get('incomeTax','') }}">
+      </div>
+
+      <div class="summary-item">
+        <label>סה"כ ביטוח לאומי</label>
+        <input type="text" name="nationalInsurance" id="nationalInsurance" value="{{ form_data.get('nationalInsurance','') }}">
+      </div>
+
+      <div class="summary-item">
+        <label>סה"כ ביטוח בריאות</label>
+        <input type="text" name="healthInsurance" id="healthInsurance" value="{{ form_data.get('healthInsurance','') }}">
+      </div>
+
+      <div class="summary-item">
+        <label>סה"כ ניכויי עובד</label>
+        <input type="text" name="totalDeductions" id="totalDeductions" value="{{ form_data.get('totalDeductions','') }}">
+      </div>
+
+      <div class="summary-item">
+        <label>סה"כ הפרשות מעסיק</label>
+        <input type="text" name="pensionDeposits" id="pensionDeposits" value="{{ form_data.get('pensionDeposits','') }}">
+      </div>
+    </div>
+
+<!-- הצהרה וחתימה ותאריך-->
+<section style="margin-bottom: 20px;">        
+    <div style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px;">
+        
+        <h2 style="background-color: #d1e7ff; margin: 0; padding: 10px; font-size: 15px; color: #0056b3;">
+            *. הצהרה וחתימה
+        </h2>
+
+        <div style="padding: 20px; line-height: 1.8; font-size: 14px;">
+
+            <p style="margin: 0; font-weight: bold;">
+                אני מצהיר בזה כי הפרטים הנקובים בדוח זה נכונים ומלאים, וכי ביצעתי את כל הניכויים הנדרשים על פי חוק.
+            </p>
+
+            <!-- חתימה + תאריך באותה שורה -->
+<div class="signature-row"
+     style="margin-top: 20px; display: flex; align-items: center; gap: 50px; flex-wrap: nowrap;">
+
+                <!-- חתימת המבקש -->
+                <label style="font-weight: bold; white-space: nowrap;">
+                    חתימת המבקש/ת <span style="color:red;">*</span>
+                </label>
+
+                <!-- תאריך באותה שורה -->
+                <div style="display: inline-block;">
+                    <label style="font-weight: bold; font-size: 13px;">תאריך</label>
+                    <input type="date"
+                           name="signature_date"
+                           value="{{ form_data.get('signature_date','') }}"
+                           style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 160px; font-weight: bold;">
+                </div>
+
+                <!-- שם החותם באותה שורה -->
+                <div style="display: inline-block;">
+                    <label style="font-weight: bold; font-size: 13px;">שם החותם</label>
+                    <input type="text"
+                           name="signerName"
+                           value="{{ form_data.get('signerName','') }}"
+                           style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 160px; font-weight: bold;">
+                </div>
+
+                <!-- תפקיד באותה שורה -->
+                <div style="display: inline-block;">
+                    <label style="font-weight: bold; font-size: 13px;">תפקיד</label>
+              <select name="signerRole"
+                       style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 160px; font-weight: bold;">
+                {% set roles = ["מנהל","חשב שכר","מנהל כספים","רואה חשבון","מורשה חתימה","בעלים","סמנכ\"ל","מנהל תפעול"] %}
+                <option value="">בחר...</option>
+                {% for r in roles %}
+                <option value="{{ r }}" {% if form_data.get('signerRole') == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+           </select>
+                </div>
+
+            </div>
+
+            <!-- אזור החתימה -->
+            {% if is_email %}
+                <div style="margin-top: 10px; border-bottom: 2px solid #000; width: 300px; min-height: 100px;">
+                    {% if form_data.signature_data %}
+                        <img src="{{ form_data.signature_data }}" style="width: 250px; height: auto;">
+                    {% else %}
+                        <span style="color:red;">לא סופקה חתימה</span>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div style="border: 1px solid #ccc; background: #fafafa; margin-top: 10px; position: relative; height: 180px; width: 100%;">
+                    
+                    <canvas id="signature-pad" width="600" height="180"
+                            style="width: 100%; height: 100%; cursor: crosshair; touch-action: none;"></canvas>
+                    
+                    <input type="hidden" name="signature_data" id="signature_data">
+
+                    <button type="button" onclick="clearSignature()"
+                            style="position: absolute; bottom: 10px; right: 10px; background: white; border: 1px solid #ccc; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                        ✎ נקה חתימה
+                    </button>
+
+                    <div style="position: absolute; bottom: 10px; left: 10px; font-size: 11px; color: #888;">
+                        ניתן לחתום בעזרת העכבר או עם האצבע
+                    </div>
+
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+</section>
+
+  </div>
+</form>
+
+<script>
+    // לוגיקה בסיסית לחתימה (למטרות תצוגה)
+    const canvas = document.getElementById('signature-pad');
+    const ctx = canvas.getContext('2d');
+    const sigInput = document.getElementById('signature_data');
+    let writing = false;
+
+    // התאמת רזולוציה
+    function resizeCanvas() {
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        ctx.scale(ratio, ratio);
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000';
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    function startDrawing(e) {
+        writing = true;
+        const pos = getMousePos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        e.preventDefault(); // מונע גלילה בנייד בזמן חתימה
+    }
+
+    function draw(e) {
+        if (!writing) return;
+        const pos = getMousePos(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        e.preventDefault();
+    }
+
+    function stopDrawing() {
+        if (writing) {
+            writing = false;
+            // שמירת החתימה כטקסט (Base64) לתוך השדה הנסתר
+            sigInput.value = canvas.toDataURL("image/png");
+        }
+    }
+
+    // עכבר
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', stopDrawing);
+
+    // טאץ'
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing);
+
+    function clearSignature() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        sigInput.value = '';
+    }
+</script>
+
+</div>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+    <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
