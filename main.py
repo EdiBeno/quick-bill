@@ -7470,9 +7470,10 @@ def employee():
     else:
         active_company_id = getattr(current_user, 'company_id', None) or session.get('company_id')
 
-    # Render: אם החברה ריקה (New DB), נותן חברה 1 כברירת מחדל ומונע חסימה קטלנית 
     if not active_company_id:
         active_company_id = 1
+    
+    active_company_id = int(active_company_id)
     # ---------------------------------------------------------------------------
 
     if request.method == 'POST':
@@ -7495,9 +7496,7 @@ def employee():
         # ------------------ UPDATE CUSTOMER (טבלת Employee + EmployeeData) ------------------
         if employee_id and str(employee_id).strip() not in ['', '0']:
             try:
-                # Render: המרה קשיחה ל-int כדי שפוסטגרס לא יקרוס על השוואת VARCHAR ל-Integer 
                 employee_id_int = int(employee_id)
-                
                 employee_obj = Employee.query.filter_by(
                     id=employee_id_int,
                     company_id=active_company_id
@@ -7517,10 +7516,9 @@ def employee():
                 employee_obj.contract_status = request.form.get('contract_status')
                 employee_obj.message         = request.form.get('message')
 
-                # מוודא שהטבלה קיימת ב-PostgreSQL לפני ביצוע שאילתת ההצלבה של השכר
                 db.create_all()
 
-                #  סנכרון עדכון  EmployeeData (מאובטח באמצעות ה-int המומר)
+                # סנכרון עדכון מול EmployeeData
                 salary_emp = EmployeeData.query.filter_by(id=employee_obj.id, company_id=active_company_id).first()
                 if salary_emp:
                     salary_emp.employee_name = employee_name
@@ -7528,12 +7526,11 @@ def employee():
                     salary_emp.address       = request.form.get('address')
                     salary_emp.city          = request.form.get('city')
                     salary_emp.postal_code   = request.form.get('postal_code')
-                    salary_emp.mobile_phone  = request.form.get('phone') # מבוצר הרמטית בעדכון!
+                    salary_emp.mobile_phone  = request.form.get('phone')
                     salary_emp.email         = email_input
 
                 db.session.commit()
 
-                #  עדכון -Contact Form
                 session['shared_employee_name'] = employee_obj.employee_name
                 session['shared_email'] = employee_obj.email
                 session['shared_address'] = employee_obj.address
@@ -7553,9 +7550,8 @@ def employee():
 
                 flash('הנתונים עודכנו בהצלחה!', 'success')
 
-        # ------------------ CREATE NEW EMPLOYEE ( Employee + EmployeeData) ------------------
+        # ------------------ CREATE NEW EMPLOYEE (Employee + EmployeeData) ------------------
         else:
-            # הגנה: מוודא שהטבלאות קיימות ב-PostgreSQL לפני ביצוע שאילתת הבדיקה
             db.create_all()
 
             duplicate = Employee.query.filter(
@@ -7595,7 +7591,6 @@ def employee():
             last_employee = Employee.query.filter_by(company_id=active_company_id)\
                 .order_by(Employee.local_id.desc()).first()
             
-            # המרה תקנית של מזהה ה-local_id למניעת שיבושי מספרים בשרת
             next_local_id = 1 if not last_employee or not last_employee.local_id else (int(last_employee.local_id) + 1)
 
             new_employee = Employee(
@@ -7616,41 +7611,45 @@ def employee():
                 is_active=True
             )
             db.session.add(new_employee)
-            db.session.flush() # מאלץ יצירה קשיחה של רשומת האבא ב-PostgreSQL
+            db.session.flush()
 
-            #   שמירה מבוצרת לטבלת EmployeeData 
-            new_salary_emp = EmployeeData(
-                id=user_obj.id,
-                company_id=active_company_id,
-                local_id=next_local_id,
-                employee_id=user_obj.id, # ממלא את חוק החובה הפיננסי של ה-Not Null
-                employee_name=employee_name,
-                id_number=id_number,
-                address=request.form.get('address'),
-                city=request.form.get('city'),
-                postal_code=request.form.get('postal_code'),
-                mobile_phone=request.form.get('phone'), 
-                email=email_input,
-                date=today_str,
-                
-                total_hours=0.0,
-                totalHours=0.0,
-                basic_salary=0.0,
-                gross_salary=0.0,
-                net_payment=0.0,
-                net_value=0.0,
-                income_tax=0.0,
-                total_deductions=0.0,
-                bank_number="",
-                branch_number="",
-                account_number="",
-                employee_number="",
-                tax_point_child=0.0, 
-                work_percent=100.0,
-                tax_credit_points=2.25
-            )
+            # שמירה בטוחה לטבלת EmployeeData תוך סינון עמודות למניעת שגיאות SQL
+            raw_salary_data = {
+                'id': user_obj.id,
+                'company_id': active_company_id,
+                'local_id': next_local_id,
+                'employee_id': user_obj.id,
+                'employee_name': employee_name,
+                'id_number': id_number,
+                'address': request.form.get('address'),
+                'city': request.form.get('city'),
+                'postal_code': request.form.get('postal_code'),
+                'mobile_phone': request.form.get('phone'),
+                'email': email_input,
+                'date': today_str,
+                'total_hours': 0.0,
+                'totalHours': 0.0,
+                'basic_salary': 0.0,
+                'gross_salary': 0.0,
+                'net_payment': 0.0,
+                'net_value': 0.0,
+                'income_tax': 0.0,
+                'total_deductions': 0.0,
+                'bank_number': "",
+                'branch_number': "",
+                'account_number': "",
+                'employee_number': "",
+                'tax_point_child': 0.0,
+                'work_percent': 100.0,
+                'tax_credit_points': 2.25
+            }
+
+            valid_columns = {c.name for c in EmployeeData.__table__.columns}
+            valid_salary_data = {k: v for k, v in raw_salary_data.items() if k in valid_columns and k != 'id'}
+            valid_salary_data['id'] = user_obj.id
+
+            new_salary_emp = EmployeeData(**valid_salary_data)
             db.session.add(new_salary_emp)
-
             db.session.commit() 
 
             session['shared_employee_name'] = new_employee.employee_name
@@ -7681,7 +7680,7 @@ def employee():
         return redirect(url_for('employee'))
 
     # ------------------ GET REQUEST ------------------
-    db.create_all() # מוודא שהטבלה קיימת בטעינה הראשונית של הדף בענן
+    db.create_all()
     
     all_employees = Employee.query.filter_by(
         company_id=active_company_id
@@ -7696,7 +7695,7 @@ def employee():
 
     pending_employees_list = []
     for pu in pending_users:
-        if pu.email not in existing_employee_emails:
+        if pu.email and pu.email not in existing_employee_emails:
             pending_employees_list.append(
                 Employee(
                     id=pu.id,
@@ -7711,9 +7710,8 @@ def employee():
     all_employees_combined = all_employees + pending_employees_list
 
     employee_id = request.args.get('employee_id')
-
     selected_employee = None
-    employee_i18n     = {}
+    employee_i18n = {}
 
     if employee_id and str(employee_id).strip() not in ['', '0']:
         try:
@@ -7758,7 +7756,6 @@ def employee():
             if getattr(selected_employee, attr, None) is None:
                 setattr(selected_employee, attr, "")
 
-    # ------------------ GET REQUEST CONTINUATION ------------------
     employee_i18n_list = {}
     for c in all_employees_combined:
         trans = load_employee_translated(c, language, company_id=active_company_id) or {}
@@ -7778,7 +7775,7 @@ def employee():
         key = str(c.local_id) if getattr(c, "local_id", None) else f"user_{c.id}"
         employee_i18n_list[key] = final_data
 
-    company_obj = db.session.get(Company, active_company_id) if active_company_id else  ""
+    company_obj = db.session.get(Company, active_company_id) if active_company_id else ""
 
     return render_template(
         'employee.html',
@@ -11685,7 +11682,7 @@ def contact_form():
                         else:
                             valid_db_data[k] = v
 
-                # 3. Check if employee already exists or create new
+
                 employee = EmployeeData.query.filter_by(id_number=id_number, company_id=active_company_id).first()
 
                 if employee:
@@ -11694,7 +11691,6 @@ def contact_form():
                 else:
                     employee = EmployeeData()
                     
-                    # Set defaults for non-nullable columns
                     for column in employee.__table__.columns:
                         if not column.nullable and column.default is None and not column.primary_key:
                             if isinstance(column.type, (db.Integer, db.Float)):
@@ -11716,15 +11712,15 @@ def contact_form():
 
                 safe_company_id = int(active_company_id)
 
-                # Sync parallel to Employee table (QuickBill side)
                 employee_card = Employee.query.filter_by(id_number=id_number, company_id=safe_company_id).first()
                 if employee_card:
-                    employee_card.employee_name = employee_name
-                    employee_card.address       = request.form.get('address', '')
-                    employee_card.city          = city_name
-                    employee_card.postal_code   = request.form.get('postal_code', '')
-                    employee_card.mobile_phone  = request.form.get('phone', '') 
-                    employee_card.email         = request.form.get('email', '').strip().lower()
+                    employee_card.employee_name   = employee_name
+                    employee_card.address         = request.form.get('address', '')
+                    employee_card.city            = city_name
+                    employee_card.postal_code     = request.form.get('postal_code', '')
+                    employee_card.mobile_phone    = request.form.get('phone', '') 
+                    employee_card.email           = request.form.get('email', '').strip().lower()
+                    employee_card.local_id        = employee.local_id
                 else:
                     new_employee_row = Employee(
                         company_id=safe_company_id, 
@@ -11749,8 +11745,8 @@ def contact_form():
                 session['employee_data'] = form_data
                 
                 db.session.commit()
-                flash("נתוני העובד נשמרו בהצלחה!", "success")
-
+                flash("נתוני העובד נשמרו וסונכרנו בהצלחה!", "success")
+                
                 # DISK SYNC & i18n MULTI-COMPANY LAYER
                 try:
                     base_employees_dir = app.config.get("EMPLOYEES_DIR")
