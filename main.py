@@ -11670,15 +11670,12 @@ def contact_form():
                     'role': request.form.get('role', 'עובד').strip()
                 }
 
-                # 2. חיפוש עובד קיים לפי תעודת זהות וחברה
-                employee = EmployeeData.query.filter_by(id_number=id_number, company_id=active_company_id).first()
-
-                # 3. סינון קפדני של הנתונים כך שיתאימו רק לעמודות האמיתיות במסד הנתונים
+                # 2. Extract ONLY valid columns from the EmployeeData table schema
                 valid_columns = {c.name for c in EmployeeData.__table__.columns}
                 valid_db_data = {}
 
                 for k, v in form_data.items():
-                    if k in valid_columns and k != 'id':  # מניעת פגיעה במפתח הראשי
+                    if k in valid_columns and k != 'id':  # Never pass 'id' manually
                         if v == '' or v is None:
                             col_type = type(EmployeeData.__table__.columns[k].type)
                             if col_type in (db.Integer, db.Float):
@@ -11688,12 +11685,16 @@ def contact_form():
                         else:
                             valid_db_data[k] = v
 
+                # 3. Check if employee already exists or create new
+                employee = EmployeeData.query.filter_by(id_number=id_number, company_id=active_company_id).first()
+
                 if employee:
                     for key, value in valid_db_data.items():
                         setattr(employee, key, value)
                 else:
                     employee = EmployeeData()
-                    # הגדרת ברירות מחדל לשדות חובה במסד הנתונים
+                    
+                    # Set defaults for non-nullable columns
                     for column in employee.__table__.columns:
                         if not column.nullable and column.default is None and not column.primary_key:
                             if isinstance(column.type, (db.Integer, db.Float)):
