@@ -11559,7 +11559,6 @@ def contact_form():
                 session['car_form_fields'] = {'car_year': '', 'car_model': '', 'car_type': ''}
                 return redirect(url_for('contact_form'))
 
-            # 3. Contact Form Submission (Main Employee Save & Dual Integration)
             elif form_type == 'contact_form':
                 employee_name = request.form.get('employee_name', '').strip()
                 id_number = request.form.get('id_number', '').strip()
@@ -11573,16 +11572,10 @@ def contact_form():
                 try:
                     if '-' in date_str:
                         parts = date_str.split('-')
-                        if len(parts) > 0 and len(parts) == 3:  
-                            parsed_date = datetime.strptime(date_str, '%Y-%m-%d')
-                        else:  # DD-MM-YYYY
-                            parsed_date = datetime.strptime(date_str, '%d-%m-%Y')
+                        parsed_date = datetime.strptime(date_str, '%Y-%m-%d') if len(parts) == 3 and len(parts[0]) == 4 else datetime.strptime(date_str, '%d-%m-%Y')
                     elif '/' in date_str:
                         parts = date_str.split('/')
-                        if len(parts) > 0 and len(parts) == 3:  
-                            parsed_date = datetime.strptime(date_str, '%Y/%m/%d')
-                        else:  # DD/MM/YYYY
-                            parsed_date = datetime.strptime(date_str, '%d/%m/%Y')
+                        parsed_date = datetime.strptime(date_str, '%Y/%m/%d') if len(parts) == 3 and len(parts[0]) == 4 else datetime.strptime(date_str, '%d/%m/%Y')
                     else:
                         parsed_date = datetime.strptime(date_str, '%Y-%m-%d')
                 except Exception:
@@ -11599,11 +11592,10 @@ def contact_form():
                         try:
                             city_top_tax = int(filtered_df.iloc[0]['סכום זיכוי'])
                             city_value = float(filtered_df.iloc[0]['שיעור 2024'])
-                            
                             auto_city_value_percentage = city_value
                             auto_monthly_city_tax_tops = city_top_tax / 12
                         except Exception as e:
-                            print(f"⚠️ Error pulling city data from dataframe: {e}")
+                            print(f"⚠️ Error pulling city data: {e}")
 
                 email = request.form.get('email', '').strip()
                 password = request.form.get('password', '').strip()
@@ -11667,12 +11659,12 @@ def contact_form():
                     'role': request.form.get('role', 'עובד').strip()
                 }
 
-                # 2. Extract ONLY valid columns from the EmployeeData table schema
+                # סינון עמודות תקין לטבלת EmployeeData
                 valid_columns = {c.name for c in EmployeeData.__table__.columns}
                 valid_db_data = {}
 
                 for k, v in form_data.items():
-                    if k in valid_columns and k != 'id':  # Never pass 'id' manually
+                    if k in valid_columns and k != 'id':
                         if v == '' or v is None:
                             col_type = type(EmployeeData.__table__.columns[k].type)
                             if col_type in (db.Integer, db.Float):
@@ -11682,15 +11674,46 @@ def contact_form():
                         else:
                             valid_db_data[k] = v
 
+                safe_company_id = int(active_company_id)
 
-                employee = EmployeeData.query.filter_by(id_number=id_number, company_id=active_company_id).first()
+                # 1. סנכרון ועדכון/יצירה בטבלת הליבה Employee
+                employee_card = Employee.query.filter_by(id_number=id_number, company_id=safe_company_id).first()
+                if employee_card:
+                    employee_card.employee_name = employee_name
+                    employee_card.address = request.form.get('address', '').strip()
+                    employee_card.city = city_name
+                    employee_card.postal_code = request.form.get('postal_code', '').strip()
+                    employee_card.mobile_phone = request.form.get('phone', '').strip()
+                    employee_card.email = email.lower()
+                else:
+                    last_emp = Employee.query.filter_by(company_id=safe_company_id).order_by(Employee.local_id.desc()).first()
+                    next_local_id = 1 if not last_emp or not last_emp.local_id else (int(last_emp.local_id) + 1)
+                    
+                    employee_card = Employee(
+                        company_id=safe_company_id,
+                        local_id=next_local_id,
+                        date=formatted_date,
+                        employee_name=employee_name,
+                        id_number=id_number,
+                        address=request.form.get('address', '').strip(),
+                        city=city_name,
+                        postal_code=request.form.get('postal_code', '').strip(),
+                        mobile_phone=request.form.get('phone', '').strip(),
+                        email=email.lower(),
+                        role='employee',
+                        is_active=True
+                    )
+                    db.session.add(employee_card)
+                    db.session.flush()
 
+                # 2. שמירה או עדכון בטבלת EmployeeData
+                employee = EmployeeData.query.filter_by(id_number=id_number, company_id=safe_company_id).first()
                 if employee:
                     for key, value in valid_db_data.items():
                         setattr(employee, key, value)
+                    employee.local_id = employee_card.local_id
                 else:
                     employee = EmployeeData()
-                    
                     for column in employee.__table__.columns:
                         if not column.nullable and column.default is None and not column.primary_key:
                             if isinstance(column.type, (db.Integer, db.Float)):
@@ -11700,129 +11723,25 @@ def contact_form():
                             else:
                                 setattr(employee, column.name, '')
                     
-                    last_emp = EmployeeData.query.filter_by(company_id=active_company_id).order_by(EmployeeData.local_id.desc()).first()
-                    employee.local_id = 1 if not last_emp or not last_emp.local_id else (int(last_emp.local_id) + 1)
-                    
+                    employee.local_id = employee_card.local_id
                     for key, value in valid_db_data.items():
                         setattr(employee, key, value)
                         
                     db.session.add(employee)
-                    
-                db.session.flush() 
 
-                safe_company_id = int(active_company_id)
+                db.session.flush()
 
-                employee_card = Employee.query.filter_by(id_number=id_number, company_id=safe_company_id).first()
-                if employee_card:
-                    employee_card.employee_name   = employee_name
-                    employee_card.address         = request.form.get('address', '')
-                    employee_card.city            = city_name
-                    employee_card.postal_code     = request.form.get('postal_code', '')
-                    employee_card.mobile_phone    = request.form.get('phone', '') 
-                    employee_card.email           = request.form.get('email', '').strip().lower()
-                    employee_card.local_id        = employee.local_id
-                else:
-                    new_employee_row = Employee(
-                        company_id=safe_company_id, 
-                        local_id=employee.local_id,
-                        date=date_str, 
-                        employee_name=employee_name, 
-                        id_number=id_number,
-                        address=request.form.get('address', ''), 
-                        city=city_name,
-                        postal_code=request.form.get('postal_code', ''),
-                        mobile_phone=request.form.get('phone', ''), 
-                        email=request.form.get('email', '').strip().lower(), 
-                        role='employee', 
-                        is_active=True
-                    )
-                    db.session.add(new_employee_row)
-
+                # 3. עדכון סשן ושמירה סופית
                 session['shared_employee_name'] = employee_name
-                session['employee_id'] = employee.id_number
-                session['selected_month'] = datetime.now().month
-                session['selected_year'] = datetime.now().year
+                session['employee_id'] = id_number
+                session['selected_month'] = parsed_date.strftime('%m')
+                session['selected_year'] = parsed_date.strftime('%Y')
                 session['employee_data'] = form_data
-                
+
                 db.session.commit()
-                flash("נתוני העובד נשמרו וסונכרנו בהצלחה!", "success")
-                
-                # DISK SYNC & i18n MULTI-COMPANY LAYER
-                try:
-                    base_employees_dir = app.config.get("EMPLOYEES_DIR")
-                    emp_folder = os.path.join(base_employees_dir, f"company_{safe_company_id}", str(employee.local_id))
-                    os.makedirs(emp_folder, exist_ok=True)
-                    json_file_path = os.path.join(emp_folder, "employee.json")
-
-                    existing_i18n_data = {}
-                    if os.path.isfile(json_file_path):
-                        try:
-                            with open(json_file_path, "r", encoding="utf-8") as f:
-                                existing_i18n_data = json.load(f)
-                        except:
-                            existing_i18n_data = {}
-
-                    if not isinstance(existing_i18n_data, dict):
-                        existing_i18n_data = {}
-
-                    lookup_lang = language if 'language' in locals() else get_lang()
-                    lookup_lang = {"zh": "zh-CN", "en": "en"}.get(lookup_lang, lookup_lang)
-
-                    fields_to_sync = {
-                        "name": employee_name,
-                        "address": request.form.get('address', '').strip(),
-                        "city": city_name,
-                        "mobile_phone": request.form.get('phone', '').strip(),
-                        "id_number": id_number,
-                        "postal_code": request.form.get('postal_code', '').strip(),
-                        "message": request.form.get('message', '').strip()
-                    }
-
-                    for field_key, field_value in fields_to_sync.items():
-                        existing_i18n_data.setdefault(field_key, {})
-                        if not isinstance(existing_i18n_data[field_key], dict):
-                            existing_i18n_data[field_key] = {}
-                        existing_i18n_data[field_key]["he"] = field_value
-                        existing_i18n_data[field_key][lookup_lang] = field_value
-
-                    existing_i18n_data["local_id"] = employee.local_id
-                    existing_i18n_data["company_id"] = safe_company_id
-                    existing_i18n_data["email"] = email
-
-                    with open(json_file_path, "w", encoding="utf-8") as f:
-                        json.dump(existing_i18n_data, f, ensure_ascii=False, indent=4)
-
-                    safe_emp_id_thread = int(employee.id)
-
-                    translate_employee_in_background(
-                        employee_id=safe_emp_id_thread,
-                        company_id=safe_company_id,
-                        name=employee_name,
-                        address=request.form.get('address', '').strip(),
-                        city=city_name,
-                        message=request.form.get('message', '').strip(),
-                        mobile_phone=request.form.get('phone', '').strip(),
-                        id_number=id_number,
-                        postal_code=request.form.get('postal_code', '').strip()
-                    )
-                except Exception as file_err:
-                    print(f"⚠️ Warning: Employee translation layer failed: {file_err}")
-
-                session['employee_data'] = {}
-
-                try:
-                    msg = Message(
-                        subject="פרטי העובד שלך נשמרו בהצלחה",
-                        sender=app.config['MAIL_USERNAME'],
-                        recipients=[employee.email]
-                    )
-                    msg.html = render_template('email_template.html', employee=employee)
-                    mail.send(msg)
-                except Exception as e:
-                    print(f"Email error: {e}")
-
+                flash("נתוני העובד נשמרו וסונכרנו בהצלחה בין כל המערכות!", "success")
                 return redirect(url_for('contact_form', employee_id=employee.id))
-
+                
         # ----------------- GET REQUEST HANDLING -----------------
         safe_active_company_id = int(active_company_id)
 
