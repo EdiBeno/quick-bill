@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טופס 102</title>
+  <link rel="icon" href="data:,">
+
+<style>
+/* === Minimal Midnight Blue Background + Direct Labels Only (Zero Conflict) === */
+html, body {
+  background: radial-gradient(circle at 50% 0%, #0D1B38 0%, #050B18 65%, #030711 100%) !important;
+  background-color: #050B18 !important;
+}
+
+body > h1,
+body > h2,
+form h1,
+form h2,
+form label {
+  color: #FFFFFF !important;
+}
+
+/* ===== TOP BUTTONS ===== */
+.top-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    z-index: 9999;
+    width: 9.4cm;
+}
+
+.top-buttons a,
+.top-buttons form {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+}
+
+.top-buttons button {
+    font-weight: bold !important;
+    font-size: 15px !important;
+    cursor: pointer;
+    width: 100% !important;
+    height: 0.75cm !important;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px;
+    padding: 0 8px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+    transition: 0.2s ease-in-out;
+}
+
+/* ===== Hide buttons when printing ===== */
+@media print {
+    .top-buttons {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+/* ===== A4 PAGE ===== */
+@page {
+    margin: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    direction: rtl;
+    margin: 0;
+    padding: 0;
+}
+
+.form-container {
+    position: relative;
+    width: 800px;
+    height: 1071px;
+    background-size: cover;
+    background-repeat: no-repeat;
+    margin: 20px auto;
+    border: none; /* ניקוי מסגרת */
+}
+
+/* שדות רגילים */
+.field {
+    position: absolute;
+    background: transparent;
+    z-index: 9999;
+    width: 120px;
+    height: 20px;
+    outline: none;
+    font-size: 15px;
+    font-weight: bold;
+    color: #000;
+    border: none; /* הסרת קווים אדומים */
+           /* אפשר להוסיף border זמני כדי לכוון מיקום: */
+    /*border: 1px dashed red;*/
+}
+
+/* תאים של ספרות */
+.digit {
+    position: absolute;
+    width: 10px;
+    height: 18px;
+    background: transparent;
+    color: #000;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 9999;
+    border: none; /* הסרת קווים אדומים */
+    /*border: 1px dashed red;*/
+}
+
+/* הדפסה — שמירה על הרקע */
+@media print {
+    .form-container {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        background-color: white !important;
+        background-image: url('{{ url_for('static', filename='img/Form 102.png') }}') !important;
+        background-size: 130% 130% !important;
+        background-repeat: no-repeat !important;
+        background-position: -25px -120px !important;
+    }
+}
+
+/* ===== התאמה מלאה לטלפון (768px ומטה): כפתורים לא צפים + פתיחה ועיגון מימין ===== */
+@media screen and (max-width: 768px) {
+    html, body {
+        width: 100% !important;
+        overflow-x: auto !important;
+        direction: rtl !important;
+    }
+
+    /* 1. ביטול ציפת כפתורים והצגתם בטור נקי בראש הדף */
+    .top-buttons {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding: 10px !important;
+        margin: 0 0 10px 0 !important;
+        top: auto !important;
+        right: auto !important;
+        left: auto !important;
+        box-sizing: border-box !important;
+    }
+
+    .top-buttons a,
+    .top-buttons form {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .top-buttons button {
+        position: static !important;
+        width: 100% !important;
+        height: 44px !important;
+        font-size: 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 2. שמירה על גודל הטופס המקורי (800px) בלי כיווץ, צמוד לימין */
+    .form-container {
+        transform: none !important;
+        margin: 10px 0 20px auto !important;
+    }
+}
+  </style>
+</head>
+
+<body>
+
+<!-- ===== TOP BUTTONS (FRONT PAGE) ===== -->
+<div class="top-buttons">
+
+    <!-- Go to Main Page -->
+    <a href="{{ url_for('index') }}" style="text-decoration:none;">
+        <button type="button" style="background-color:#007bff; color:white;">
+            עבור לדף הראשי
+        </button>
+    </a>
+
+    <!-- Print Form -->
+    <button type="button" onclick="window.print()" style="width: 4cm; height: 0.6cm; font-size: 17px; background-color:#28a745; color:white;">
+        הדפס טופס 102
+    </button>
+
+    <!-- Clear Form 102 -->
+    <form method="POST" action="{{ url_for('clear_form102') }}" style="display:inline;">
+    <button type="submit" style="background-color:#dc3545; color:white;">
+        נקה טופס 102
+    </button>
+  </form>
+
+    <!-- ONE BUTTON FOR EVERYTHING: SAVE TO DB + DOWNLOAD XML -->
+    <button type="button" id="save102Btn" onclick="saveForm102()" style="background-color:#007bff; color:white; font-weight:bold;">
+        💾 שמור והורד XML
+    </button>
+
+    <!-- Send Form H102 To Tax Office Requst  -->
+    <form method="POST" action="/send_102_to_tax" style="display:inline;">
+    <button type="submit" style="background-color:#007bff; color:white;">
+        שדר לרשות המיסים
+    </button>
+  </form>
+
+</div>
+
+<!-- ===== FORM STARTS HERE ===== -->
+<form id="form102" method="POST" action="/form_102">
+    <input type="hidden" name="employee_id" value="{{ selected_employee_id }}">
+    <input type="hidden" name="month" value="{{ selected_month }}">
+    <input type="hidden" name="year" value="{{ selected_year }}">
+
+<!-- ====== טופס 102 — רקע ====== -->
+<div class="form-container"
+     style="background-image: url('{{ url_for('static', filename='img/Form 102.png') }}');
+            background-size: 130% 130%;
+            background-repeat: no-repeat;
+            background-position: -25px -120px;
+            position: relative;
+            width: 800px;
+            height: 1071px;
+            margin: 20px auto;">
+
+<!-- ======   פרטי מעסיק (FIELD_MAP)  ======-->
+<!-- שם המעסיק -->
+<input type="text" 
+       name="companyName"
+       id="employer-name" 
+       class="field"
+       value="{{ form_data.companyName }}"
+       style="position:absolute; top:27px; right:257px; width:310px; height:20px;">
+
+<!-- ====== כתובת מעסיק  ====== -->
+<input type="text"
+       name="companyAddress"
+       id="company-address"
+       class="field"
+       value="{{ form_data.companyAddress }}"
+       style="position:absolute; top:47px; right:257px; width:310px; height:20px;">
+
+<!--  ======    תקופת דיווח (FIELD_MAP) ======-->
+<!-- חודש -->
+<input type="text" 
+       name="reportMonth"
+       id="report-month" 
+       class="field"
+       value="{{ form_data.reportMonth }}"
+       style="position:absolute; top:111px; right:528px; width:33px; height:24px;">
+
+<!-- שנה -->
+<input type="text" 
+       name="reportYear"
+       id="report-year" 
+       class="field"
+       value="{{ form_data.reportYear }}"
+       style="position:absolute; top:111px; right:487px; width:33px; height:24px;">
+
+
+<!--  ======    מספר ישות <!-- מספר תיק ניכויים ======-->
+<input type="text" 
+       name="taxFileNumber"
+       class="field entity-id"
+       value="{{ form_data.taxFileNumber }}"
+       style="top:111px; right:621px; width:110px; height:24px;">
+
+       <!-- ====== Hidden fields required by FIELD_MAP_102 ====== -->
+
+<!-- ====== Hidden fields for row 216 ====== -->
+<input type="hidden" name="totalIncomeTax" id="totalIncomeTax_hidden">
+<input type="hidden" name="totalGrossSalary" id="totalGrossSalary_hidden">
+<input type="hidden" name="NumEmployees" id="NumEmployees_hidden">
+
+<!-- ====== Hidden fields for row 254 ====== -->
+<input type="hidden" name="totalPensionVal" id="totalPensionVal_hidden">
+<input type="hidden" name="totalCompVal" id="totalCompVal_hidden">
+<input type="hidden" name="NumEmployeesNonSalary" id="NumEmployeesNonSalary_hidden">
+
+<!-- ====== Hidden fields for row 291 ====== -->
+<input type="hidden" name="totalEmpDeductions" id="totalEmpDeductions_hidden">
+<input type="hidden" name="totalStudyFundVal" id="totalStudyFundVal_hidden">
+
+<!-- ====== Hidden fields for row 329 ====== -->
+<input type="hidden" name="employerPension" id="employerPension_hidden">
+<input type="hidden" name="totalPensionDeduction" id="totalPensionDeduction_hidden">
+<input type="hidden" name="NumEmployeesCharges" id="NumEmployeesCharges_hidden">
+
+<!-- ====== Hidden fields for row 367 ====== -->
+<input type="hidden" name="totalNationalInsurance" id="totalNationalInsurance_hidden">
+<input type="hidden" name="totalHealthInsurance" id="totalHealthInsurance_hidden">
+<input type="hidden" name="NumEmployeesCharges2" id="NumEmployeesCharges2_hidden">
+
+<!-- ===================== 216px ROW ========================= -->
+<!-- totalIncomeTax (10 תאים) -->
+{% for i in range(10) %}
+<input class="digit totalIncomeTax_cell"
+       maxlength="1"
+       style="position:absolute; top:216px; right:{{ 12.5 + ((9 - i) * 18) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- totalGrossSalary (10 תאים — תצוגה בלבד) -->
+{% for i in range(10) %}
+<input class="digit totalGrossSalary_cell"
+       maxlength="1"
+       style="position:absolute; top:216px; right:{{ 212.5 + ((9 - i) * 18.8) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- NumEmployees (5 תאים) -->
+{% for i in range(5) %}
+<input class="digit NumEmployees_cell"
+       maxlength="1"
+       style="position:absolute; top:216px; right:{{ 470.5 + ((4 - i) * 16) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- ===================== 254px ROW ========================= -->
+<!-- totalEmployerDeductions (10 תאים — עמודה 1) -->
+{% for i in range(10) %}
+<input class="digit totalPensionVal_cell"
+       maxlength="1"
+       style="position:absolute; top:254px; right:{{ 12.5 + ((9 - i) * 18) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- totalSelfPensionNonSalary (10 תאים — עמודה 2, תצוגה בלבד) -->
+{% for i in range(10) %}
+<input class="digit totalCompVal_cell"
+       maxlength="1"
+       style="position:absolute; top:254px; right:{{ 212.5 + ((9 - i) * 18.8) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- NumEmployeesNonSalary (5 תאים — עמודה 2) -->
+{% for i in range(5) %}
+<input class="digit NumEmployeesNonSalary_cell"
+       maxlength="1"
+       style="position:absolute; top:254px; right:{{ 470.5 + ((4 - i) * 16) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- ===================== 291px ROW ========================= -->
+<!-- totalExtraExpenses (10 תאים — עמודה 1) -->
+{% for i in range(10) %}
+<input class="digit totalEmpDeductions_cell"
+       maxlength="1"
+       style="position:absolute; top:291px; right:{{ 12.5 + ((9 - i) * 18) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- totalExtraExpensesNonSalary (10 תאים — עמודה 2, תצוגה בלבד) -->
+{% for i in range(10) %}
+<input class="digit totalStudyFundVal_cell"
+       maxlength="1"
+       style="position:absolute; top:291px; right:{{ 212.5 + ((9 - i) * 18.8) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- ===================== 329px ROW ========================= -->
+<!-- totalCharges (10 תאים — עמודה 1) -->
+{% for i in range(10) %}
+<input class="digit employerPension_cell"
+       maxlength="1"
+       style="position:absolute; top:329px; right:{{ 12.5 + ((9 - i) * 18) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- totalChargesNonSalary (10 תאים — עמודה 2, תצוגה בלבד) -->
+{% for i in range(10) %}
+<input class="digit totalPensionDeduction_cell"
+       maxlength="1"
+       style="position:absolute; top:329px; right:{{ 212.5 + ((9 - i) * 18.8) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- NumEmployeesCharges (5 תאים — עמודה 3) -->
+{% for i in range(5) %}
+<input class="digit NumEmployeesCharges_cell"
+       maxlength="1"
+       style="position:absolute; top:329px; right:{{ 470.5 + ((4 - i) * 16) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- ===================== 367px ROW ========================= -->
+<!-- totalCharges2 (10 תאים — עמודה 1) -->
+{% for i in range(10) %}
+<input class="digit totalNationalInsurance_cell"
+       maxlength="1"
+       style="position:absolute; top:366px; right:{{ 12.5 + ((9 - i) * 18) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- totalCharges2NonSalary (10 תאים — עמודה 2, תצוגה בלבד) -->
+{% for i in range(10) %}
+<input class="digit totalHealthInsurance_cell"
+       maxlength="1"
+       style="position:absolute; top:366px; right:{{ 212.5 + ((9 - i) * 18.8) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- NumEmployeesCharges2 (5 תאים — עמודה 4) -->
+{% for i in range(5) %}
+<input class="digit NumEmployeesCharges2_cell"
+       maxlength="1"
+       style="position:absolute; top:366px; right:{{ 470.5 + ((4 - i) * 16) }}px; width:14px; height:22px;">
+{% endfor %}
+
+<!-- ===================== 404px ROW ========================= -->
+<!-- finalTotalIncomeTax (8 תאים — שורה תחתונה) -->
+{% for i in range(8) %}
+<input class="digit finalTotalIncomeTax_cell"
+       maxlength="1"
+       style="position:absolute; top:404px; right:{{ 14 + ((7 - i) * 19.5) }}px; width:18px; height:22px;">
+{% endfor %}
+
+</div>
+</form>
+
+<!-- =====================  JS FILLER ======================== -->
+<script>
+/* --- cleanNumber (preserves "0" cleanly) --- */
+function cleanNumber(val) {
+    if (val === null || val === undefined) return "";
+    let cleaned = val.toString().replace(/,/g, "").replace("₪", "").trim();
+    if (cleaned === "") return "";
+    let num = parseFloat(cleaned);
+    if (isNaN(num)) return "";
+    return Math.round(num).toString();
+}
+
+function fillDigits(rawValue, digitsCount, className) {
+    let num = cleanNumber(rawValue);
+    let digits = num.split("");
+    const cells = document.querySelectorAll("." + className);
+    if (!cells.length) return;
+
+    let cellIndex = cells.length - 1;
+    let digitIndex = digits.length - 1;
+
+    while (cellIndex >= 0) {
+        if (digitIndex >= 0) {
+            cells[cellIndex].value = digits[digitIndex];
+            digitIndex--;
+        } else {
+            cells[cellIndex].value = "";
+        }
+        cellIndex--;
+    }
+}
+
+/* --- Sync any manual edits from visual digit cells back into hidden inputs --- */
+function syncCellsToHiddenInputs() {
+    const fieldNames = [
+        "totalIncomeTax", "totalGrossSalary", "NumEmployees",
+        "totalPensionVal", "totalCompVal", "NumEmployeesNonSalary",
+        "totalEmpDeductions", "totalStudyFundVal",
+        "employerPension", "totalPensionDeduction", "NumEmployeesCharges",
+        "totalNationalInsurance", "totalHealthInsurance", "NumEmployeesCharges2",
+        "finalTotalIncomeTax"
+    ];
+
+    fieldNames.forEach(name => {
+        const cells = document.querySelectorAll("." + name + "_cell");
+        const hiddenEl = document.getElementById(name + "_hidden");
+        if (cells.length && hiddenEl) {
+            let combined = "";
+            cells.forEach(c => { combined += (c.value || "").trim(); });
+            if (combined !== "") {
+                hiddenEl.value = cleanNumber(combined);
+            }
+        }
+    });
+}
+
+function saveForm102(e) {
+    if (e) e.preventDefault();
+
+    // 1. Sync any manual changes typed directly into the visual digit cells
+    syncCellsToHiddenInputs();
+
+    const form = document.getElementById("form102");
+    const inputs = form ? form.querySelectorAll("input") : document.querySelectorAll("input");
+    const data = {};
+
+    inputs.forEach(input => {
+        if (input.name) data[input.name] = input.value;
+    });
+
+    const esc = (v) => String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    // 2. Build the JSON structure (flat keys + nested rows for full backend compatibility)
+    const jsonData = {
+        ...data,
+        employer: {
+            companyName: data.companyName || "",
+            companyAddress: data.companyAddress || "",
+            taxFileNumber: data.taxFileNumber || "",
+            reportMonth: data.reportMonth || "",
+            reportYear: data.reportYear || ""
+        },
+        totalsRow216: {
+            totalIncomeTax: data.totalIncomeTax || "0",
+            totalGrossSalary: data.totalGrossSalary || "0",
+            NumEmployees: data.NumEmployees || "0"
+        },
+        totalsRow254: {
+            totalPensionVal: data.totalPensionVal || "0",
+            totalCompVal: data.totalCompVal || "0",
+            NumEmployeesNonSalary: data.NumEmployeesNonSalary || "0"
+        },
+        totalsRow291: {
+            totalEmpDeductions: data.totalEmpDeductions || "0",
+            totalStudyFundVal: data.totalStudyFundVal || "0"
+        },
+        totalsRow329: {
+            employerPension: data.employerPension || "0",
+            totalPensionDeduction: data.totalPensionDeduction || "0",
+            NumEmployeesCharges: data.NumEmployeesCharges || "0"
+        },
+        totalsRow367: {
+            totalNationalInsurance: data.totalNationalInsurance || "0",
+            totalHealthInsurance: data.totalHealthInsurance || "0",
+            NumEmployeesCharges2: data.NumEmployeesCharges2 || "0"
+        },
+        totalsRow404: {
+            finalTotalIncomeTax: data.finalTotalIncomeTax || "0"
+        }
+    };
+
+    // 3. Build Clean XML String
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<Form102Report>\n';
+    xml += '  <Employer>\n';
+    xml += `    <CompanyName>${esc(jsonData.employer.companyName)}</CompanyName>\n`;
+    xml += `    <CompanyAddress>${esc(jsonData.employer.companyAddress)}</CompanyAddress>\n`;
+    xml += `    <TaxFileNumber>${esc(jsonData.employer.taxFileNumber)}</TaxFileNumber>\n`;
+    xml += `    <ReportMonth>${esc(jsonData.employer.reportMonth)}</ReportMonth>\n`;
+    xml += `    <ReportYear>${esc(jsonData.employer.reportYear)}</ReportYear>\n`;
+    xml += '  </Employer>\n';
+
+    xml += '  <Row216 code="000">\n';
+    xml += `    <TotalIncomeTax>${esc(jsonData.totalsRow216.totalIncomeTax)}</TotalIncomeTax>\n`;
+    xml += `    <TotalGrossSalary>${esc(jsonData.totalsRow216.totalGrossSalary)}</TotalGrossSalary>\n`;
+    xml += `    <NumEmployees>${esc(jsonData.totalsRow216.NumEmployees)}</NumEmployees>\n`;
+    xml += '  </Row216>\n';
+
+    xml += '  <Row254 code="007">\n';
+    xml += `    <totalPensionVal>${esc(jsonData.totalsRow254.totalPensionVal)}</totalPensionVal>\n`;
+    xml += `    <totalCompVal>${esc(jsonData.totalsRow254.totalCompVal)}</totalCompVal>\n`;
+    xml += `    <NumEmployeesNonSalary>${esc(jsonData.totalsRow254.NumEmployeesNonSalary)}</NumEmployeesNonSalary>\n`;
+    xml += '  </Row254>\n';
+
+    xml += '  <Row291 code="083">\n';
+    xml += `    <totalEmpDeductions>${esc(jsonData.totalsRow291.totalEmpDeductions)}</totalEmpDeductions>\n`;
+    xml += `    <totalStudyFundVal>${esc(jsonData.totalsRow291.totalStudyFundVal)}</totalStudyFundVal>\n`;
+    xml += '  </Row291>\n';
+
+    xml += '  <Row329 code="109">\n';
+    xml += `    <employerPension>${esc(jsonData.totalsRow329.employerPension)}</employerPension>\n`;
+    xml += `    <totalPensionDeduction>${esc(jsonData.totalsRow329.totalPensionDeduction)}</totalPensionDeduction>\n`;
+    xml += `    <NumEmployeesCharges>${esc(jsonData.totalsRow329.NumEmployeesCharges)}</NumEmployeesCharges>\n`;
+    xml += '  </Row329>\n';
+
+    xml += '  <Row367>\n';
+    xml += `    <totalNationalInsurance>${esc(jsonData.totalsRow367.totalNationalInsurance)}</totalNationalInsurance>\n`;
+    xml += `    <totalHealthInsurance>${esc(jsonData.totalsRow367.totalHealthInsurance)}</totalHealthInsurance>\n`;
+    xml += `    <NumEmployeesCharges2>${esc(jsonData.totalsRow367.NumEmployeesCharges2)}</NumEmployeesCharges2>\n`;
+    xml += '  </Row367>\n';
+
+    xml += '  <Row404 code="995">\n';
+    xml += `    <FinalTotalIncomeTax>${esc(jsonData.totalsRow404.finalTotalIncomeTax)}</FinalTotalIncomeTax>\n`;
+    xml += '  </Row404>\n';
+    xml += '</Form102Report>';
+
+    // 4. Send to Server (Save to DB)
+    fetch("/save_form102_report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            ...jsonData,
+            xml: xml
+        })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.success) {
+            alert("✅ " + (res.message || "טופס 102 נשמר בהצלחה בבסיס הנתונים!"));
+
+            // 5. Trigger automatic XML download
+            const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `Report_102_${jsonData.employer.reportMonth}_${jsonData.employer.reportYear}.xml`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } else {
+            alert("❌ Save Error: " + res.message);
+        }
+    })
+    .catch(err => {
+        console.error("Save Error:", err);
+        alert("❌ Server connection failed");
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const initialMap = [
+        { key: "totalIncomeTax",         val: "{{ form_data.totalIncomeTax }}",         digits: 10 },
+        { key: "totalGrossSalary",       val: "{{ form_data.totalGrossSalary }}",       digits: 10 },
+        { key: "NumEmployees",           val: "{{ form_data.NumEmployees }}",           digits: 5  },
+        { key: "totalPensionVal",        val: "{{ form_data.totalPensionVal }}",        digits: 10 },
+        { key: "totalCompVal",           val: "{{ form_data.totalCompVal }}",           digits: 10 },
+        { key: "NumEmployeesNonSalary",  val: "{{ form_data.NumEmployeesNonSalary }}",  digits: 5  },
+        { key: "totalEmpDeductions",     val: "{{ form_data.totalEmpDeductions }}",     digits: 10 },
+        { key: "totalStudyFundVal",      val: "{{ form_data.totalStudyFundVal }}",      digits: 10 },
+        { key: "employerPension",        val: "{{ form_data.employerPension }}",        digits: 10 },
+        { key: "totalPensionDeduction",  val: "{{ form_data.totalPensionDeduction }}",  digits: 10 },
+        { key: "NumEmployeesCharges",    val: "{{ form_data.NumEmployeesCharges }}",    digits: 5  },
+        { key: "totalNationalInsurance", val: "{{ form_data.totalNationalInsurance }}", digits: 10 },
+        { key: "totalHealthInsurance",   val: "{{ form_data.totalHealthInsurance }}",   digits: 10 },
+        { key: "NumEmployeesCharges2",   val: "{{ form_data.NumEmployeesCharges2 }}",   digits: 5  },
+        { key: "finalTotalIncomeTax",    val: "{{ form_data.finalTotalIncomeTax }}",    digits: 8  }
+    ];
+
+    initialMap.forEach(item => {
+        fillDigits(item.val, item.digits, item.key + "_cell");
+        const hiddenEl = document.getElementById(item.key + "_hidden");
+        if (hiddenEl) {
+            hiddenEl.value = cleanNumber(item.val);
+        }
+    });
+
+    const saveBtn = document.getElementById("save102Btn");
+    if (saveBtn) {
+        saveBtn.onclick = saveForm102;
+    }
+});
+</script>
+
+<!-- ===== PUSH START TO THE RIGHT PAGE & remember the previous horizontal scroll position after a page refresh ===== -->
+<script>
+window.addEventListener('load', function () {
+    if (window.innerWidth <= 768) {
+        window.scrollTo(document.documentElement.scrollWidth, 0);
+    }
+});
+</script>
+
+    <!--  DevTools F12 Browser Blocker Script  -->
+<script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script>
+
+</body>
+</html>
